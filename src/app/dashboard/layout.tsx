@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/dashboard/sidebar";
+import { ChatAssistant } from "@/components/chat/assistant";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole } from "@/lib/auth/role";
 import { ProfileProvider } from "@/context/profile-context";
@@ -38,6 +39,7 @@ export default async function DashboardLayout({
             <Sidebar />
             <main className="flex-1 overflow-x-hidden">{children}</main>
           </div>
+          <ChatAssistant />
         </AppointmentsProvider>
       </WorkingHoursProvider>
     </ProfileProvider>

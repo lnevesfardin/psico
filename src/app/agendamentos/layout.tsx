@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole } from "@/lib/auth/role";
 import { ClientAreaHeader } from "@/components/client-area/header";
+import { ChatAssistant } from "@/components/chat/assistant";
 import { ClientProfileProvider } from "@/context/client-profile-context";
 
 export default async function AgendamentosLayout({
@@ -32,6 +33,7 @@ export default async function AgendamentosLayout({
         <ClientAreaHeader />
         {children}
       </div>
+      <ChatAssistant />
     </ClientProfileProvider>
   );
 }
