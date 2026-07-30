@@ -103,6 +103,14 @@ export async function createPatient(
   return rowToPatient(data as PacienteRow);
 }
 
+export async function deletePatient(
+  supabase: SupabaseClient,
+  patientId: string
+): Promise<void> {
+  const { error } = await supabase.from("pacientes").delete().eq("id", patientId);
+  if (error) throw new Error(error.message);
+}
+
 export async function addSessionNote(
   supabase: SupabaseClient,
   patientId: string,

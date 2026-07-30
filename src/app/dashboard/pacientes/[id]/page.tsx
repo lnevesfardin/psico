@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Phone,
@@ -11,10 +12,15 @@ import {
   ShieldAlert,
   Lock,
   Clock,
+  Trash2,
 } from "lucide-react";
 import type { Patient } from "@/lib/dashboard-data";
 import { createClient } from "@/lib/supabase/client";
-import { addSessionNote, getPatientWithSessions } from "@/lib/patients-client";
+import {
+  addSessionNote,
+  deletePatient,
+  getPatientWithSessions,
+} from "@/lib/patients-client";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
 
@@ -25,12 +31,15 @@ export default function PatientDetailPage({
 }) {
   const { id } = use(params);
   const { profile } = useProfile();
+  const router = useRouter();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"dados" | "evolucao">("dados");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -78,19 +87,55 @@ export default function PatientDetailPage({
     }
   }
 
+  async function handleDelete() {
+    if (!patient) return;
+    const confirmed = window.confirm(
+      `Excluir ${patient.name}? Isso apaga também o prontuário e não pode ser desfeito.`
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const supabase = createClient();
+      await deletePatient(supabase, patient.id);
+      router.push("/dashboard/pacientes");
+      router.refresh();
+    } catch {
+      setDeleteError("Não foi possível excluir o paciente.");
+      setDeleting(false);
+    }
+  }
+
   const sortedSessions = [...patient.sessions].sort(
     (a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
   );
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
-      <Link
-        href="/dashboard/pacientes"
-        className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Voltar para pacientes
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/dashboard/pacientes"
+          className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar para pacientes
+        </Link>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
+        >
+          <Trash2 className="h-4 w-4" />
+          {deleting ? "Excluindo..." : "Excluir paciente"}
+        </button>
+      </div>
+
+      {deleteError && (
+        <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+          {deleteError}
+        </div>
+      )}
 
       <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/60">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-xs font-semibold text-brand-700 dark:bg-brand-900 dark:text-brand-300">
