@@ -9,11 +9,7 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/context/auth-context";
-import type {
-  Appointment,
-  AppointmentStatus,
-  PaymentStatus,
-} from "@/lib/dashboard-data";
+import type { Appointment, AppointmentStatus } from "@/lib/dashboard-data";
 
 type ConsultaRow = {
   id: string;
@@ -33,8 +29,6 @@ type ConsultaRow = {
   estado_civil: string | null;
   escolaridade: string | null;
   motivo: string | null;
-  valor: number | null;
-  status_pagamento: PaymentStatus;
 };
 
 function rowToAppointment(row: ConsultaRow): Appointment {
@@ -70,20 +64,17 @@ function rowToAppointment(row: ConsultaRow): Appointment {
           motivo: row.motivo ?? "",
         }
       : undefined,
-    valor: row.valor,
-    paymentStatus: row.status_pagamento,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, endereco, estado_civil, escolaridade, motivo, valor, status_pagamento";
+  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, endereco, estado_civil, escolaridade, motivo";
 
 type AppointmentsContextValue = {
   appointments: Appointment[];
   loading: boolean;
   addAppointment: (appointment: Omit<Appointment, "id">) => Promise<void>;
   updateStatus: (id: string, status: AppointmentStatus) => Promise<void>;
-  updatePaymentStatus: (id: string, paymentStatus: PaymentStatus) => Promise<void>;
 };
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(
@@ -192,22 +183,6 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  async function updatePaymentStatus(id: string, paymentStatus: PaymentStatus) {
-    if (!user) return;
-    const supabase = createClient();
-
-    const { error } = await supabase
-      .from("consultas")
-      .update({ status_pagamento: paymentStatus })
-      .eq("id", id)
-      .eq("psicologo_id", user.id);
-
-    if (error) throw new Error(error.message);
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, paymentStatus } : a))
-    );
-  }
-
   return (
     <AppointmentsContext.Provider
       value={{
@@ -215,7 +190,6 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         loading,
         addAppointment,
         updateStatus,
-        updatePaymentStatus,
       }}
     >
       {children}

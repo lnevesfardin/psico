@@ -50,9 +50,5 @@ export type Appointment = {
   origem?: "publico" | "manual";
   modalidade?: ModalidadeAtendimento;
   detalhes?: PublicBookingDetails;
-  // Preenchidos pelo banco (snapshot de perfis.valor_consulta e default
-  // 'pendente') — não precisam ser informados ao criar uma consulta.
-  valor?: number | null;
-  paymentStatus?: PaymentStatus;
 };
 

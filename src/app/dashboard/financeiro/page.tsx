@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Wallet,
   CheckCircle2,
@@ -11,7 +11,6 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
-import { useAppointments } from "@/context/appointments-context";
 import { createClient } from "@/lib/supabase/client";
 import { listPatients } from "@/lib/patients-client";
 import {
@@ -26,20 +25,8 @@ import {
 import type { Patient, PaymentStatus } from "@/lib/dashboard-data";
 import { formatCurrency, formatDateShort, todayIso } from "@/lib/format";
 
-type FinanceEntry = {
-  id: string;
-  source: "consulta" | "lancamento";
-  patientName: string;
-  date: string;
-  valor: number;
-  status: PaymentStatus;
-  descricao?: string | null;
-};
-
 export default function FinanceiroPage() {
   const { user } = useAuth();
-  const { appointments, loading: loadingAppointments, updatePaymentStatus } =
-    useAppointments();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
@@ -89,61 +76,34 @@ export default function FinanceiroPage() {
     };
   }, [user]);
 
-  const entries = useMemo<FinanceEntry[]>(() => {
-    const consultaEntries: FinanceEntry[] = appointments
-      .filter((a) => a.kind === "consulta" && a.status !== "desmarcada")
-      .map((a) => ({
-        id: a.id,
-        source: "consulta",
-        patientName: a.patientName,
-        date: a.date,
-        valor: a.valor ?? 0,
-        status: a.paymentStatus ?? "pendente",
-      }));
+  const sortedLancamentos = [...lancamentos].sort((a, b) =>
+    a.data < b.data ? 1 : a.data > b.data ? -1 : 0
+  );
 
-    const lancamentoEntries: FinanceEntry[] = lancamentos.map((l) => ({
-      id: l.id,
-      source: "lancamento",
-      patientName: l.patientName,
-      date: l.data,
-      valor: l.valor,
-      status: l.status,
-      descricao: l.descricao,
-    }));
-
-    return [...consultaEntries, ...lancamentoEntries].sort((a, b) =>
-      a.date < b.date ? 1 : a.date > b.date ? -1 : 0
-    );
-  }, [appointments, lancamentos]);
-
-  const totalRecebido = entries
-    .filter((e) => e.status === "pago")
-    .reduce((sum, e) => sum + e.valor, 0);
-  const totalPendente = entries
-    .filter((e) => e.status === "pendente")
-    .reduce((sum, e) => sum + e.valor, 0);
+  const totalRecebido = lancamentos
+    .filter((l) => l.status === "pago")
+    .reduce((sum, l) => sum + l.valor, 0);
+  const totalPendente = lancamentos
+    .filter((l) => l.status === "pendente")
+    .reduce((sum, l) => sum + l.valor, 0);
   const totalGeral = totalRecebido + totalPendente;
 
-  const loading = loadingAppointments || loadingLancamentos;
-
-  async function handleToggle(entry: FinanceEntry) {
+  async function handleToggle(lancamento: Lancamento) {
     const nextStatus: PaymentStatus =
-      entry.status === "pago" ? "pendente" : "pago";
-    setPendingIds((prev) => new Set(prev).add(entry.id));
+      lancamento.status === "pago" ? "pendente" : "pago";
+    setPendingIds((prev) => new Set(prev).add(lancamento.id));
     try {
-      if (entry.source === "consulta") {
-        await updatePaymentStatus(entry.id, nextStatus);
-      } else {
-        const supabase = createClient();
-        await updateLancamentoStatus(supabase, entry.id, nextStatus);
-        setLancamentos((prev) =>
-          prev.map((l) => (l.id === entry.id ? { ...l, status: nextStatus } : l))
-        );
-      }
+      const supabase = createClient();
+      await updateLancamentoStatus(supabase, lancamento.id, nextStatus);
+      setLancamentos((prev) =>
+        prev.map((l) =>
+          l.id === lancamento.id ? { ...l, status: nextStatus } : l
+        )
+      );
     } finally {
       setPendingIds((prev) => {
         const next = new Set(prev);
-        next.delete(entry.id);
+        next.delete(lancamento.id);
         return next;
       });
     }
@@ -154,20 +114,20 @@ export default function FinanceiroPage() {
     setModalOpen(false);
   }
 
-  async function handleDelete(entry: FinanceEntry) {
+  async function handleDelete(lancamento: Lancamento) {
     const confirmed = window.confirm(
-      `Excluir o lançamento de ${entry.patientName} (${formatCurrency(entry.valor)})? Essa ação não pode ser desfeita.`
+      `Excluir o lançamento de ${lancamento.patientName} (${formatCurrency(lancamento.valor)})? Essa ação não pode ser desfeita.`
     );
     if (!confirmed) return;
-    setPendingIds((prev) => new Set(prev).add(entry.id));
+    setPendingIds((prev) => new Set(prev).add(lancamento.id));
     try {
       const supabase = createClient();
-      await deleteLancamento(supabase, entry.id);
-      setLancamentos((prev) => prev.filter((l) => l.id !== entry.id));
+      await deleteLancamento(supabase, lancamento.id);
+      setLancamentos((prev) => prev.filter((l) => l.id !== lancamento.id));
     } finally {
       setPendingIds((prev) => {
         const next = new Set(prev);
-        next.delete(entry.id);
+        next.delete(lancamento.id);
         return next;
       });
     }
@@ -230,24 +190,25 @@ export default function FinanceiroPage() {
           Lançamentos
         </h2>
         <div className="mt-3 space-y-2">
-          {loading && (
+          {loadingLancamentos && (
             <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
               Carregando...
             </p>
           )}
 
-          {!loading && entries.length === 0 && (
+          {!loadingLancamentos && sortedLancamentos.length === 0 && (
             <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
-              Nenhum lançamento registrado ainda.
+              Nenhum lançamento registrado ainda. Use o botão &quot;Novo
+              Lançamento&quot; para começar.
             </p>
           )}
 
-          {entries.map((entry) => {
-            const isPago = entry.status === "pago";
-            const isSaving = pendingIds.has(entry.id);
+          {sortedLancamentos.map((lancamento) => {
+            const isPago = lancamento.status === "pago";
+            const isSaving = pendingIds.has(lancamento.id);
             return (
               <div
-                key={`${entry.source}-${entry.id}`}
+                key={lancamento.id}
                 className="flex items-center gap-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
@@ -255,19 +216,19 @@ export default function FinanceiroPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-zinc-900 dark:text-white">
-                    {entry.patientName}
+                    {lancamento.patientName}
                   </p>
                   <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
-                    {formatDateShort(entry.date)}
-                    {entry.descricao ? ` · ${entry.descricao}` : ""}
+                    {formatDateShort(lancamento.data)}
+                    {lancamento.descricao ? ` · ${lancamento.descricao}` : ""}
                   </p>
                 </div>
                 <p className="shrink-0 font-semibold text-zinc-900 dark:text-white">
-                  {formatCurrency(entry.valor)}
+                  {formatCurrency(lancamento.valor)}
                 </p>
                 <button
                   type="button"
-                  onClick={() => handleToggle(entry)}
+                  onClick={() => handleToggle(lancamento)}
                   disabled={isSaving}
                   className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                     isPago
@@ -277,17 +238,15 @@ export default function FinanceiroPage() {
                 >
                   {isSaving ? "Salvando..." : isPago ? "Pago" : "Pendente"}
                 </button>
-                {entry.source === "lancamento" && (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(entry)}
-                    disabled={isSaving}
-                    aria-label="Excluir lançamento"
-                    className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => handleDelete(lancamento)}
+                  disabled={isSaving}
+                  aria-label="Excluir lançamento"
+                  className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             );
           })}

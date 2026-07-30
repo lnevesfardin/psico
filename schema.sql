@@ -109,23 +109,18 @@ create table if not exists consultas (
   estado_civil text,
   escolaridade text,
   motivo text,
-  -- controle financeiro manual: valor é um snapshot do valor_consulta do
-  -- psicólogo no momento da criação (ver trigger consultas_set_valor
-  -- abaixo), pra não alterar retroativamente o valor de consultas já
-  -- registradas se o psicólogo mudar o preço depois. status_pagamento é
-  -- controlado manualmente pelo psicólogo na tela de Financeiro.
-  valor numeric(10, 2),
-  status_pagamento text not null default 'pendente'
-    check (status_pagamento in ('pago', 'pendente')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
--- alter table (não só create) para que bancos já provisionados antes desta
--- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
-alter table consultas add column if not exists valor numeric(10, 2);
-alter table consultas add column if not exists status_pagamento text
-  not null default 'pendente' check (status_pagamento in ('pago', 'pendente'));
+-- Financeiro é 100% desvinculado da agenda: todo lançamento é manual, feito
+-- pelo psicólogo em lancamentos_financeiros (ver abaixo). valor/status_pagamento
+-- chegaram a existir em consultas numa versão anterior deste schema — removidos
+-- para que agendar uma consulta nunca crie/altere nada em Financeiro.
+drop trigger if exists consultas_set_valor on consultas;
+drop function if exists set_consulta_valor();
+alter table consultas drop column if exists valor;
+alter table consultas drop column if exists status_pagamento;
 
 create index if not exists consultas_psicologo_data_idx
   on consultas (psicologo_id, data, horario);
@@ -140,32 +135,10 @@ create trigger consultas_set_updated_at
   before update on consultas
   for each row execute function set_updated_at();
 
--- Preenche "valor" com o preço vigente do psicólogo (perfis.valor_consulta)
--- quando quem inserir a linha não informar um valor explícito — cobre tanto
--- o insert manual da agenda quanto o RPC criar_agendamento_publico, sem
--- duplicar a leitura do preço em cada caminho de escrita.
-create or replace function set_consulta_valor()
-returns trigger
-language plpgsql
-as $$
-begin
-  if new.valor is null then
-    select valor_consulta into new.valor from perfis where id = new.psicologo_id;
-  end if;
-  return new;
-end;
-$$;
-
-create trigger consultas_set_valor
-  before insert on consultas
-  for each row execute function set_consulta_valor();
-
 -- =========================================================
--- lancamentos_financeiros — lançamentos manuais do módulo Financeiro
--- (pagamento recebido/pendente por paciente, sem depender de uma consulta
--- agendada — ex.: pacote fechado à parte, sessão avulsa não agendada pelo
--- sistema). Convive com o controle de valor/status_pagamento já existente
--- em "consultas": a tela de Financeiro soma as duas fontes.
+-- lancamentos_financeiros — único lugar de onde o Financeiro lê dados.
+-- Toda entrada é criada manualmente pelo psicólogo (botão "Novo
+-- Lançamento"); agendar/editar uma consulta nunca grava nada aqui.
 -- =========================================================
 create table if not exists lancamentos_financeiros (
   id uuid primary key default gen_random_uuid(),
