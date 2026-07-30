@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Wallet, CheckCircle2, Clock3, PiggyBank, Plus, X } from "lucide-react";
+import {
+  Wallet,
+  CheckCircle2,
+  Clock3,
+  PiggyBank,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { useAppointments } from "@/context/appointments-context";
 import { createClient } from "@/lib/supabase/client";
 import { listPatients } from "@/lib/patients-client";
 import {
   createLancamento,
+  deleteLancamento,
   listLancamentos,
   rowToLancamento,
   updateLancamentoStatus,
@@ -145,6 +154,25 @@ export default function FinanceiroPage() {
     setModalOpen(false);
   }
 
+  async function handleDelete(entry: FinanceEntry) {
+    const confirmed = window.confirm(
+      `Excluir o lançamento de ${entry.patientName} (${formatCurrency(entry.valor)})? Essa ação não pode ser desfeita.`
+    );
+    if (!confirmed) return;
+    setPendingIds((prev) => new Set(prev).add(entry.id));
+    try {
+      const supabase = createClient();
+      await deleteLancamento(supabase, entry.id);
+      setLancamentos((prev) => prev.filter((l) => l.id !== entry.id));
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.id);
+        return next;
+      });
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -249,6 +277,17 @@ export default function FinanceiroPage() {
                 >
                   {isSaving ? "Salvando..." : isPago ? "Pago" : "Pendente"}
                 </button>
+                {entry.source === "lancamento" && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(entry)}
+                    disabled={isSaving}
+                    aria-label="Excluir lançamento"
+                    className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             );
           })}

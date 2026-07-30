@@ -91,3 +91,14 @@ export async function updateLancamentoStatus(
     .eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+export async function deleteLancamento(
+  supabase: SupabaseClient,
+  id: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("lancamentos_financeiros")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
