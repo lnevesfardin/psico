@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -16,17 +17,8 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-
-      return NextResponse.redirect(
-        profile?.role === "client"
-          ? `${origin}/agendamentos`
-          : `${origin}/dashboard/agenda`
-      );
+      const role = await fetchUserRole(supabase, data.user.id);
+      return NextResponse.redirect(`${origin}${dashboardPathForRole(role)}`);
     }
   }
 

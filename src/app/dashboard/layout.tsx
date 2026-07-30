@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/dashboard/sidebar";
 import { createClient } from "@/lib/supabase/server";
+import { fetchUserRole } from "@/lib/auth/role";
 import { ProfileProvider } from "@/context/profile-context";
 import { WorkingHoursProvider } from "@/context/working-hours-context";
 import { AppointmentsProvider } from "@/context/appointments-context";
@@ -21,15 +22,11 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const role = await fetchUserRole(supabase, user.id);
 
   // Sem linha/role ainda (ex.: conta criada antes desta mudança) mantém o
   // comportamento atual em vez de trancar psicólogos existentes fora.
-  if (profile?.role === "client") {
+  if (role === "client") {
     redirect("/agendamentos");
   }
 

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -32,8 +33,9 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isProtected =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/agendamentos");
+  const isPsychologistArea = pathname.startsWith("/dashboard");
+  const isClientArea = pathname.startsWith("/agendamentos");
+  const isProtected = isPsychologistArea || isClientArea;
   const isAuthPage = pathname === "/login" || pathname === "/cadastro";
 
   if (!user && isProtected) {
@@ -42,10 +44,30 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard/agenda";
-    return NextResponse.redirect(url);
+  // Guard de role: impede um cliente de acessar /dashboard/* e um psicólogo
+  // de acessar /agendamentos/*, e manda quem já está logado direto para o
+  // painel certo ao visitar /login ou /cadastro — os layouts fazem a mesma
+  // checagem como segundo cinto de segurança (RLS é a barreira real de dados).
+  if (user && (isAuthPage || isPsychologistArea || isClientArea)) {
+    const role = await fetchUserRole(supabase, user.id);
+
+    if (isAuthPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = dashboardPathForRole(role);
+      return NextResponse.redirect(url);
+    }
+
+    if (isPsychologistArea && role === "client") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/agendamentos";
+      return NextResponse.redirect(url);
+    }
+
+    if (isClientArea && role === "psychologist") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard/agenda";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

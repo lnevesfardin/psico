@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { fetchUserRole } from "@/lib/auth/role";
 import { ClientAreaHeader } from "@/components/client-area/header";
 import { ClientProfileProvider } from "@/context/client-profile-context";
 
@@ -19,13 +20,9 @@ export default async function AgendamentosLayout({
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const role = await fetchUserRole(supabase, user.id);
 
-  if (profile?.role === "psychologist") {
+  if (role === "psychologist") {
     redirect("/dashboard/agenda");
   }
 

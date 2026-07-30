@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarClock, LogOut, Sparkles, UserCog } from "lucide-react";
+import { CalendarClock, LogOut, Search, Sparkles, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/agendamentos", label: "Meus Agendamentos", icon: CalendarClock },
+  { href: "/agendar", label: "Buscar Psicólogo", icon: Search },
   { href: "/agendamentos/perfil", label: "Meu Perfil", icon: UserCog },
 ];
 

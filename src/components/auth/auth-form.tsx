@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, User, Stethoscope } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { dashboardPathForRole, fetchUserRole, type Role } from "@/lib/auth/role";
 
 type Mode = "login" | "cadastro";
-type Role = "client" | "psychologist";
 
 const roleOptions: { value: Role; label: string; icon: typeof User }[] = [
   { value: "client", label: "Sou Cliente", icon: User },
@@ -68,13 +68,15 @@ export function AuthForm({
     const supabase = createClient();
 
     if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      setLoading(false);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        setLoading(false);
         setError(traduzErro(error.message));
         return;
       }
-      router.push("/dashboard/agenda");
+      const role = await fetchUserRole(supabase, data.user.id);
+      setLoading(false);
+      router.push(dashboardPathForRole(role));
       router.refresh();
       return;
     }
@@ -99,7 +101,7 @@ export function AuthForm({
       return;
     }
     if (data.session) {
-      router.push(role === "client" ? "/agendamentos" : "/dashboard/agenda");
+      router.push(dashboardPathForRole(role));
       router.refresh();
     } else {
       setCheckEmail(true);
