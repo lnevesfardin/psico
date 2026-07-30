@@ -115,7 +115,11 @@ export function AuthForm({
       password,
       options: {
         data: { name, role },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // Rota própria (não /auth/callback) — clicar no link do e-mail só
+        // confirma a conta e mostra uma mensagem simples, sem redirecionar
+        // direto pro painel. O login por Google continua indo por
+        // /auth/callback normalmente (não passa por confirmação de e-mail).
+        emailRedirectTo: `${window.location.origin}/auth/confirmado`,
       },
     });
     setLoading(false);
