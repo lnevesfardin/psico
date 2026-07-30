@@ -221,6 +221,9 @@ create policy "psicologo_cria_proprias_consultas" on consultas
 drop policy if exists "psicologo_edita_proprias_consultas" on consultas;
 create policy "psicologo_edita_proprias_consultas" on consultas
   for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprias_consultas" on consultas;
+create policy "psicologo_apaga_proprias_consultas" on consultas
+  for delete using (auth.uid() = psicologo_id);
 -- Sem policy de INSERT para "anon": agendamentos públicos passam pela função
 -- criar_agendamento_publico() (security definer) abaixo, nunca por insert cru
 -- na tabela — isso evita que a anon key (que vai pro bundle JS) seja usada

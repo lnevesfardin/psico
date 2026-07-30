@@ -75,6 +75,7 @@ type AppointmentsContextValue = {
   loading: boolean;
   addAppointment: (appointment: Omit<Appointment, "id">) => Promise<void>;
   updateStatus: (id: string, status: AppointmentStatus) => Promise<void>;
+  deleteAppointment: (id: string) => Promise<void>;
 };
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(
@@ -183,6 +184,20 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  async function deleteAppointment(id: string) {
+    if (!user) return;
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("consultas")
+      .delete()
+      .eq("id", id)
+      .eq("psicologo_id", user.id);
+
+    if (error) throw new Error(error.message);
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+  }
+
   return (
     <AppointmentsContext.Provider
       value={{
@@ -190,6 +205,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         loading,
         addAppointment,
         updateStatus,
+        deleteAppointment,
       }}
     >
       {children}

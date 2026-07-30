@@ -14,6 +14,7 @@ import {
   Globe,
   MapPin,
   Video,
+  Trash2,
 } from "lucide-react";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
 import { formatDateLabel, formatDateShort, nextDays, todayIso, toWhatsappLink } from "@/lib/format";
@@ -53,11 +54,13 @@ const statusStyles: Record<AppointmentStatus, string> = {
 
 export default function AgendaPage() {
   const { user } = useAuth();
-  const { appointments, addAppointment, updateStatus } = useAppointments();
+  const { appointments, addAppointment, updateStatus, deleteAppointment } =
+    useAppointments();
   const { profile } = useProfile();
   const [view, setView] = useState<"hoje" | "semana" | "mes">("hoje");
   const [modalOpen, setModalOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const seenPendingIds = useRef<Set<string> | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
@@ -160,6 +163,24 @@ export default function AgendaPage() {
     if (!phone) return;
     const message = `Olá ${item.patientName}! Aqui é ${profile.name}. Sua consulta no dia ${formatDateShort(item.date)} às ${item.time} está confirmada. Até lá!`;
     window.open(toWhatsappLink(phone, message), "_blank");
+  }
+
+  async function handleDelete(item: Appointment) {
+    const label = item.kind === "bloqueio" ? "este bloqueio" : "esta consulta";
+    const confirmed = window.confirm(
+      `Tem certeza que deseja apagar ${label} (${item.patientName}, ${formatDateShort(item.date)} às ${item.time})?`
+    );
+    if (!confirmed) return;
+    setDeletingIds((prev) => new Set(prev).add(item.id));
+    try {
+      await deleteAppointment(item.id);
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
   }
 
   return (
@@ -343,6 +364,18 @@ export default function AgendaPage() {
                         <option value="realizada">Realizada</option>
                         <option value="desmarcada">Desmarcada</option>
                       </select>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleDelete(item);
+                        }}
+                        disabled={deletingIds.has(item.id)}
+                        aria-label={isBlock ? "Apagar bloqueio" : "Apagar consulta"}
+                        className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                       {!isBlock && (
                         <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 dark:text-zinc-700" />
                       )}
