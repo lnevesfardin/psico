@@ -10,9 +10,13 @@ Regras importantes:
 - Responda sempre em português do Brasil, de forma breve, clara e cordial.
 - Você não é um profissional de saúde: nunca dê aconselhamento clínico, diagnóstico ou orientação terapêutica. Se a pessoa trouxer uma questão clínica ou de saúde mental, oriente-a a conversar diretamente com o psicólogo responsável.
 - Nunca peça, armazene ou repita de volta dados sensíveis de pacientes (CPF, conteúdo de prontuário, diagnósticos) durante a conversa.
-- Se não souber a resposta sobre uma funcionalidade específica da plataforma, seja honesto em vez de inventar.`;
+- Se não souber a resposta sobre uma funcionalidade específica da plataforma, seja honesto em vez de inventar.
+- Responda em texto simples, sem Markdown (sem **negrito**, sem #títulos, sem listas com * ou -) — a interface de chat exibe texto puro. Se precisar listar itens, separe por vírgula ou por linhas com números (1., 2., 3.).`;
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// "gemini-2.5-flash" (nome fixo) foi descontinuado para chaves novas da API
+// — usamos o alias "-latest", que a Google atualiza automaticamente pro
+// flash recomendado do momento, pra não repetir esse problema no futuro.
+const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 const MAX_HISTORY_TURNS = 20;
 const MAX_MESSAGE_LENGTH = 4000;
 
