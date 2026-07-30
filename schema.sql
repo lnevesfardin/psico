@@ -432,11 +432,12 @@ create or replace trigger profiles_block_role_change
 -- "confirmação obrigatória" (linha é criada com email_confirmed_at nulo e
 -- só é atualizada depois, quando o link do e-mail é clicado).
 --
--- Sempre cria a linha em "profiles"; só cria em "perfis" quando o papel
--- resolvido for "psychologist". Login via Google não tem como carregar
--- metadata de role antes do redirect do provedor — nesse caso o papel cai
--- no fallback 'psychologist', que bate com 100% do uso real de OAuth hoje
--- (revisitar se/quando cliente por Google for oferecido).
+-- Sempre cria a linha em "profiles"; só cria em "perfis" quando o papel já
+-- vier resolvido como "psychologist". Login via Google não tem como
+-- carregar metadata de role antes do redirect do provedor — nesse caso
+-- role fica null de propósito (nunca "psychologist" por padrão), e
+-- /auth/callback manda a pessoa pra /auth/escolher-perfil antes de
+-- liberar o painel. Uma vez escolhido, block_role_change() trava o valor.
 -- =========================================================
 create or replace function handle_new_user()
 returns trigger
@@ -457,7 +458,9 @@ begin
     return new;
   end if;
 
-  v_role := coalesce(new.raw_user_meta_data ->> 'role', 'psychologist');
+  -- null quando não veio do formulário de cadastro (ex.: primeiro login via
+  -- Google) — profiles.role aceita null de propósito para esse caso.
+  v_role := new.raw_user_meta_data ->> 'role';
 
   insert into profiles (id, email, role, name)
   values (new.id, new.email, v_role, coalesce(new.raw_user_meta_data ->> 'name', ''))

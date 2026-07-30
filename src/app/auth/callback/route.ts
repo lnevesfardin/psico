@@ -18,6 +18,11 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const role = await fetchUserRole(supabase, data.user.id);
+      // null só acontece no primeiro login via Google (não passou pelo
+      // seletor "Sou Cliente / Sou Psicólogo" do formulário de cadastro).
+      if (!role) {
+        return NextResponse.redirect(`${origin}/auth/escolher-perfil`);
+      }
       return NextResponse.redirect(`${origin}${dashboardPathForRole(role)}`);
     }
   }
