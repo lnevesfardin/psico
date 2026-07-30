@@ -161,12 +161,43 @@ create trigger consultas_set_valor
   for each row execute function set_consulta_valor();
 
 -- =========================================================
+-- lancamentos_financeiros — lançamentos manuais do módulo Financeiro
+-- (pagamento recebido/pendente por paciente, sem depender de uma consulta
+-- agendada — ex.: pacote fechado à parte, sessão avulsa não agendada pelo
+-- sistema). Convive com o controle de valor/status_pagamento já existente
+-- em "consultas": a tela de Financeiro soma as duas fontes.
+-- =========================================================
+create table if not exists lancamentos_financeiros (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  -- snapshot do nome (mesmo padrão de consultas.paciente_nome): evita joins
+  -- e preserva o registro histórico legível caso o paciente seja renomeado.
+  paciente_nome text not null,
+  valor numeric(10, 2) not null,
+  status_pagamento text not null default 'pendente'
+    check (status_pagamento in ('pago', 'pendente')),
+  data date not null default current_date,
+  descricao text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists lancamentos_financeiros_psicologo_data_idx
+  on lancamentos_financeiros (psicologo_id, data desc);
+
+create trigger lancamentos_financeiros_set_updated_at
+  before update on lancamentos_financeiros
+  for each row execute function set_updated_at();
+
+-- =========================================================
 -- Row Level Security
 -- =========================================================
 alter table perfis enable row level security;
 alter table pacientes enable row level security;
 alter table sessoes_prontuario enable row level security;
 alter table consultas enable row level security;
+alter table lancamentos_financeiros enable row level security;
 
 create policy "psicologo_ve_proprio_perfil" on perfis
   for select using (auth.uid() = id);
@@ -209,6 +240,15 @@ create policy "psicologo_edita_proprias_consultas" on consultas
 -- criar_agendamento_publico() (security definer) abaixo, nunca por insert cru
 -- na tabela — isso evita que a anon key (que vai pro bundle JS) seja usada
 -- pra forjar status='confirmada' ou floodar a agenda de qualquer psicologo_id.
+
+create policy "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros
+  for select using (auth.uid() = psicologo_id);
+create policy "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros
+  for insert with check (auth.uid() = psicologo_id);
+create policy "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros
+  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
+  for delete using (auth.uid() = psicologo_id);
 
 -- =========================================================
 -- View pública (usada pela página /agendar/[psicologoId])
@@ -420,7 +460,8 @@ create trigger on_auth_user_created
   for each row execute function handle_new_user();
 
 -- =========================================================
--- Realtime: necessário para a Agenda do dashboard reagir a novos
--- agendamentos públicos sem precisar recarregar a página.
+-- Realtime: necessário para a Agenda e o Financeiro do dashboard reagirem a
+-- mudanças (agendamentos públicos, lançamentos manuais) sem recarregar.
 -- =========================================================
 alter publication supabase_realtime add table consultas;
+alter publication supabase_realtime add table lancamentos_financeiros;
