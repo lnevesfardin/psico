@@ -10,7 +10,6 @@ import {
   Link2,
   Menu,
   X,
-  Sparkles,
   LogOut,
   UserCog,
 } from "lucide-react";
@@ -40,7 +39,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-6 py-6 text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
-        <Sparkles className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
         Psi Rob
       </div>
       <nav className="flex-1 space-y-1 px-3">
@@ -120,7 +120,8 @@ export default function Sidebar() {
       {/* Mobile top bar */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-zinc-100 bg-white px-4 py-3 md:hidden dark:border-zinc-900 dark:bg-zinc-950">
         <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-white">
-          <Sparkles className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
           {activeItem?.label ?? "Psi Rob"}
         </div>
         <button

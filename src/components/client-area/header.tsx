@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarClock, LogOut, Search, Sparkles, UserCog } from "lucide-react";
+import { CalendarClock, LogOut, Search, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
@@ -27,7 +27,8 @@ export function ClientAreaHeader() {
       <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
-            <Sparkles className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
             Psi Rob
           </div>
           <button

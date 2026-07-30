@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Sparkles,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
@@ -252,7 +251,8 @@ export function BookingWizard({
       <header className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-900">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
-            <Sparkles className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
             Psi Rob
           </Link>
           <Link

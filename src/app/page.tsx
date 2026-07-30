@@ -6,7 +6,6 @@ import {
   Wallet,
   ArrowRight,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 
 const features = [
@@ -43,7 +42,8 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <Sparkles className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
             Psi Rob
           </div>
           <nav className="hidden items-center gap-8 text-sm font-medium text-zinc-600 sm:flex dark:text-zinc-400">
@@ -184,7 +184,8 @@ export default function Home() {
       <footer className="mt-auto border-t border-zinc-100 px-6 py-12 dark:border-zinc-900">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
           <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
-            <Sparkles className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
             Psi Rob
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-6 text-sm text-zinc-600 dark:text-zinc-400">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Sparkles, User } from "lucide-react";
+import { ArrowLeft, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/format";
 
@@ -35,7 +35,8 @@ export default async function AgendarDiretorioPage() {
           Voltar
         </Link>
         <div className="mt-4 flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
-          <Sparkles className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
           Psi Rob
         </div>
         <h1 className="mt-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">

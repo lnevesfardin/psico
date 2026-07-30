@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, X, Send, Loader2, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 
 type ChatMessage = { role: "user" | "model"; text: string };
 
@@ -54,7 +54,12 @@ export function ChatAssistant() {
         <div className="fixed bottom-24 right-4 z-40 flex w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900 sm:right-6">
           <div className="flex items-center justify-between bg-brand-600 px-4 py-3 text-white">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <Sparkles className="h-4 w-4" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt=""
+                className="h-4 w-4 brightness-0 invert"
+              />
               Assistente Psi Rob
             </div>
             <button
