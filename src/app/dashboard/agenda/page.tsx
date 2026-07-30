@@ -174,6 +174,10 @@ export default function AgendaPage() {
     setDeletingIds((prev) => new Set(prev).add(item.id));
     try {
       await deleteAppointment(item.id);
+    } catch (err) {
+      window.alert(
+        err instanceof Error ? err.message : "Não foi possível apagar."
+      );
     } finally {
       setDeletingIds((prev) => {
         const next = new Set(prev);
@@ -387,6 +391,9 @@ export default function AgendaPage() {
                         <span>Sexo: {item.detalhes.sexo}</span>
                         <span>Profissão: {item.detalhes.profissao}</span>
                         <span>Tel: {item.detalhes.telefone}</span>
+                        {item.detalhes.email && (
+                          <span>E-mail: {item.detalhes.email}</span>
+                        )}
                         <span className="col-span-2 sm:col-span-2">
                           Endereço: {item.detalhes.endereco}
                         </span>

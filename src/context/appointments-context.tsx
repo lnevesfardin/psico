@@ -25,6 +25,7 @@ type ConsultaRow = {
   sexo: string | null;
   profissao: string | null;
   telefone: string | null;
+  email: string | null;
   endereco: string | null;
   estado_civil: string | null;
   escolaridade: string | null;
@@ -37,6 +38,7 @@ function rowToAppointment(row: ConsultaRow): Appointment {
     row.sexo ||
     row.profissao ||
     row.telefone ||
+    row.email ||
     row.endereco ||
     row.estado_civil ||
     row.escolaridade ||
@@ -58,6 +60,7 @@ function rowToAppointment(row: ConsultaRow): Appointment {
           sexo: row.sexo ?? "",
           profissao: row.profissao ?? "",
           telefone: row.telefone ?? "",
+          email: row.email ?? "",
           endereco: row.endereco ?? "",
           estadoCivil: row.estado_civil ?? "",
           escolaridade: row.escolaridade ?? "",
@@ -68,7 +71,7 @@ function rowToAppointment(row: ConsultaRow): Appointment {
 }
 
 const SELECT_COLUMNS =
-  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, endereco, estado_civil, escolaridade, motivo";
+  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil, escolaridade, motivo";
 
 type AppointmentsContextValue = {
   appointments: Appointment[];
@@ -156,6 +159,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         sexo: appointment.detalhes?.sexo ?? null,
         profissao: appointment.detalhes?.profissao ?? null,
         telefone: appointment.detalhes?.telefone ?? null,
+        email: appointment.detalhes?.email ?? null,
         endereco: appointment.detalhes?.endereco ?? null,
         estado_civil: appointment.detalhes?.estadoCivil ?? null,
         escolaridade: appointment.detalhes?.escolaridade ?? null,
@@ -188,13 +192,23 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const supabase = createClient();
 
-    const { error } = await supabase
+    // .select() depois do delete força o Postgres a devolver as linhas
+    // realmente apagadas — sem isso, um delete bloqueado pela RLS (ex.:
+    // policy de exclusão ainda não aplicada no banco) retorna sucesso com
+    // zero linhas afetadas, e a UI achava que tinha apagado sem ter apagado.
+    const { data, error } = await supabase
       .from("consultas")
       .delete()
       .eq("id", id)
-      .eq("psicologo_id", user.id);
+      .eq("psicologo_id", user.id)
+      .select("id");
 
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      throw new Error(
+        "A consulta não foi apagada no banco de dados. Confirme se o schema.sql mais recente foi executado no SQL Editor do Supabase."
+      );
+    }
     setAppointments((prev) => prev.filter((a) => a.id !== id));
   }
 

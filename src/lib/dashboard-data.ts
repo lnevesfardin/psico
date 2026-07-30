@@ -33,6 +33,7 @@ export type PublicBookingDetails = {
   sexo: string;
   profissao: string;
   telefone: string;
+  email: string;
   endereco: string;
   estadoCivil: string;
   escolaridade: string;

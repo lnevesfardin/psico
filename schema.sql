@@ -105,6 +105,7 @@ create table if not exists consultas (
   sexo text,
   profissao text,
   telefone text,
+  email text,
   endereco text,
   estado_civil text,
   escolaridade text,
@@ -112,6 +113,10 @@ create table if not exists consultas (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- alter table (não só create) para que bancos já provisionados antes desta
+-- mudança recebam a nova coluna ao reexecutar este arquivo no SQL Editor.
+alter table consultas add column if not exists email text;
 
 -- Financeiro é 100% desvinculado da agenda: todo lançamento é manual, feito
 -- pelo psicólogo em lancamentos_financeiros (ver abaixo). valor/status_pagamento
@@ -281,6 +286,13 @@ grant select on consultas_publico to anon, authenticated;
 -- anônimos. Força status/origem no servidor e valida o horário antes de
 -- inserir (o índice único acima é a garantia final contra corrida).
 -- =========================================================
+-- Assinatura antiga (sem p_email) precisa ser derrubada explicitamente: como
+-- o Postgres identifica funções pela lista de parâmetros, "create or replace"
+-- com um parâmetro a mais cria uma SEGUNDA função em vez de substituir esta.
+drop function if exists criar_agendamento_publico(
+  uuid, text, date, time, text, int, text, text, text, text, text, text, text
+);
+
 create or replace function criar_agendamento_publico(
   p_psicologo_id uuid,
   p_paciente_nome text,
@@ -291,6 +303,7 @@ create or replace function criar_agendamento_publico(
   p_sexo text,
   p_profissao text,
   p_telefone text,
+  p_email text,
   p_endereco text,
   p_estado_civil text,
   p_escolaridade text,
@@ -320,11 +333,11 @@ begin
 
   insert into consultas (
     psicologo_id, paciente_nome, data, horario, status, tipo, origem,
-    modalidade, idade, sexo, profissao, telefone, endereco, estado_civil,
+    modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil,
     escolaridade, motivo
   ) values (
     p_psicologo_id, p_paciente_nome, p_data, p_horario, 'pendente', 'consulta', 'publico',
-    p_modalidade, p_idade, p_sexo, p_profissao, p_telefone, p_endereco, p_estado_civil,
+    p_modalidade, p_idade, p_sexo, p_profissao, p_telefone, p_email, p_endereco, p_estado_civil,
     p_escolaridade, p_motivo
   )
   returning id into v_id;
@@ -334,7 +347,7 @@ end;
 $$;
 
 grant execute on function criar_agendamento_publico(
-  uuid, text, date, time, text, int, text, text, text, text, text, text, text
+  uuid, text, date, time, text, int, text, text, text, text, text, text, text, text
 ) to anon, authenticated;
 
 -- =========================================================
