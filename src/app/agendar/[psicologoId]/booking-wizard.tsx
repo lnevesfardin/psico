@@ -255,6 +255,13 @@ export function BookingWizard({
             <Sparkles className="h-5 w-5 text-brand-600 dark:text-brand-400" />
             Psi Rob
           </Link>
+          <Link
+            href="/agendar"
+            className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Link>
         </div>
       </header>
 

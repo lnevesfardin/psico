@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, User } from "lucide-react";
+import { ArrowLeft, Sparkles, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/format";
 
@@ -14,16 +14,27 @@ type PerfilPublicoResumo = {
 
 export default async function AgendarDiretorioPage() {
   const supabase = await createClient();
-  const { data: psicologos } = await supabase
-    .from("perfis_publico")
-    .select("id, nome, titulo, crp, foto_url, valor_consulta")
-    .order("nome")
-    .returns<PerfilPublicoResumo[]>();
+  const [{ data: psicologos }, { data: userData }] = await Promise.all([
+    supabase
+      .from("perfis_publico")
+      .select("id, nome, titulo, crp, foto_url, valor_consulta")
+      .order("nome")
+      .returns<PerfilPublicoResumo[]>(),
+    supabase.auth.getUser(),
+  ]);
+  const voltarHref = userData.user ? "/agendamentos" : "/";
 
   return (
     <div className="min-h-screen bg-zinc-50 px-4 py-10 font-sans dark:bg-zinc-950">
       <div className="mx-auto max-w-3xl">
-        <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
+        <Link
+          href={voltarHref}
+          className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </Link>
+        <div className="mt-4 flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
           <Sparkles className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Psi Rob
         </div>
