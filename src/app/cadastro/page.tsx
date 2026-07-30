@@ -21,10 +21,11 @@ export default async function CadastroPage({
         </Link>
         <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
           <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
-            Crie sua conta de Psicólogo
+            Crie sua conta
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Comece a organizar sua agenda e pacientes em minutos.
+            Psicólogos organizam agenda e pacientes; clientes acompanham seus
+            agendamentos.
           </p>
           <div className="mt-6">
             <AuthForm mode="cadastro" initialError={error} />

@@ -21,6 +21,18 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  // Sem linha/role ainda (ex.: conta criada antes desta mudança) mantém o
+  // comportamento atual em vez de trancar psicólogos existentes fora.
+  if (profile?.role === "client") {
+    redirect("/agendamentos");
+  }
+
   return (
     <ProfileProvider>
       <WorkingHoursProvider>

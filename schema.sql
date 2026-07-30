@@ -265,8 +265,61 @@ grant execute on function criar_agendamento_publico(
 ) to anon, authenticated;
 
 -- =========================================================
--- Provisionamento automático: toda conta nova (auth.users) ganha uma linha
--- em "perfis", puxando o nome informado no cadastro (signUp options.data.name).
+-- profiles — identidade genérica de QUALQUER usuário (cliente ou
+-- psicólogo). Separada de "perfis", que continua sendo só o perfil de
+-- negócio do psicólogo (bio, CRP, valor, disponibilidade etc.) — um
+-- cliente nunca ganha linha em "perfis".
+-- =========================================================
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  -- nullable de propósito: deixa espaço para um futuro seletor de papel
+  -- pós-OAuth sem precisar de nova migração (ver comentário no trigger).
+  role text check (role in ('client', 'psychologist') or role is null),
+  name text not null default '',
+  created_at timestamptz not null default now()
+);
+
+alter table profiles enable row level security;
+
+create policy "usuario_ve_proprio_profile" on profiles
+  for select using (auth.uid() = id);
+create policy "usuario_edita_proprio_profile" on profiles
+  for update using (auth.uid() = id) with check (auth.uid() = id);
+
+-- A policy de update acima permite ao próprio usuário editar seu profile,
+-- mas "role" decide se ele acessa /dashboard ou /agendamentos — sem este
+-- trigger, um cliente autenticado poderia chamar
+-- supabase.from('profiles').update({ role: 'psychologist' }) direto pelo
+-- client e burlar o controle de acesso. Uma vez definido, role é travado.
+create or replace function block_role_change()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.role is not null and new.role is distinct from old.role then
+    raise exception 'role não pode ser alterado depois de definido';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_block_role_change
+  before update on profiles
+  for each row execute function block_role_change();
+
+-- =========================================================
+-- Provisionamento automático: dispara quando o e-mail é confirmado (não no
+-- signup em si) — cobre tanto "confirmação de e-mail desativada no
+-- projeto" (email_confirmed_at já vem preenchido no INSERT) quanto
+-- "confirmação obrigatória" (linha é criada com email_confirmed_at nulo e
+-- só é atualizada depois, quando o link do e-mail é clicado).
+--
+-- Sempre cria a linha em "profiles"; só cria em "perfis" quando o papel
+-- resolvido for "psychologist". Login via Google não tem como carregar
+-- metadata de role antes do redirect do provedor — nesse caso o papel cai
+-- no fallback 'psychologist', que bate com 100% do uso real de OAuth hoje
+-- (revisitar se/quando cliente por Google for oferecido).
 -- =========================================================
 create or replace function handle_new_user()
 returns trigger
@@ -274,15 +327,44 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_role text;
 begin
-  insert into perfis (id, nome)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''));
+  -- Corpo só roda quando o e-mail acabou de ser confirmado. Checar TG_OP
+  -- primeiro garante curto-circuito antes de tocar em "old" no caminho de
+  -- INSERT (onde OLD não existe).
+  if not (
+    (TG_OP = 'INSERT' and new.email_confirmed_at is not null)
+    or (TG_OP = 'UPDATE' and old.email_confirmed_at is null and new.email_confirmed_at is not null)
+  ) then
+    return new;
+  end if;
+
+  v_role := coalesce(new.raw_user_meta_data ->> 'role', 'psychologist');
+
+  insert into profiles (id, email, role, name)
+  values (new.id, new.email, v_role, coalesce(new.raw_user_meta_data ->> 'name', ''))
+  on conflict (id) do nothing;
+
+  if v_role = 'psychologist' then
+    insert into perfis (id, nome)
+    values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''))
+    on conflict (id) do nothing;
+  end if;
+
   return new;
+exception
+  -- Este trigger roda na mesma transação do GoTrue: se ele lançar exceção,
+  -- a confirmação de e-mail/login da pessoa quebra junto. Preferível
+  -- avisar e deixar a autenticação seguir do que travar o usuário.
+  when others then
+    raise warning 'handle_new_user falhou para %: %', new.id, sqlerrm;
+    return new;
 end;
 $$;
 
 create trigger on_auth_user_created
-  after insert on auth.users
+  after insert or update of email_confirmed_at on auth.users
   for each row execute function handle_new_user();
 
 -- =========================================================

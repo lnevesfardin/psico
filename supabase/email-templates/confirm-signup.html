@@ -1,0 +1,49 @@
+<!--
+  Template de e-mail "Confirm signup" do Supabase Auth.
+  Cole o conteúdo abaixo em: Authentication → Emails → Confirm signup
+  (ver instruções completas na resposta do assistente / README deste projeto).
+-->
+<div style="background-color:#f4f4f5; padding:32px 16px; font-family:Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; margin:0 auto; background-color:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e4e4e7;">
+    <tr>
+      <td style="padding:32px 32px 24px 32px; text-align:center; border-bottom:1px solid #f4f4f5;">
+        <span style="font-size:20px; font-weight:700; color:#171717;">✨ Psi Rob</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px;">
+        <h1 style="margin:0 0 16px 0; font-size:20px; color:#171717;">Bem-vindo(a) ao Psi Rob!</h1>
+        <p style="margin:0 0 16px 0; font-size:15px; line-height:1.6; color:#3f3f46;">
+          Sua conta foi criada com sucesso. Para ativar seu acesso e começar a
+          usar a plataforma, confirme seu e-mail clicando no botão abaixo.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+          <tr>
+            <td style="border-radius:9999px; background-color:#886142;">
+              <a href="{{ .ConfirmationURL }}"
+                 style="display:inline-block; padding:12px 28px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:9999px;">
+                Confirmar meu e-mail
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0 0 8px 0; font-size:13px; line-height:1.6; color:#71717a;">
+          Se o botão não funcionar, copie e cole este link no seu navegador:
+        </p>
+        <p style="margin:0 0 24px 0; font-size:13px; line-height:1.6; word-break:break-all;">
+          <a href="{{ .ConfirmationURL }}" style="color:#886142;">{{ .ConfirmationURL }}</a>
+        </p>
+        <p style="margin:0; font-size:13px; line-height:1.6; color:#a1a1aa;">
+          Se você não criou esta conta, pode ignorar este e-mail com segurança.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 32px; background-color:#fafafa; text-align:center; border-top:1px solid #f4f4f5;">
+        <p style="margin:0; font-size:12px; color:#a1a1aa;">
+          © Psi Rob — Gestão de consultório de psicologia sem complicação.
+        </p>
+      </td>
+    </tr>
+  </table>
+</div>

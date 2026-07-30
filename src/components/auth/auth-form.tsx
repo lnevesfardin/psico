@@ -3,10 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, User, Stethoscope } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "login" | "cadastro";
+type Role = "client" | "psychologist";
+
+const roleOptions: { value: Role; label: string; icon: typeof User }[] = [
+  { value: "client", label: "Sou Cliente", icon: User },
+  { value: "psychologist", label: "Sou Psicólogo", icon: Stethoscope },
+];
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -46,6 +52,7 @@ export function AuthForm({
   initialError?: string;
 }) {
   const router = useRouter();
+  const [role, setRole] = useState<Role | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -72,10 +79,19 @@ export function AuthForm({
       return;
     }
 
+    if (!role) {
+      setLoading(false);
+      setError("Escolha se você é cliente ou psicólogo.");
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: {
+        data: { name, role },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     setLoading(false);
     if (error) {
@@ -119,6 +135,39 @@ export function AuthForm({
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
           {error}
+        </div>
+      )}
+
+      {mode === "cadastro" && (
+        <div>
+          <span className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Como você vai usar o Psi Rob?
+          </span>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            {roleOptions.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setRole(value)}
+                className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors ${
+                  role === value
+                    ? "border-brand-600 bg-brand-50 dark:bg-brand-950/40"
+                    : "border-zinc-200 bg-white hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800"
+                }`}
+              >
+                <Icon
+                  className={`h-5 w-5 ${
+                    role === value
+                      ? "text-brand-600 dark:text-brand-400"
+                      : "text-zinc-400"
+                  }`}
+                />
+                <span className="text-sm font-medium text-zinc-900 dark:text-white">
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -171,7 +220,7 @@ export function AuthForm({
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || (mode === "cadastro" && !role)}
         className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -200,7 +249,7 @@ export function AuthForm({
               href="/cadastro"
               className="font-semibold text-brand-600 hover:underline dark:text-brand-400"
             >
-              Criar nova conta de Psicólogo
+              Criar nova conta
             </Link>
           </>
         ) : (

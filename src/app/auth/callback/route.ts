@@ -14,9 +14,19 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}/dashboard/agenda`);
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+      return NextResponse.redirect(
+        profile?.role === "client"
+          ? `${origin}/agendamentos`
+          : `${origin}/dashboard/agenda`
+      );
     }
   }
 
