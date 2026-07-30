@@ -85,7 +85,7 @@ export default function PacientesPage() {
                 {patient.name}
               </p>
               <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
-                {patient.phone}
+                {patient.phone || "—"}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-600">
@@ -205,7 +205,6 @@ function NewPatientModal({
               CPF
               <input
                 type="text"
-                required
                 placeholder="000.000.000-00"
                 value={cpf}
                 onChange={(e) => setCpf(e.target.value)}
@@ -216,7 +215,6 @@ function NewPatientModal({
               Telefone
               <input
                 type="tel"
-                required
                 placeholder="(11) 99999-9999"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}

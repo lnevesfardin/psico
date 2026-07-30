@@ -44,8 +44,10 @@ create table if not exists pacientes (
   id uuid primary key default gen_random_uuid(),
   psicologo_id uuid not null references auth.users(id) on delete cascade,
   nome text not null,
-  cpf text not null,
-  telefone text not null,
+  -- CPF e telefone só bloqueiam pelo not null; a UI não exige nenhum campo
+  -- além do nome (cadastro rápido, dados complementados depois).
+  cpf text,
+  telefone text,
   email text,
   data_nascimento date,
   contato_emergencia_nome text,
@@ -54,6 +56,11 @@ create table if not exists pacientes (
   updated_at timestamptz not null default now(),
   unique (psicologo_id, cpf)
 );
+
+-- alter table (não só create) para que bancos já provisionados antes desta
+-- mudança deixem de exigir cpf/telefone ao reexecutar este arquivo.
+alter table pacientes alter column cpf drop not null;
+alter table pacientes alter column telefone drop not null;
 
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
 create index if not exists pacientes_nome_idx on pacientes using gin (nome gin_trgm_ops);
@@ -102,9 +109,23 @@ create table if not exists consultas (
   estado_civil text,
   escolaridade text,
   motivo text,
+  -- controle financeiro manual: valor é um snapshot do valor_consulta do
+  -- psicólogo no momento da criação (ver trigger consultas_set_valor
+  -- abaixo), pra não alterar retroativamente o valor de consultas já
+  -- registradas se o psicólogo mudar o preço depois. status_pagamento é
+  -- controlado manualmente pelo psicólogo na tela de Financeiro.
+  valor numeric(10, 2),
+  status_pagamento text not null default 'pendente'
+    check (status_pagamento in ('pago', 'pendente')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- alter table (não só create) para que bancos já provisionados antes desta
+-- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
+alter table consultas add column if not exists valor numeric(10, 2);
+alter table consultas add column if not exists status_pagamento text
+  not null default 'pendente' check (status_pagamento in ('pago', 'pendente'));
 
 create index if not exists consultas_psicologo_data_idx
   on consultas (psicologo_id, data, horario);
@@ -118,6 +139,26 @@ create unique index if not exists consultas_slot_unique
 create trigger consultas_set_updated_at
   before update on consultas
   for each row execute function set_updated_at();
+
+-- Preenche "valor" com o preço vigente do psicólogo (perfis.valor_consulta)
+-- quando quem inserir a linha não informar um valor explícito — cobre tanto
+-- o insert manual da agenda quanto o RPC criar_agendamento_publico, sem
+-- duplicar a leitura do preço em cada caminho de escrita.
+create or replace function set_consulta_valor()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.valor is null then
+    select valor_consulta into new.valor from perfis where id = new.psicologo_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger consultas_set_valor
+  before insert on consultas
+  for each row execute function set_consulta_valor();
 
 -- =========================================================
 -- Row Level Security

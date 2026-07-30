@@ -64,7 +64,7 @@ export default function PatientDetailPage({
 
   async function handleAddNote(e: React.FormEvent) {
     e.preventDefault();
-    if (!note.trim() || !patient) return;
+    if (!patient) return;
     setSaving(true);
     try {
       const supabase = createClient();
@@ -155,8 +155,8 @@ export default function PatientDetailPage({
 
       {tab === "dados" && (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <InfoCard icon={CreditCard} label="CPF" value={patient.cpf} />
-          <InfoCard icon={Phone} label="Telefone" value={patient.phone} />
+          <InfoCard icon={CreditCard} label="CPF" value={patient.cpf || "—"} />
+          <InfoCard icon={Phone} label="Telefone" value={patient.phone || "—"} />
           <InfoCard icon={Mail} label="E-mail" value={patient.email || "—"} />
           <InfoCard
             icon={Cake}
@@ -198,7 +198,7 @@ export default function PatientDetailPage({
               </p>
               <button
                 type="submit"
-                disabled={!note.trim() || saving}
+                disabled={saving}
                 className="rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {saving ? "Salvando..." : "Salvar anotação"}

@@ -4,8 +4,8 @@ import type { Patient, SessionNote } from "@/lib/dashboard-data";
 type PacienteRow = {
   id: string;
   nome: string;
-  cpf: string;
-  telefone: string;
+  cpf: string | null;
+  telefone: string | null;
   email: string | null;
   data_nascimento: string | null;
   contato_emergencia_nome: string | null;
@@ -19,8 +19,8 @@ function rowToPatient(row: PacienteRow, sessions: SessionNote[] = []): Patient {
   return {
     id: row.id,
     name: row.nome,
-    cpf: row.cpf,
-    phone: row.telefone,
+    cpf: row.cpf ?? "",
+    phone: row.telefone ?? "",
     email: row.email ?? "",
     birthDate: row.data_nascimento ?? "",
     emergencyContact: {
@@ -90,8 +90,8 @@ export async function createPatient(
     .insert({
       psicologo_id: psicologoId,
       nome: input.name,
-      cpf: input.cpf,
-      telefone: input.phone,
+      cpf: input.cpf || null,
+      telefone: input.phone || null,
       email: input.email || null,
       data_nascimento: input.birthDate || null,
       contato_emergencia_nome: input.emergencyContactName || null,
