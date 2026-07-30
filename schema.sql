@@ -33,7 +33,7 @@ create table if not exists perfis (
   updated_at timestamptz not null default now()
 );
 
-create trigger perfis_set_updated_at
+create or replace trigger perfis_set_updated_at
   before update on perfis
   for each row execute function set_updated_at();
 
@@ -65,7 +65,7 @@ alter table pacientes alter column telefone drop not null;
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
 create index if not exists pacientes_nome_idx on pacientes using gin (nome gin_trgm_ops);
 
-create trigger pacientes_set_updated_at
+create or replace trigger pacientes_set_updated_at
   before update on pacientes
   for each row execute function set_updated_at();
 
@@ -131,7 +131,7 @@ create unique index if not exists consultas_slot_unique
   on consultas (psicologo_id, data, horario)
   where status in ('pendente', 'confirmada');
 
-create trigger consultas_set_updated_at
+create or replace trigger consultas_set_updated_at
   before update on consultas
   for each row execute function set_updated_at();
 
@@ -159,7 +159,7 @@ create table if not exists lancamentos_financeiros (
 create index if not exists lancamentos_financeiros_psicologo_data_idx
   on lancamentos_financeiros (psicologo_id, data desc);
 
-create trigger lancamentos_financeiros_set_updated_at
+create or replace trigger lancamentos_financeiros_set_updated_at
   before update on lancamentos_financeiros
   for each row execute function set_updated_at();
 
@@ -172,22 +172,30 @@ alter table sessoes_prontuario enable row level security;
 alter table consultas enable row level security;
 alter table lancamentos_financeiros enable row level security;
 
+drop policy if exists "psicologo_ve_proprio_perfil" on perfis;
 create policy "psicologo_ve_proprio_perfil" on perfis
   for select using (auth.uid() = id);
+drop policy if exists "psicologo_cria_proprio_perfil" on perfis;
 create policy "psicologo_cria_proprio_perfil" on perfis
   for insert with check (auth.uid() = id);
+drop policy if exists "psicologo_edita_proprio_perfil" on perfis;
 create policy "psicologo_edita_proprio_perfil" on perfis
   for update using (auth.uid() = id) with check (auth.uid() = id);
 
+drop policy if exists "psicologo_ve_proprios_pacientes" on pacientes;
 create policy "psicologo_ve_proprios_pacientes" on pacientes
   for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_cria_proprios_pacientes" on pacientes;
 create policy "psicologo_cria_proprios_pacientes" on pacientes
   for insert with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_edita_proprios_pacientes" on pacientes;
 create policy "psicologo_edita_proprios_pacientes" on pacientes
   for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprios_pacientes" on pacientes;
 create policy "psicologo_apaga_proprios_pacientes" on pacientes
   for delete using (auth.uid() = psicologo_id);
 
+drop policy if exists "psicologo_ve_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_ve_proprias_sessoes" on sessoes_prontuario
   for select using (
     exists (
@@ -195,6 +203,7 @@ create policy "psicologo_ve_proprias_sessoes" on sessoes_prontuario
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
   );
+drop policy if exists "psicologo_cria_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
   for insert with check (
     exists (
@@ -203,10 +212,13 @@ create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
     )
   );
 
+drop policy if exists "psicologo_ve_proprias_consultas" on consultas;
 create policy "psicologo_ve_proprias_consultas" on consultas
   for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_cria_proprias_consultas" on consultas;
 create policy "psicologo_cria_proprias_consultas" on consultas
   for insert with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_edita_proprias_consultas" on consultas;
 create policy "psicologo_edita_proprias_consultas" on consultas
   for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
 -- Sem policy de INSERT para "anon": agendamentos públicos passam pela função
@@ -214,12 +226,16 @@ create policy "psicologo_edita_proprias_consultas" on consultas
 -- na tabela — isso evita que a anon key (que vai pro bundle JS) seja usada
 -- pra forjar status='confirmada' ou floodar a agenda de qualquer psicologo_id.
 
+drop policy if exists "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros
   for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros
   for insert with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros
   for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
   for delete using (auth.uid() = psicologo_id);
 
@@ -347,8 +363,10 @@ alter table profiles add column if not exists whatsapp text;
 
 alter table profiles enable row level security;
 
+drop policy if exists "usuario_ve_proprio_profile" on profiles;
 create policy "usuario_ve_proprio_profile" on profiles
   for select using (auth.uid() = id);
+drop policy if exists "usuario_edita_proprio_profile" on profiles;
 create policy "usuario_edita_proprio_profile" on profiles
   for update using (auth.uid() = id) with check (auth.uid() = id);
 
@@ -369,7 +387,7 @@ begin
 end;
 $$;
 
-create trigger profiles_block_role_change
+create or replace trigger profiles_block_role_change
   before update on profiles
   for each row execute function block_role_change();
 
@@ -428,13 +446,30 @@ exception
 end;
 $$;
 
-create trigger on_auth_user_created
+create or replace trigger on_auth_user_created
   after insert or update of email_confirmed_at on auth.users
   for each row execute function handle_new_user();
 
 -- =========================================================
 -- Realtime: necessário para a Agenda e o Financeiro do dashboard reagirem a
 -- mudanças (agendamentos públicos, lançamentos manuais) sem recarregar.
+-- "alter publication ... add table" não aceita "if not exists", por isso o
+-- DO block checa antes — reexecutar este arquivo sem isso falharia com
+-- "relation is already member of publication".
 -- =========================================================
-alter publication supabase_realtime add table consultas;
-alter publication supabase_realtime add table lancamentos_financeiros;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'consultas'
+  ) then
+    alter publication supabase_realtime add table consultas;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'lancamentos_financeiros'
+  ) then
+    alter publication supabase_realtime add table lancamentos_financeiros;
+  end if;
+end $$;
