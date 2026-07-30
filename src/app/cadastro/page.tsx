@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { AuthForm } from "@/components/auth/auth-form";
 
 export default async function CadastroPage({
@@ -12,6 +12,13 @@ export default async function CadastroPage({
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-zinc-950">
       <div className="w-full max-w-sm">
+        <Link
+          href="/"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar ao Menu Inicial
+        </Link>
         <Link
           href="/"
           className="mb-8 flex items-center justify-center gap-2 text-xl font-bold tracking-tight text-zinc-900 dark:text-white"

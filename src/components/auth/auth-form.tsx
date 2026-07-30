@@ -99,7 +99,7 @@ export function AuthForm({
       return;
     }
     if (data.session) {
-      router.push("/dashboard/agenda");
+      router.push(role === "client" ? "/agendamentos" : "/dashboard/agenda");
       router.refresh();
     } else {
       setCheckEmail(true);

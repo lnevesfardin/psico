@@ -14,6 +14,7 @@ import { useProfile } from "@/context/profile-context";
 import type { Profile } from "@/lib/profile-data";
 import { useWorkingHours } from "@/context/working-hours-context";
 import { weekdayShort, type WorkingHours } from "@/lib/working-hours-data";
+import { TimeSelect } from "@/components/ui/time-select";
 
 export default function PerfilPage() {
   const { profile, updateProfile } = useProfile();
@@ -317,22 +318,18 @@ export default function PerfilPage() {
         <div className="grid grid-cols-2 gap-4 sm:max-w-xs">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Início
-            <input
-              type="time"
+            <TimeSelect
               value={hoursForm.startTime}
-              onChange={(e) => setHoursField("startTime", e.target.value)}
+              onChange={(value) => setHoursField("startTime", value)}
               required
-              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
           </label>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Término
-            <input
-              type="time"
+            <TimeSelect
               value={hoursForm.endTime}
-              onChange={(e) => setHoursField("endTime", e.target.value)}
+              onChange={(value) => setHoursField("endTime", value)}
               required
-              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
           </label>
         </div>

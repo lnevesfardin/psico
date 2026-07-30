@@ -7,6 +7,7 @@ import {
   Ban,
   X,
   Clock,
+  ChevronLeft,
   ChevronRight,
   BellRing,
   MessageCircle,
@@ -16,11 +17,28 @@ import {
 } from "lucide-react";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
 import { formatDateLabel, formatDateShort, nextDays, todayIso, toWhatsappLink } from "@/lib/format";
+import { weekdayShort } from "@/lib/working-hours-data";
 import { useAppointments } from "@/context/appointments-context";
 import { useProfile } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { listPatients } from "@/lib/patients-client";
+import { TimeSelect } from "@/components/ui/time-select";
+
+type MonthCell = { iso: string; day: number; inMonth: boolean };
+
+function buildMonthGrid(year: number, month: number): MonthCell[] {
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const gridStart = new Date(year, month, 1 - firstWeekday);
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
+    return { iso, day: d.getDate(), inMonth: d.getMonth() === month };
+  });
+}
 
 const statusStyles: Record<AppointmentStatus, string> = {
   pendente:
@@ -37,10 +55,15 @@ export default function AgendaPage() {
   const { user } = useAuth();
   const { appointments, addAppointment, updateStatus } = useAppointments();
   const { profile } = useProfile();
-  const [view, setView] = useState<"hoje" | "semana">("hoje");
+  const [view, setView] = useState<"hoje" | "semana" | "mes">("hoje");
   const [modalOpen, setModalOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const seenPendingIds = useRef<Set<string> | null>(null);
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedDay, setSelectedDay] = useState(todayIso());
 
   useEffect(() => {
     if (!user) return;
@@ -87,14 +110,44 @@ export default function AgendaPage() {
   }, [pendingAppointments]);
 
   const grouped = useMemo(() => {
-    const days = view === "hoje" ? [today] : weekDays;
+    const days =
+      view === "hoje" ? [today] : view === "semana" ? weekDays : [selectedDay];
     return days.map((date) => ({
       date,
       items: appointments
         .filter((a) => a.date === date)
         .sort((a, b) => a.time.localeCompare(b.time)),
     }));
-  }, [appointments, view, today, weekDays]);
+  }, [appointments, view, today, weekDays, selectedDay]);
+
+  const monthGrid = useMemo(
+    () => buildMonthGrid(monthCursor.getFullYear(), monthCursor.getMonth()),
+    [monthCursor]
+  );
+
+  const countsByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const a of appointments) {
+      map.set(a.date, (map.get(a.date) ?? 0) + 1);
+    }
+    return map;
+  }, [appointments]);
+
+  const monthLabel = useMemo(() => {
+    const label = monthCursor.toLocaleDateString("pt-BR", {
+      month: "long",
+      year: "numeric",
+    });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }, [monthCursor]);
+
+  function goToPrevMonth() {
+    setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }
+
+  function goToNextMonth() {
+    setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }
 
   async function handleCreate(newAppointment: Omit<Appointment, "id">) {
     await addAppointment(newAppointment);
@@ -117,7 +170,7 @@ export default function AgendaPage() {
             Agenda
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Consultas de hoje e da semana.
+            Consultas de hoje, da semana e do mês.
           </p>
         </div>
         <button
@@ -139,7 +192,7 @@ export default function AgendaPage() {
       )}
 
       <div className="mt-6 inline-flex rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        {(["hoje", "semana"] as const).map((v) => (
+        {(["hoje", "semana", "mes"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -150,10 +203,77 @@ export default function AgendaPage() {
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
-            {v === "hoje" ? "Hoje" : "Esta semana"}
+            {v === "hoje" ? "Hoje" : v === "semana" ? "Esta semana" : "Mês"}
           </button>
         ))}
       </div>
+
+      {view === "mes" && (
+        <div className="mt-6 rounded-2xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={goToPrevMonth}
+              aria-label="Mês anterior"
+              className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
+              {monthLabel}
+            </h2>
+            <button
+              type="button"
+              onClick={goToNextMonth}
+              aria-label="Próximo mês"
+              className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-medium text-zinc-400">
+            {weekdayShort.map((label) => (
+              <div key={label}>{label}</div>
+            ))}
+          </div>
+
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {monthGrid.map(({ iso, day, inMonth }) => {
+              const count = countsByDate.get(iso) ?? 0;
+              const isToday = iso === today;
+              const isSelected = iso === selectedDay;
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  onClick={() => setSelectedDay(iso)}
+                  className={`flex flex-col items-center gap-0.5 rounded-lg py-2 text-sm transition-colors ${
+                    !inMonth
+                      ? "text-zinc-300 dark:text-zinc-700"
+                      : isSelected
+                        ? "bg-brand-600 text-white"
+                        : isToday
+                          ? "bg-brand-50 font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                          : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {day}
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      count === 0
+                        ? "bg-transparent"
+                        : isSelected
+                          ? "bg-white"
+                          : "bg-brand-600 dark:bg-brand-400"
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 space-y-8">
         {grouped.map(({ date, items }) => (
@@ -390,13 +510,7 @@ function NewAppointmentModal({
           </label>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Horário
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              required
-              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-            />
+            <TimeSelect value={time} onChange={setTime} required />
           </label>
         </div>
 

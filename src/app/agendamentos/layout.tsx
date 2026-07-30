@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ClientAreaHeader } from "@/components/client-area/header";
+import { ClientProfileProvider } from "@/context/client-profile-context";
 
 export default async function AgendamentosLayout({
   children,
@@ -28,8 +30,11 @@ export default async function AgendamentosLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      {children}
-    </div>
+    <ClientProfileProvider>
+      <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
+        <ClientAreaHeader />
+        {children}
+      </div>
+    </ClientProfileProvider>
   );
 }

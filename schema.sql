@@ -277,8 +277,19 @@ create table if not exists profiles (
   -- pós-OAuth sem precisar de nova migração (ver comentário no trigger).
   role text check (role in ('client', 'psychologist') or role is null),
   name text not null default '',
+  -- campos do perfil de cliente (nunca usados por psicólogos, que têm
+  -- perfil de negócio próprio em "perfis")
+  cpf text,
+  bio text,
+  whatsapp text,
   created_at timestamptz not null default now()
 );
+
+-- alter table (não só create) para que bancos já provisionados antes desta
+-- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
+alter table profiles add column if not exists cpf text;
+alter table profiles add column if not exists bio text;
+alter table profiles add column if not exists whatsapp text;
 
 alter table profiles enable row level security;
 
