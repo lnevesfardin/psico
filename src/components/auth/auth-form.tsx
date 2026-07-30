@@ -39,9 +39,32 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 
 function traduzErro(msg: string): string {
   if (msg.includes("Invalid login credentials")) return "Email ou senha incorretos.";
+  if (msg.includes("Email not confirmed"))
+    return "Confirme seu e-mail antes de entrar — verifique sua caixa de entrada.";
   if (msg.includes("User already registered")) return "Já existe uma conta com esse email.";
   if (msg.includes("Password should be at least")) return "A senha precisa ter pelo menos 6 caracteres.";
   return msg;
+}
+
+// O Supabase Auth devolve o mesmo erro genérico ("Invalid login
+// credentials") tanto pra "e-mail não cadastrado" quanto pra "senha
+// errada" — de propósito, pra não deixar visitante descobrir quais e-mails
+// têm conta só tentando logar. Só chamamos essa checagem extra (RPC que
+// devolve um booleano, nada mais) nesse caso específico, pra guiar quem
+// ainda não tem conta pro cadastro em vez de um "senha errada" confuso.
+async function resolveLoginError(
+  supabase: ReturnType<typeof createClient>,
+  message: string,
+  email: string
+): Promise<string> {
+  if (!message.includes("Invalid login credentials")) {
+    return traduzErro(message);
+  }
+  const { data: existe } = await supabase.rpc("email_existe", { p_email: email });
+  if (existe === false) {
+    return "Não encontramos uma conta com esse e-mail. Crie uma conta gratuita primeiro.";
+  }
+  return "Email ou senha incorretos.";
 }
 
 export function AuthForm({
@@ -70,8 +93,8 @@ export function AuthForm({
     if (mode === "login") {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        setError(await resolveLoginError(supabase, error.message, email));
         setLoading(false);
-        setError(traduzErro(error.message));
         return;
       }
       const role = await fetchUserRole(supabase, data.user.id);

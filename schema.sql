@@ -485,6 +485,28 @@ create or replace trigger on_auth_user_created
   for each row execute function handle_new_user();
 
 -- =========================================================
+-- Checagem de e-mail já cadastrado, usada na tela de login para diferenciar
+-- "conta não existe" de "senha errada" (por padrão o Supabase Auth devolve
+-- o mesmo erro genérico pros dois casos, de propósito, pra evitar
+-- enumeração de contas). Decisão consciente do produto: expor só um
+-- booleano (nunca nome, papel ou qualquer outro dado) — o cadastro já
+-- revela a mesma informação hoje via "Já existe uma conta com esse email".
+-- =========================================================
+create or replace function email_existe(p_email text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from profiles where lower(email) = lower(p_email)
+  );
+$$;
+
+grant execute on function email_existe(text) to anon, authenticated;
+
+-- =========================================================
 -- Realtime: necessário para a Agenda e o Financeiro do dashboard reagirem a
 -- mudanças (agendamentos públicos, lançamentos manuais) sem recarregar.
 -- "alter publication ... add table" não aceita "if not exists", por isso o
