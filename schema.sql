@@ -90,6 +90,10 @@ create table if not exists consultas (
   id uuid primary key default gen_random_uuid(),
   psicologo_id uuid not null references auth.users(id) on delete cascade,
   paciente_id uuid references pacientes(id) on delete set null,
+  -- preenchido automaticamente (auth.uid() dentro do RPC abaixo) quando quem
+  -- agenda pelo link público está logado como cliente — permite listar o
+  -- agendamento em "Meus Agendamentos" sem exigir login pra agendar.
+  cliente_id uuid references auth.users(id) on delete set null,
   paciente_nome text not null,
   data date not null,
   horario time not null,
@@ -115,8 +119,12 @@ create table if not exists consultas (
 );
 
 -- alter table (não só create) para que bancos já provisionados antes desta
--- mudança recebam a nova coluna ao reexecutar este arquivo no SQL Editor.
+-- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
 alter table consultas add column if not exists email text;
+alter table consultas add column if not exists cliente_id uuid references auth.users(id) on delete set null;
+
+create index if not exists consultas_cliente_id_idx
+  on consultas (cliente_id, data desc);
 
 -- Financeiro é 100% desvinculado da agenda: todo lançamento é manual, feito
 -- pelo psicólogo em lancamentos_financeiros (ver abaixo). valor/status_pagamento
@@ -234,6 +242,13 @@ create policy "psicologo_apaga_proprias_consultas" on consultas
 -- na tabela — isso evita que a anon key (que vai pro bundle JS) seja usada
 -- pra forjar status='confirmada' ou floodar a agenda de qualquer psicologo_id.
 
+-- Cliente vê os próprios agendamentos (feitos enquanto logado, via link
+-- público) em "Meus Agendamentos" — só leitura, cliente nunca edita/apaga
+-- uma consulta diretamente, isso é decisão do psicólogo.
+drop policy if exists "cliente_ve_proprios_agendamentos" on consultas;
+create policy "cliente_ve_proprios_agendamentos" on consultas
+  for select using (auth.uid() = cliente_id);
+
 drop policy if exists "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros
   for select using (auth.uid() = psicologo_id);
@@ -332,11 +347,14 @@ begin
   end if;
 
   insert into consultas (
-    psicologo_id, paciente_nome, data, horario, status, tipo, origem,
+    psicologo_id, cliente_id, paciente_nome, data, horario, status, tipo, origem,
     modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil,
     escolaridade, motivo
   ) values (
-    p_psicologo_id, p_paciente_nome, p_data, p_horario, 'pendente', 'consulta', 'publico',
+    -- auth.uid() reflete o JWT de quem chamou o RPC, mesmo sendo security
+    -- definer — null se o visitante agendou deslogado (fluxo continua
+    -- funcionando igual, só não aparece em "Meus Agendamentos" de ninguém).
+    p_psicologo_id, auth.uid(), p_paciente_nome, p_data, p_horario, 'pendente', 'consulta', 'publico',
     p_modalidade, p_idade, p_sexo, p_profissao, p_telefone, p_email, p_endereco, p_estado_civil,
     p_escolaridade, p_motivo
   )

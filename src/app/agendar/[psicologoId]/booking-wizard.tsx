@@ -104,6 +104,7 @@ export function BookingWizard({
   const [ocupados, setOcupados] = useState<SlotOcupado[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -116,6 +117,31 @@ export function BookingWizard({
         if (data) setOcupados(data as SlotOcupado[]);
       });
   }, [psicologoId]);
+
+  // Se quem está agendando já tem conta no Psi Rob, pré-preenche nome e
+  // WhatsApp com o perfil dela e vincula a consulta à conta (ver RPC) pra
+  // aparecer em "Meus Agendamentos" sem precisar digitar tudo de novo.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      const loggedUser = data.user;
+      if (!loggedUser) return;
+      setLoggedInUserId(loggedUser.id);
+      supabase
+        .from("profiles")
+        .select("name, whatsapp")
+        .eq("id", loggedUser.id)
+        .single()
+        .then(({ data: profile }) => {
+          if (!profile) return;
+          setForm((prev) => ({
+            ...prev,
+            nomeCompleto: prev.nomeCompleto || profile.name || "",
+            telefone: prev.telefone || profile.whatsapp || "",
+          }));
+        });
+    });
+  }, []);
 
   const availableDates = useMemo(
     () =>
@@ -649,10 +675,10 @@ export function BookingWizard({
                 Fazer novo agendamento
               </button>
               <Link
-                href="/"
+                href={loggedInUserId ? "/agendamentos" : "/"}
                 className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
               >
-                Voltar ao site
+                {loggedInUserId ? "Ver Meus Agendamentos" : "Voltar ao site"}
               </Link>
             </div>
           </div>
