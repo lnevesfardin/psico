@@ -276,7 +276,7 @@ function NewLancamentoModal({
   onClose: () => void;
   onCreated: (lancamento: Lancamento) => void;
 }) {
-  const [patientId, setPatientId] = useState(patients[0]?.id ?? "");
+  const [patientId, setPatientId] = useState("");
   const [valor, setValor] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("pendente");
   const [data, setData] = useState(todayIso());
@@ -284,9 +284,15 @@ function NewLancamentoModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // "patients" chega via prop e pode terminar de carregar depois do modal já
+  // aberto (fetch da página ainda em andamento) — derivar em vez de fixar o
+  // primeiro id no useState evita que o <select> mostre um paciente que o
+  // estado não sabe que está selecionado.
+  const selectedPatientId = patientId || patients[0]?.id || "";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const patient = patients.find((p) => p.id === patientId);
+    const patient = patients.find((p) => p.id === selectedPatientId);
     if (!patient) {
       setError("Selecione um paciente.");
       return;
@@ -304,8 +310,12 @@ function NewLancamentoModal({
         descricao,
       });
       onCreated(lancamento);
-    } catch {
-      setError("Não foi possível salvar o lançamento.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível salvar o lançamento."
+      );
     } finally {
       setSaving(false);
     }
@@ -346,7 +356,7 @@ function NewLancamentoModal({
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Paciente
               <select
-                value={patientId}
+                value={selectedPatientId}
                 onChange={(e) => setPatientId(e.target.value)}
                 required
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
