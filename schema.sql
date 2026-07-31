@@ -273,6 +273,14 @@ create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
 -- por linha, não por coluna, e essa view roda com o privilégio de quem a
 -- criou (contorna a RLS de "perfis" de propósito, só para estas colunas).
 -- =========================================================
+-- drop explícito antes do create: "create or replace view" não pode
+-- renomear/reordenar colunas de uma view já existente (ex.: bancos
+-- provisionados antes da coluna "uf" existir tinham view sem essa coluna
+-- no meio, e o replace falha com "cannot change name of view column").
+-- Sem outras views/objetos dependendo desta no schema, então o CASCADE só
+-- derruba os GRANTs abaixo, que são recriados na sequência.
+drop view if exists perfis_publico cascade;
+
 create or replace view perfis_publico as
 select
   id,
@@ -296,6 +304,9 @@ grant select on perfis_publico to anon, authenticated;
 -- psicologo_id), o que bloquearia completamente um visitante anônimo. Esta
 -- view expõe só o essencial pra checar disponibilidade — nunca nome,
 -- telefone ou qualquer outro dado do paciente.
+-- mesmo motivo do drop de perfis_publico acima; sem dependentes no schema.
+drop view if exists consultas_publico cascade;
+
 create or replace view consultas_publico as
 select psicologo_id, data, horario, status
 from consultas;
