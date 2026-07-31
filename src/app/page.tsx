@@ -133,8 +133,8 @@ export default function Home() {
     <div className="flex min-h-screen flex-col bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setMobileMenuOpen((v) => !v)}
@@ -144,14 +144,14 @@ export default function Home() {
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <div className="flex items-center gap-2 text-lg font-bold tracking-tight sm:text-xl">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
               Psi Rob
             </div>
           </div>
 
-          <nav className="hidden items-center gap-7 text-sm font-medium text-zinc-600 lg:flex dark:text-zinc-400">
+          <nav className="hidden items-center gap-10 text-sm font-medium text-zinc-600 lg:flex dark:text-zinc-400">
             {navLinks.map(({ href, label }) => (
               <a
                 key={href}
@@ -163,8 +163,10 @@ export default function Home() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
             <span className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:inline-flex dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -174,13 +176,13 @@ export default function Home() {
             </span>
             <Link
               href="/login"
-              className="hidden text-sm font-semibold text-zinc-600 transition-colors hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-white"
+              className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 sm:px-4 sm:py-2 sm:text-sm dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
             >
               Entrar
             </Link>
             <Link
               href="/cadastro"
-              className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition-transform hover:scale-[1.03] hover:bg-zinc-700 active:scale-95 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:scale-[1.03] hover:bg-zinc-700 active:scale-95 sm:px-4 sm:py-2 sm:text-sm dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
               Testar Grátis
             </Link>
@@ -199,13 +201,9 @@ export default function Home() {
                 {label}
               </a>
             ))}
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="rounded-lg px-2 py-2.5 font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 sm:hidden dark:text-white dark:hover:bg-zinc-900"
-            >
-              Entrar
-            </Link>
+            <div className="mt-1 px-2 py-1.5 sm:hidden">
+              <ThemeToggle />
+            </div>
           </nav>
         )}
       </header>
