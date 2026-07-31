@@ -133,10 +133,21 @@ export default function Home() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-            Psi Rob
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+              aria-expanded={mobileMenuOpen}
+              className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+            <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
+              Psi Rob
+            </div>
           </div>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-zinc-600 lg:flex dark:text-zinc-400">
@@ -171,15 +182,6 @@ export default function Home() {
             >
               Testar Grátis
             </Link>
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen((v) => !v)}
-              aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
-              aria-expanded={mobileMenuOpen}
-              className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-400 dark:hover:bg-zinc-900"
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
           </div>
         </div>
 
