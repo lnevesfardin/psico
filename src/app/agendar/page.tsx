@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, ShieldAlert, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/format";
 
@@ -46,6 +46,23 @@ export default async function AgendarDiretorioPage() {
           Escolha um profissional para ver os horários disponíveis e agendar
           sua consulta.
         </p>
+
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            Para sua segurança, confira sempre se o CRP do profissional é
+            válido antes de agendar — golpistas podem se passar por
+            psicólogos.{" "}
+            <a
+              href="https://cadastro.cfp.org.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
+            >
+              Verificar CRP no site oficial do CFP
+            </a>
+          </p>
+        </div>
 
         {!psicologos || psicologos.length === 0 ? (
           <p className="mt-10 text-center text-sm text-zinc-500 dark:text-zinc-400">

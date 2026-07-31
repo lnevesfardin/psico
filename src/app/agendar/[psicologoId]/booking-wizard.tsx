@@ -12,6 +12,7 @@ import {
   Clock,
   User,
   MessageSquareText,
+  ShieldAlert,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { generateTimeSlots } from "@/lib/working-hours-data";
@@ -288,6 +289,23 @@ export function BookingWizard({
               {perfil.crp} · {formatCurrency(perfil.valor_consulta)} / sessão
             </p>
           </div>
+        </div>
+
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p>
+            Confira se este CRP é válido antes de agendar — busque por
+            &quot;{perfil.crp}&quot; no{" "}
+            <a
+              href="https://cadastro.cfp.org.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
+            >
+              site oficial do CFP
+            </a>
+            .
+          </p>
         </div>
 
         {error && step !== "sucesso" && (
