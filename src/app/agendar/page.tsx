@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, ShieldCheck, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/format";
 
@@ -8,6 +8,7 @@ type PerfilPublicoResumo = {
   nome: string;
   titulo: string;
   crp: string;
+  crp_status: "pendente" | "verificado";
   foto_url: string | null;
   valor_consulta: number;
 };
@@ -17,7 +18,7 @@ export default async function AgendarDiretorioPage() {
   const [{ data: psicologos }, { data: userData }] = await Promise.all([
     supabase
       .from("perfis_publico")
-      .select("id, nome, titulo, crp, foto_url, valor_consulta")
+      .select("id, nome, titulo, crp, crp_status, foto_url, valor_consulta")
       .order("nome")
       .returns<PerfilPublicoResumo[]>(),
     supabase.auth.getUser(),
@@ -72,8 +73,14 @@ export default async function AgendarDiretorioPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
-                    {psicologo.nome}
+                  <p className="flex items-center gap-1 truncate text-sm font-semibold text-zinc-900 dark:text-white">
+                    <span className="truncate">{psicologo.nome}</span>
+                    {psicologo.crp_status === "verificado" && (
+                      <ShieldCheck
+                        className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                        aria-label="CRP verificado"
+                      />
+                    )}
                   </p>
                   <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                     {psicologo.titulo} · {psicologo.crp}

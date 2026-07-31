@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole, type Role } from "@/lib/auth/role";
 import { maskCpf, maskCrp } from "@/lib/format";
 import { estadosBrasil } from "@/lib/br-states";
+import { ValidarCrpButton } from "@/components/ui/validar-crp-button";
 
 type Mode = "login" | "cadastro";
 
@@ -277,6 +278,7 @@ export function AuthForm({
               className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
           </label>
+          <ValidarCrpButton crp={crp} crpUf={crpUf} />
         </>
       )}
 

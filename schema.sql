@@ -325,12 +325,16 @@ create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
 -- por linha, não por coluna, e essa view roda com o privilégio de quem a
 -- criou (contorna a RLS de "perfis" de propósito, só para estas colunas).
 -- =========================================================
+-- crp_status entra aqui de propósito (é o selo "CRP Verificado" mostrado
+-- pro paciente) — cpf e crp_documento_path continuam fora, nunca públicos.
 create or replace view perfis_publico as
 select
   id,
   nome,
   titulo,
   crp,
+  crp_uf,
+  crp_status,
   foto_url,
   bio,
   valor_consulta,

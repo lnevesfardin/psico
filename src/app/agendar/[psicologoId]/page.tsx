@@ -13,7 +13,7 @@ export default async function AgendarPage({
   const { data: perfil } = await supabase
     .from("perfis_publico")
     .select(
-      "id, nome, titulo, crp, foto_url, bio, valor_consulta, dias_disponiveis, horario_inicio, horario_fim"
+      "id, nome, titulo, crp, crp_status, foto_url, bio, valor_consulta, dias_disponiveis, horario_inicio, horario_fim"
     )
     .eq("id", psicologoId)
     .single<PerfilPublico>();

@@ -17,12 +17,14 @@ import { createClient } from "@/lib/supabase/client";
 import { generateTimeSlots } from "@/lib/working-hours-data";
 import type { ModalidadeAtendimento } from "@/lib/dashboard-data";
 import { formatCurrency, formatDateLabel, nextDays, todayIso } from "@/lib/format";
+import { CrpStatusBadge } from "@/components/ui/crp-status-badge";
 
 export type PerfilPublico = {
   id: string;
   nome: string;
   titulo: string;
   crp: string;
+  crp_status: "pendente" | "verificado";
   foto_url: string | null;
   bio: string | null;
   valor_consulta: number;
@@ -288,6 +290,11 @@ export function BookingWizard({
               {perfil.crp} · {formatCurrency(perfil.valor_consulta)} / sessão
             </p>
           </div>
+          {perfil.crp_status === "verificado" && (
+            <div className="ml-auto shrink-0">
+              <CrpStatusBadge status="verificado" />
+            </div>
+          )}
         </div>
 
         {error && step !== "sucesso" && (

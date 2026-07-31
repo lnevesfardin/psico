@@ -19,6 +19,7 @@ import { useWorkingHours } from "@/context/working-hours-context";
 import { weekdayShort, type WorkingHours } from "@/lib/working-hours-data";
 import { TimeSelect } from "@/components/ui/time-select";
 import { CrpStatusBadge } from "@/components/ui/crp-status-badge";
+import { ValidarCrpButton } from "@/components/ui/validar-crp-button";
 import { createClient } from "@/lib/supabase/client";
 import { maskCpf, maskCrp } from "@/lib/format";
 import { estadosBrasil } from "@/lib/br-states";
@@ -297,6 +298,9 @@ export default function PerfilPage() {
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               />
             </label>
+          </div>
+          <div className="mt-3">
+            <ValidarCrpButton crp={form.crp} crpUf={form.crpUf} />
           </div>
         </div>
 
