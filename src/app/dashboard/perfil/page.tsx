@@ -15,6 +15,7 @@ import type { Profile } from "@/lib/profile-data";
 import { useWorkingHours } from "@/context/working-hours-context";
 import { weekdayShort, type WorkingHours } from "@/lib/working-hours-data";
 import { TimeSelect } from "@/components/ui/time-select";
+import { brStates } from "@/lib/br-states";
 
 export default function PerfilPage() {
   const { profile, updateProfile } = useProfile();
@@ -192,21 +193,38 @@ export default function PerfilPage() {
           </label>
         </div>
 
-        {/* CRP */}
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          <span className="flex items-center gap-1.5">
-            <IdCard className="h-4 w-4 text-zinc-400" />
-            Número do CRP
-          </span>
-          <input
-            type="text"
-            value={form.crp}
-            onChange={(e) => set("crp", e.target.value)}
-            required
-            placeholder="CRP 06/123456"
-            className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white sm:max-w-xs"
-          />
-        </label>
+        {/* CRP e UF */}
+        <div className="grid grid-cols-2 gap-4 sm:max-w-xs">
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="flex items-center gap-1.5">
+              <IdCard className="h-4 w-4 text-zinc-400" />
+              Número do CRP
+            </span>
+            <input
+              type="text"
+              value={form.crp}
+              onChange={(e) => set("crp", e.target.value)}
+              required
+              placeholder="06/123456"
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            UF
+            <select
+              value={form.uf}
+              onChange={(e) => set("uf", e.target.value)}
+              required
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            >
+              {brStates.map((uf) => (
+                <option key={uf} value={uf}>
+                  {uf}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         {/* Biografia */}
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">

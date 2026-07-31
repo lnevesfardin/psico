@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, User, Stethoscope } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole, type Role } from "@/lib/auth/role";
+import { brStates } from "@/lib/br-states";
 
 type Mode = "login" | "cadastro";
 
@@ -43,6 +44,8 @@ function traduzErro(msg: string): string {
     return "Confirme seu e-mail antes de entrar — verifique sua caixa de entrada.";
   if (msg.includes("User already registered")) return "Já existe uma conta com esse email.";
   if (msg.includes("Password should be at least")) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (msg.includes("Token has expired or is invalid"))
+    return "Código inválido ou expirado. Confira o número ou peça um novo código.";
   return msg;
 }
 
@@ -77,12 +80,18 @@ export function AuthForm({
   const router = useRouter();
   const [role, setRole] = useState<Role | null>(null);
   const [name, setName] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [crp, setCrp] = useState("");
+  const [uf, setUf] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
-  const [checkEmail, setCheckEmail] = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,11 +123,16 @@ export function AuthForm({
       email,
       password,
       options: {
-        data: { name, role },
-        // Rota própria (não /auth/callback) — clicar no link do e-mail só
-        // confirma a conta e mostra uma mensagem simples, sem redirecionar
-        // direto pro painel. O login por Google continua indo por
-        // /auth/callback normalmente (não passa por confirmação de e-mail).
+        data: {
+          name,
+          role,
+          telefone,
+          ...(role === "psychologist" ? { crp, uf } : {}),
+        },
+        // Rota própria (não /auth/callback) — só usada se o template de
+        // e-mail do projeto ainda incluir o link de confirmação; o fluxo
+        // principal agora é o código de 6 dígitos verificado abaixo, sem
+        // sair desta tela.
         emailRedirectTo: `${window.location.origin}/auth/confirmado`,
       },
     });
@@ -131,8 +145,43 @@ export function AuthForm({
       router.push(dashboardPathForRole(role));
       router.refresh();
     } else {
-      setCheckEmail(true);
+      setAwaitingCode(true);
     }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "signup",
+    });
+    setLoading(false);
+    if (error) {
+      setError(traduzErro(error.message));
+      return;
+    }
+    if (!data.session || !data.user) return;
+    const resolvedRole = await fetchUserRole(supabase, data.user.id);
+    router.push(dashboardPathForRole(resolvedRole ?? role));
+    router.refresh();
+  }
+
+  async function handleResendCode() {
+    setError(null);
+    setResending(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    setResending(false);
+    if (error) {
+      setError(traduzErro(error.message));
+      return;
+    }
+    setResent(true);
+    setTimeout(() => setResent(false), 4000);
   }
 
   async function handleGoogle() {
@@ -145,16 +194,57 @@ export function AuthForm({
     if (error) setError(traduzErro(error.message));
   }
 
-  if (checkEmail) {
+  if (awaitingCode) {
     return (
-      <div className="text-center">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-          Verifique seu e-mail
+      <div>
+        <h2 className="text-center text-lg font-semibold text-zinc-900 dark:text-white">
+          Digite o código de verificação
         </h2>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Enviamos um link de confirmação para <strong>{email}</strong>. Clique
-          nele para ativar sua conta e fazer login.
+        <p className="mt-2 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          Enviamos um código de 6 dígitos para <strong>{email}</strong>.
+          Digite abaixo para ativar sua conta.
         </p>
+
+        <form onSubmit={handleVerifyCode} className="mt-5 space-y-4">
+          {error && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+              {error}
+            </div>
+          )}
+
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Código de verificação
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-center text-lg font-semibold tracking-[0.4em] text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={loading || code.length < 6}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Verificar código
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={handleResendCode}
+          disabled={resending}
+          className="mt-4 block w-full text-center text-sm font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-brand-400"
+        >
+          {resending ? "Reenviando..." : resent ? "Código reenviado!" : "Reenviar código"}
+        </button>
       </div>
     );
   }
@@ -212,6 +302,54 @@ export function AuthForm({
             className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
           />
         </label>
+      )}
+
+      {mode === "cadastro" && (
+        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Telefone / WhatsApp
+          <input
+            type="tel"
+            required
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value)}
+            placeholder="(11) 99999-9999"
+            className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+          />
+        </label>
+      )}
+
+      {mode === "cadastro" && role === "psychologist" && (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Número do CRP
+            <input
+              type="text"
+              required
+              value={crp}
+              onChange={(e) => setCrp(e.target.value)}
+              placeholder="06/123456"
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            UF
+            <select
+              required
+              value={uf}
+              onChange={(e) => setUf(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            >
+              <option value="" disabled>
+                Selecione
+              </option>
+              {brStates.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       )}
 
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">

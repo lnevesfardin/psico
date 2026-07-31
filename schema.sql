@@ -21,6 +21,7 @@ create table if not exists perfis (
   nome text not null default '',
   titulo text not null default '',
   crp text not null default '',
+  uf text not null default '',
   foto_url text,
   bio text,
   valor_consulta numeric(10, 2) not null default 0,
@@ -32,6 +33,10 @@ create table if not exists perfis (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- alter table (não só create) para que bancos já provisionados antes desta
+-- coluna existir a recebam ao reexecutar este arquivo no SQL Editor.
+alter table perfis add column if not exists uf text not null default '';
 
 create or replace trigger perfis_set_updated_at
   before update on perfis
@@ -274,6 +279,7 @@ select
   nome,
   titulo,
   crp,
+  uf,
   foto_url,
   bio,
   valor_consulta,
@@ -462,13 +468,25 @@ begin
   -- Google) — profiles.role aceita null de propósito para esse caso.
   v_role := new.raw_user_meta_data ->> 'role';
 
-  insert into profiles (id, email, role, name)
-  values (new.id, new.email, v_role, coalesce(new.raw_user_meta_data ->> 'name', ''))
+  insert into profiles (id, email, role, name, whatsapp)
+  values (
+    new.id,
+    new.email,
+    v_role,
+    coalesce(new.raw_user_meta_data ->> 'name', ''),
+    new.raw_user_meta_data ->> 'telefone'
+  )
   on conflict (id) do nothing;
 
   if v_role = 'psychologist' then
-    insert into perfis (id, nome)
-    values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''))
+    insert into perfis (id, nome, crp, uf, whatsapp)
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data ->> 'name', ''),
+      coalesce(new.raw_user_meta_data ->> 'crp', ''),
+      coalesce(new.raw_user_meta_data ->> 'uf', ''),
+      new.raw_user_meta_data ->> 'telefone'
+    )
     on conflict (id) do nothing;
   end if;
 
