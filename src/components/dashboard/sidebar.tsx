@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navItems = [
   { href: "/dashboard/agenda", label: "Agenda de Hoje", icon: CalendarDays },
@@ -95,14 +96,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </p>
           </div>
         </Link>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="mt-4 flex items-center gap-2 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair
-        </button>
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex items-center gap-2 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );

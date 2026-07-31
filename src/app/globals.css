@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
+/* Dark mode passa a ser controlado pela classe ".dark" na <html> (ver
+   src/components/ui/theme-toggle.tsx), não mais só pela preferência do
+   sistema — permite ao usuário escolher o tema manualmente. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -11,24 +21,17 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  --color-brand-50: #faf7f5;
-  --color-brand-100: #f3ede7;
-  --color-brand-200: #e6d7cb;
-  --color-brand-300: #d4baa5;
-  --color-brand-400: #bd9575;
-  --color-brand-500: #a57650;
-  --color-brand-600: #886142;
-  --color-brand-700: #6e4f35;
-  --color-brand-800: #5a402b;
-  --color-brand-900: #453121;
-  --color-brand-950: #2d2016;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-50: #f5f7f1;
+  --color-brand-100: #e8ede0;
+  --color-brand-200: #d2dcc2;
+  --color-brand-300: #b3c39a;
+  --color-brand-400: #91a873;
+  --color-brand-500: #748c56;
+  --color-brand-600: #5c7143;
+  --color-brand-700: #495938;
+  --color-brand-800: #3c4830;
+  --color-brand-900: #333c2a;
+  --color-brand-950: #1a2015;
 }
 
 html {

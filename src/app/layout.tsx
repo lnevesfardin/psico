@@ -26,9 +26,24 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Aplica a classe "dark" antes da primeira pintura, direto do
+            localStorage (com fallback pra preferência do sistema no
+            primeiro acesso) — sem isso a página piscaria clara antes de
+            trocar pro tema salvo. suppressHydrationWarning na <html> evita
+            o aviso de mismatch por essa mutação acontecer fora do React. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+  var t = localStorage.getItem('theme');
+  var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.classList.toggle('dark', dark);
+} catch (e) {}`,
+          }}
+        />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
