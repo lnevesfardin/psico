@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
-import { CrpStatusBadge } from "@/components/ui/crp-status-badge";
 
 const navItems = [
   { href: "/dashboard/agenda", label: "Agenda de Hoje", icon: CalendarDays },
@@ -96,9 +95,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </p>
           </div>
         </Link>
-        <div className="mt-3">
-          <CrpStatusBadge status={profile.crpStatus} />
-        </div>
         <button
           type="button"
           onClick={handleSignOut}
