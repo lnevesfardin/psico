@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, User, Stethoscope } from "lucide-react";
+import { Eye, EyeOff, Loader2, User, Stethoscope, IdCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole, type Role } from "@/lib/auth/role";
+import { maskCpf, maskCrp } from "@/lib/format";
+import { estadosBrasil } from "@/lib/br-states";
 
 type Mode = "login" | "cadastro";
 
@@ -77,6 +79,9 @@ export function AuthForm({
   const router = useRouter();
   const [role, setRole] = useState<Role | null>(null);
   const [name, setName] = useState("");
+  const [crp, setCrp] = useState("");
+  const [crpUf, setCrpUf] = useState("");
+  const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -110,11 +115,20 @@ export function AuthForm({
       return;
     }
 
+    if (role === "psychologist" && (!crp || !crpUf || !cpf)) {
+      setLoading(false);
+      setError("Preencha CRP, UF do CRP e CPF para continuar.");
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name, role },
+        data:
+          role === "psychologist"
+            ? { name, role, crp, crp_uf: crpUf, cpf }
+            : { name, role },
         // Rota própria (não /auth/callback) — clicar no link do e-mail só
         // confirma a conta e mostra uma mensagem simples, sem redirecionar
         // direto pro painel. O login por Google continua indo por
@@ -214,6 +228,58 @@ export function AuthForm({
         </label>
       )}
 
+      {mode === "cadastro" && role === "psychologist" && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="flex items-center gap-1.5">
+                <IdCard className="h-4 w-4 text-zinc-400" />
+                Número do CRP
+              </span>
+              <input
+                type="text"
+                required
+                inputMode="numeric"
+                value={crp}
+                onChange={(e) => setCrp(maskCrp(e.target.value))}
+                placeholder="06/123456"
+                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              />
+            </label>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              UF do CRP
+              <select
+                required
+                value={crpUf}
+                onChange={(e) => setCrpUf(e.target.value)}
+                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              >
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {estadosBrasil.map((estado) => (
+                  <option key={estado.uf} value={estado.uf}>
+                    {estado.uf} — {estado.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            CPF
+            <input
+              type="text"
+              required
+              inputMode="numeric"
+              value={cpf}
+              onChange={(e) => setCpf(maskCpf(e.target.value))}
+              placeholder="000.000.000-00"
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+        </>
+      )}
+
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
         Email
         <input
@@ -249,7 +315,13 @@ export function AuthForm({
 
       <button
         type="submit"
-        disabled={loading || (mode === "cadastro" && !role)}
+        disabled={
+          loading ||
+          (mode === "cadastro" && !role) ||
+          (mode === "cadastro" &&
+            role === "psychologist" &&
+            (!crp || !crpUf || !cpf))
+        }
         className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}

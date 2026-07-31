@@ -15,6 +15,10 @@ type ProfileRow = {
   nome: string;
   titulo: string;
   crp: string;
+  crp_uf: string | null;
+  crp_status: "pendente" | "verificado";
+  crp_documento_path: string | null;
+  cpf: string | null;
   foto_url: string | null;
   bio: string | null;
   valor_consulta: number;
@@ -26,6 +30,10 @@ function rowToProfile(row: ProfileRow): Profile {
     name: row.nome,
     title: row.titulo,
     crp: row.crp,
+    crpUf: row.crp_uf ?? "",
+    crpStatus: row.crp_status,
+    crpDocumentoPath: row.crp_documento_path ?? "",
+    cpf: row.cpf ?? "",
     photoUrl: row.foto_url ?? "",
     bio: row.bio ?? "",
     price: row.valor_consulta,
@@ -51,7 +59,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
     supabase
       .from("perfis")
-      .select("nome, titulo, crp, foto_url, bio, valor_consulta, whatsapp")
+      .select(
+        "nome, titulo, crp, crp_uf, crp_status, crp_documento_path, cpf, foto_url, bio, valor_consulta, whatsapp"
+      )
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
@@ -71,6 +81,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (updates.name !== undefined) patch.nome = updates.name;
     if (updates.title !== undefined) patch.titulo = updates.title;
     if (updates.crp !== undefined) patch.crp = updates.crp;
+    if (updates.crpUf !== undefined) patch.crp_uf = updates.crpUf;
+    if (updates.crpDocumentoPath !== undefined)
+      patch.crp_documento_path = updates.crpDocumentoPath;
+    if (updates.cpf !== undefined) patch.cpf = updates.cpf;
+    // crpStatus nunca entra no patch: é definido por quem revisa o
+    // documento, não pelo próprio psicólogo (a RLS de "perfis" permite
+    // update de qualquer coluna própria, então a restrição é só aqui na
+    // aplicação — não há verificação automática hoje).
     if (updates.photoUrl !== undefined) patch.foto_url = updates.photoUrl;
     if (updates.bio !== undefined) patch.bio = updates.bio;
     if (updates.price !== undefined) patch.valor_consulta = updates.price;

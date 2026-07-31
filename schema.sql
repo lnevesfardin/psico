@@ -21,6 +21,18 @@ create table if not exists perfis (
   nome text not null default '',
   titulo text not null default '',
   crp text not null default '',
+  -- UF do conselho regional (ex.: "SP") — separado do número do CRP em si,
+  -- pra permitir filtro/validação por região sem parsear o texto do crp.
+  crp_uf text,
+  cpf text,
+  -- verificação manual do CRP: toda conta nova entra 'pendente'; alguém da
+  -- equipe promove pra 'verificado' depois de conferir o documento (ver
+  -- crp_documento_path). Não existe fluxo automático de aprovação ainda.
+  crp_status text not null default 'pendente'
+    check (crp_status in ('pendente', 'verificado')),
+  -- caminho do arquivo no bucket de Storage "crp-documentos" (formato
+  -- "{user_id}/arquivo.ext"), não a URL pública — o bucket é privado.
+  crp_documento_path text,
   foto_url text,
   bio text,
   valor_consulta numeric(10, 2) not null default 0,
@@ -32,6 +44,14 @@ create table if not exists perfis (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- alter table (não só create) para que bancos já provisionados antes desta
+-- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
+alter table perfis add column if not exists crp_uf text;
+alter table perfis add column if not exists cpf text;
+alter table perfis add column if not exists crp_status text
+  not null default 'pendente' check (crp_status in ('pendente', 'verificado'));
+alter table perfis add column if not exists crp_documento_path text;
 
 create or replace trigger perfis_set_updated_at
   before update on perfis
@@ -194,6 +214,43 @@ create policy "psicologo_cria_proprio_perfil" on perfis
 drop policy if exists "psicologo_edita_proprio_perfil" on perfis;
 create policy "psicologo_edita_proprio_perfil" on perfis
   for update using (auth.uid() = id) with check (auth.uid() = id);
+
+-- =========================================================
+-- Storage: bucket privado para o documento da Carteira de Identidade
+-- Profissional (CIP/CRP). Nunca público — cada arquivo fica dentro de uma
+-- "pasta" nomeada com o próprio auth.uid() do psicólogo
+-- (ex.: "3fa8.../carteira.pdf"), e as policies abaixo só liberam acesso a
+-- quem enviou o arquivo (storage.foldername(name) extrai esse primeiro
+-- segmento do caminho e compara com auth.uid()).
+-- =========================================================
+insert into storage.buckets (id, name, public)
+values ('crp-documentos', 'crp-documentos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "psicologo_ve_proprio_documento_crp" on storage.objects;
+create policy "psicologo_ve_proprio_documento_crp" on storage.objects
+  for select using (
+    bucket_id = 'crp-documentos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+drop policy if exists "psicologo_envia_proprio_documento_crp" on storage.objects;
+create policy "psicologo_envia_proprio_documento_crp" on storage.objects
+  for insert with check (
+    bucket_id = 'crp-documentos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+drop policy if exists "psicologo_atualiza_proprio_documento_crp" on storage.objects;
+create policy "psicologo_atualiza_proprio_documento_crp" on storage.objects
+  for update using (
+    bucket_id = 'crp-documentos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+drop policy if exists "psicologo_apaga_proprio_documento_crp" on storage.objects;
+create policy "psicologo_apaga_proprio_documento_crp" on storage.objects
+  for delete using (
+    bucket_id = 'crp-documentos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
 
 drop policy if exists "psicologo_ve_proprios_pacientes" on pacientes;
 create policy "psicologo_ve_proprios_pacientes" on pacientes
@@ -467,8 +524,18 @@ begin
   on conflict (id) do nothing;
 
   if v_role = 'psychologist' then
-    insert into perfis (id, nome)
-    values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''))
+    -- crp/crp_uf/cpf só vêm preenchidos no cadastro por e-mail (a tela
+    -- pergunta isso obrigatoriamente pra psicólogo); no primeiro login via
+    -- Google esses campos ficam vazios e a pessoa completa depois em Meu
+    -- Perfil. crp_status nasce 'pendente' pelo default da coluna.
+    insert into perfis (id, nome, crp, crp_uf, cpf)
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data ->> 'name', ''),
+      coalesce(new.raw_user_meta_data ->> 'crp', ''),
+      new.raw_user_meta_data ->> 'crp_uf',
+      new.raw_user_meta_data ->> 'cpf'
+    )
     on conflict (id) do nothing;
   end if;
 

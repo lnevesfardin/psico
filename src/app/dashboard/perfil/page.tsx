@@ -9,19 +9,29 @@ import {
   Check,
   IdCard,
   CalendarClock,
+  FileUp,
+  ExternalLink,
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import type { Profile } from "@/lib/profile-data";
+import { useAuth } from "@/context/auth-context";
 import { useWorkingHours } from "@/context/working-hours-context";
 import { weekdayShort, type WorkingHours } from "@/lib/working-hours-data";
 import { TimeSelect } from "@/components/ui/time-select";
+import { CrpStatusBadge } from "@/components/ui/crp-status-badge";
+import { createClient } from "@/lib/supabase/client";
+import { maskCpf, maskCrp } from "@/lib/format";
+import { estadosBrasil } from "@/lib/br-states";
 
 export default function PerfilPage() {
+  const { user } = useAuth();
   const { profile, updateProfile } = useProfile();
   const [draft, setDraft] = useState<Profile | null>(null);
   const [photoMode, setPhotoMode] = useState<"url" | "upload">("url");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
 
   const { workingHours, updateWorkingHours } = useWorkingHours();
   const [hoursDraft, setHoursDraft] = useState<WorkingHours | null>(null);
@@ -71,6 +81,49 @@ export default function PerfilPage() {
     const reader = new FileReader();
     reader.onload = () => set("photoUrl", reader.result as string);
     reader.readAsDataURL(file);
+  }
+
+  async function handleUploadDocumentoCrp(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploadingDoc(true);
+    setDocError(null);
+    try {
+      const supabase = createClient();
+      const ext = file.name.split(".").pop() ?? "pdf";
+      // Nome fixo (não o nome original do arquivo) — evita path traversal e
+      // caracteres inválidos; upsert sobrescreve se a pessoa reenviar.
+      const path = `${user.id}/carteira-crp.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("crp-documentos")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw new Error(uploadError.message);
+      await updateProfile({ crpDocumentoPath: path });
+      // Se houver um rascunho não salvo em tela, "form" (draft ?? profile)
+      // ignoraria a atualização do profile — sincroniza o rascunho também.
+      setDraft((prev) => (prev ? { ...prev, crpDocumentoPath: path } : prev));
+    } catch (err) {
+      setDocError(
+        err instanceof Error ? err.message : "Não foi possível enviar o arquivo."
+      );
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleViewDocumentoCrp() {
+    if (!profile.crpDocumentoPath) return;
+    setDocError(null);
+    const supabase = createClient();
+    const { data, error: signError } = await supabase.storage
+      .from("crp-documentos")
+      .createSignedUrl(profile.crpDocumentoPath, 60);
+    if (signError || !data) {
+      setDocError("Não foi possível abrir o documento.");
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -193,20 +246,99 @@ export default function PerfilPage() {
         </div>
 
         {/* CRP */}
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          <span className="flex items-center gap-1.5">
-            <IdCard className="h-4 w-4 text-zinc-400" />
-            Número do CRP
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <IdCard className="h-4 w-4 text-zinc-400" />
+              Dados profissionais
+            </span>
+            <CrpStatusBadge status={form.crpStatus} />
+          </div>
+          <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:col-span-1">
+              Número do CRP
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.crp}
+                onChange={(e) => set("crp", maskCrp(e.target.value))}
+                required
+                placeholder="06/123456"
+                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              />
+            </label>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              UF do CRP
+              <select
+                value={form.crpUf}
+                onChange={(e) => set("crpUf", e.target.value)}
+                required
+                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              >
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {estadosBrasil.map((estado) => (
+                  <option key={estado.uf} value={estado.uf}>
+                    {estado.uf} — {estado.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              CPF
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.cpf}
+                onChange={(e) => set("cpf", maskCpf(e.target.value))}
+                required
+                placeholder="000.000.000-00"
+                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* Documento do CRP (CIP) */}
+        <div>
+          <span className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Carteira de Identidade Profissional (CIP/CRP){" "}
+            <span className="font-normal text-zinc-400">(opcional)</span>
           </span>
-          <input
-            type="text"
-            value={form.crp}
-            onChange={(e) => set("crp", e.target.value)}
-            required
-            placeholder="CRP 06/123456"
-            className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white sm:max-w-xs"
-          />
-        </label>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Envie uma foto ou PDF da sua carteira para agilizar a verificação
+            do seu CRP.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-600 hover:border-brand-400 hover:text-brand-600 dark:border-zinc-700 dark:text-zinc-400">
+              <FileUp className="h-4 w-4" />
+              {uploadingDoc ? "Enviando..." : "Enviar documento"}
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleUploadDocumentoCrp}
+                disabled={uploadingDoc}
+                className="hidden"
+              />
+            </label>
+            {form.crpDocumentoPath && (
+              <button
+                type="button"
+                onClick={handleViewDocumentoCrp}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ver documento enviado
+              </button>
+            )}
+          </div>
+          {docError && (
+            <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">
+              {docError}
+            </p>
+          )}
+        </div>
 
         {/* Biografia */}
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
