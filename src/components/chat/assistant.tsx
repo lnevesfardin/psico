@@ -36,7 +36,8 @@ export function ChatAssistant() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error ?? "Erro ao consultar o assistente.");
+        const message = data?.error ?? "Erro ao consultar o assistente.";
+        throw new Error(data?.detail ? `${message} (${data.detail})` : message);
       }
       setMessages((prev) => [...prev, { role: "model", text: data.text ?? "" }]);
     } catch (err) {

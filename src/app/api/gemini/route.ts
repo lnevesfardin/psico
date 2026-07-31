@@ -34,8 +34,11 @@ function isChatMessage(value: unknown): value is ChatMessage {
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    // Mensagem explícita (não só "indisponível"): a causa mais comum é a env
+    // var existir em .env.local (dev) mas não ter sido configurada também
+    // nas Environment Variables do projeto na Vercel (produção usa só isso).
     return NextResponse.json(
-      { error: "Assistente indisponível no momento." },
+      { error: "Assistente indisponível: GEMINI_API_KEY não está configurada no ambiente do servidor." },
       { status: 503 }
     );
   }
@@ -96,12 +99,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ text: response.text ?? "" });
   } catch (err) {
-    console.error(
-      "Erro ao chamar a API do Gemini:",
-      err instanceof Error ? err.message : "erro desconhecido"
-    );
+    // O erro do SDK do Gemini não carrega dado de paciente (mensagem vem da
+    // API do Google, ex.: chave inválida, modelo inexistente, cota
+    // excedida) — seguro expor ao psicólogo/cliente para diagnóstico via
+    // Network tab, sem precisar dos logs da Vercel.
+    const detail = err instanceof Error ? err.message : "erro desconhecido";
+    console.error("Erro ao chamar a API do Gemini:", detail);
     return NextResponse.json(
-      { error: "Não foi possível obter resposta do assistente. Tente novamente." },
+      {
+        error: "Não foi possível obter resposta do assistente. Tente novamente.",
+        detail,
+      },
       { status: 502 }
     );
   }

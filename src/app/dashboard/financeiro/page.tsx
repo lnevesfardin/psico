@@ -301,10 +301,15 @@ function NewLancamentoModal({
     setError(null);
     try {
       const supabase = createClient();
+      const valorNumerico = Number(valor.replace(",", "."));
+      if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
+        setError("Informe um valor válido.");
+        return;
+      }
       const lancamento = await createLancamento(supabase, psicologoId, {
         patientId: patient.id,
         patientName: patient.name,
-        valor: Number(valor),
+        valor: valorNumerico,
         status,
         data,
         descricao,
@@ -373,12 +378,16 @@ function NewLancamentoModal({
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Valor (R$)
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   required
                   value={valor}
-                  onChange={(e) => setValor(e.target.value)}
+                  onChange={(e) => {
+                    // Aceita "150", "150,00" e "150.00" — input type="number"
+                    // rejeita vírgula, o separador decimal usado no Brasil.
+                    const next = e.target.value.replace(/[^0-9.,]/g, "");
+                    setValor(next);
+                  }}
                   placeholder="150,00"
                   className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
                 />
