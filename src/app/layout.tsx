@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Gotham é uma fonte paga (não está no Google Fonts) — Montserrat é a
+// substituta gratuita mais usada no lugar dela, com a mesma construção
+// geométrica. Aplicada em --font-sans, que é o que tanto o body quanto os
+// wrappers com classe "font-sans" nas páginas usam — cobre o site inteiro.
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
   subsets: ["latin"],
 });
 
@@ -27,7 +26,7 @@ export default function RootLayout({
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${montserrat.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Aplica a classe "dark" antes da primeira pintura, direto do
