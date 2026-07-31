@@ -9,6 +9,8 @@ import {
   Plus,
   Trash2,
   X,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -283,12 +285,79 @@ function NewLancamentoModal({
   const [descricao, setDescricao] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [textoIA, setTextoIA] = useState("");
+  const [extraindo, setExtraindo] = useState(false);
+  const [avisoIA, setAvisoIA] = useState<string | null>(null);
 
   // "patients" chega via prop e pode terminar de carregar depois do modal já
   // aberto (fetch da página ainda em andamento) — derivar em vez de fixar o
   // primeiro id no useState evita que o <select> mostre um paciente que o
   // estado não sabe que está selecionado.
   const selectedPatientId = patientId || patients[0]?.id || "";
+
+  function encontrarPaciente(nome: string) {
+    const alvo = nome
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .trim();
+    return patients.find((p) => {
+      const candidato = p.name
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .trim();
+      return candidato === alvo || candidato.includes(alvo) || alvo.includes(candidato);
+    });
+  }
+
+  // Só pré-preenche os campos do formulário — quem confere e clica em
+  // "Salvar lançamento" é sempre o psicólogo, nunca grava nada sozinho.
+  async function handleExtrairComIA() {
+    const texto = textoIA.trim();
+    if (!texto || extraindo) return;
+    setExtraindo(true);
+    setError(null);
+    setAvisoIA(null);
+    try {
+      const res = await fetch("/api/gemini/extrair-lancamento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        const message = result?.error ?? "Não foi possível extrair o lançamento.";
+        throw new Error(result?.detail ? `${message} (${result.detail})` : message);
+      }
+
+      const paciente = encontrarPaciente(result.paciente ?? "");
+      if (paciente) {
+        setPatientId(paciente.id);
+      } else {
+        setAvisoIA(
+          `Não encontrei "${result.paciente}" na sua lista de pacientes — selecione manualmente.`
+        );
+      }
+      if (typeof result.valor === "number" && Number.isFinite(result.valor)) {
+        setValor(result.valor.toFixed(2).replace(".", ","));
+      }
+      if (typeof result.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(result.data)) {
+        setData(result.data);
+      }
+      if (result.status === "pago" || result.status === "pendente") {
+        setStatus(result.status);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível extrair o lançamento."
+      );
+    } finally {
+      setExtraindo(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -345,6 +414,47 @@ function NewLancamentoModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {patients.length > 0 && (
+          <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-3 dark:border-brand-900 dark:bg-brand-950">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-brand-700 dark:text-brand-300">
+              <Sparkles className="h-4 w-4" />
+              Descrever com IA (opcional)
+            </label>
+            <p className="mt-1 text-xs text-brand-700/80 dark:text-brand-300/80">
+              Cole ou digite, ex.: &quot;Recebi R$150 da Maria hoje&quot; — os
+              campos abaixo são preenchidos automaticamente para você
+              conferir e salvar.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={textoIA}
+                onChange={(e) => setTextoIA(e.target.value)}
+                placeholder="Recebi R$150 da Maria hoje, pago"
+                disabled={extraindo}
+                className="min-w-0 flex-1 rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none disabled:opacity-60 dark:border-brand-800 dark:bg-zinc-900 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={handleExtrairComIA}
+                disabled={extraindo || !textoIA.trim()}
+                className="shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {extraindo ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Extrair"
+                )}
+              </button>
+            </div>
+            {avisoIA && (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                {avisoIA}
+              </p>
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
