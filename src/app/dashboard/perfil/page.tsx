@@ -259,9 +259,9 @@ export default function PerfilPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-zinc-100 pt-5 dark:border-zinc-800">
+        <div className="flex flex-col gap-4 border-t border-zinc-100 pt-5 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
           <p className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            <Link2 className="h-4 w-4" />
+            <Link2 className="h-4 w-4 shrink-0" />
             Essas alterações refletem automaticamente na Agenda, nos
             Prontuários e no site.
           </p>

@@ -112,10 +112,10 @@ export default function PatientDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/dashboard/pacientes"
-          className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+          className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
           Voltar para pacientes
@@ -124,7 +124,7 @@ export default function PatientDetailPage({
           type="button"
           onClick={handleDelete}
           disabled={deleting}
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
         >
           <Trash2 className="h-4 w-4" />
           {deleting ? "Excluindo..." : "Excluir paciente"}
@@ -237,14 +237,14 @@ export default function PatientDetailPage({
               placeholder="Registre a evolução da sessão..."
               className="mt-2 w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
-            <div className="mt-3 flex items-center justify-between">
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-zinc-400 dark:text-zinc-600">
                 Data e hora serão registradas automaticamente.
               </p>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {saving ? "Salvando..." : "Salvar anotação"}
               </button>

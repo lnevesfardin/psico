@@ -319,70 +319,76 @@ export default function AgendaPage() {
                 const isPending = item.status === "pendente";
                 const row = (
                   <div className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="flex items-center gap-4">
-                      <div className="flex w-16 shrink-0 items-center gap-1.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                        <Clock className="h-4 w-4 text-zinc-400" />
-                        {item.time}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                      <div className="flex min-w-0 items-center gap-4 sm:flex-1">
+                        <div className="flex w-16 shrink-0 items-center gap-1.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                          <Clock className="h-4 w-4 text-zinc-400" />
+                          {item.time}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`truncate font-medium ${
+                              isBlock
+                                ? "italic text-zinc-500 dark:text-zinc-500"
+                                : "text-zinc-900 dark:text-white"
+                            }`}
+                          >
+                            {isBlock && <Ban className="mr-1.5 inline h-4 w-4" />}
+                            {item.patientName}
+                            {isPublic && (
+                              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                                <Globe className="h-3 w-3" />
+                                via site
+                              </span>
+                            )}
+                            {item.modalidade && (
+                              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                                {item.modalidade === "presencial" ? (
+                                  <MapPin className="h-3 w-3" />
+                                ) : (
+                                  <Video className="h-3 w-3" />
+                                )}
+                                {item.modalidade === "presencial" ? "Presencial" : "Online"}
+                              </span>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`truncate font-medium ${
-                            isBlock
-                              ? "italic text-zinc-500 dark:text-zinc-500"
-                              : "text-zinc-900 dark:text-white"
-                          }`}
+                      <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                        <select
+                          value={item.status}
+                          onClick={(e) => e.preventDefault()}
+                          onChange={(e) =>
+                            updateStatus(
+                              item.id,
+                              e.target.value as AppointmentStatus
+                            )
+                          }
+                          className={`shrink-0 rounded-full border-0 px-3 py-1 text-xs font-semibold ${statusStyles[item.status]}`}
                         >
-                          {isBlock && <Ban className="mr-1.5 inline h-4 w-4" />}
-                          {item.patientName}
-                          {isPublic && (
-                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                              <Globe className="h-3 w-3" />
-                              via site
-                            </span>
+                          <option value="pendente">Pendente</option>
+                          <option value="confirmada">Confirmada</option>
+                          <option value="realizada">Realizada</option>
+                          <option value="desmarcada">Desmarcada</option>
+                        </select>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleDelete(item);
+                            }}
+                            disabled={deletingIds.has(item.id)}
+                            aria-label={isBlock ? "Apagar bloqueio" : "Apagar consulta"}
+                            className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                          {!isBlock && (
+                            <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 dark:text-zinc-700" />
                           )}
-                          {item.modalidade && (
-                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                              {item.modalidade === "presencial" ? (
-                                <MapPin className="h-3 w-3" />
-                              ) : (
-                                <Video className="h-3 w-3" />
-                              )}
-                              {item.modalidade === "presencial" ? "Presencial" : "Online"}
-                            </span>
-                          )}
-                        </p>
+                        </div>
                       </div>
-                      <select
-                        value={item.status}
-                        onClick={(e) => e.preventDefault()}
-                        onChange={(e) =>
-                          updateStatus(
-                            item.id,
-                            e.target.value as AppointmentStatus
-                          )
-                        }
-                        className={`shrink-0 rounded-full border-0 px-3 py-1 text-xs font-semibold ${statusStyles[item.status]}`}
-                      >
-                        <option value="pendente">Pendente</option>
-                        <option value="confirmada">Confirmada</option>
-                        <option value="realizada">Realizada</option>
-                        <option value="desmarcada">Desmarcada</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDelete(item);
-                        }}
-                        disabled={deletingIds.has(item.id)}
-                        aria-label={isBlock ? "Apagar bloqueio" : "Apagar consulta"}
-                        className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                      {!isBlock && (
-                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 dark:text-zinc-700" />
-                      )}
                     </div>
 
                     {item.detalhes && (

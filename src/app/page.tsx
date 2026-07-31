@@ -13,6 +13,8 @@ import {
   Star,
   Check,
   ChevronDown,
+  Menu,
+  X,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
 
@@ -115,7 +117,17 @@ const faq = [
   },
 ];
 
+const navLinks = [
+  { href: "#recursos", label: "Recursos" },
+  { href: "#sobre", label: "Sobre" },
+  { href: "#depoimentos", label: "Depoimentos" },
+  { href: "#planos", label: "Planos" },
+  { href: "#faq", label: "FAQ" },
+];
+
 export default function Home() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen flex-col bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
       {/* Header */}
@@ -128,21 +140,15 @@ export default function Home() {
           </div>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-zinc-600 lg:flex dark:text-zinc-400">
-            <a href="#recursos" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
-              Recursos
-            </a>
-            <a href="#sobre" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
-              Sobre
-            </a>
-            <a href="#depoimentos" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
-              Depoimentos
-            </a>
-            <a href="#planos" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
-              Planos
-            </a>
-            <a href="#faq" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
-              FAQ
-            </a>
+            {navLinks.map(({ href, label }) => (
+              <a
+                key={href}
+                href={href}
+                className="transition-colors hover:text-zinc-900 dark:hover:text-white"
+              >
+                {label}
+              </a>
+            ))}
           </nav>
 
           <div className="flex items-center gap-3">
@@ -165,8 +171,39 @@ export default function Home() {
             >
               Testar Grátis
             </Link>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+              aria-expanded={mobileMenuOpen}
+              className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
         </div>
+
+        {mobileMenuOpen && (
+          <nav className="flex flex-col gap-1 border-t border-zinc-100 px-6 py-3 text-sm font-medium text-zinc-600 lg:hidden dark:border-zinc-900 dark:text-zinc-400">
+            {navLinks.map(({ href, label }) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg px-2 py-2.5 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-white"
+              >
+                {label}
+              </a>
+            ))}
+            <Link
+              href="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg px-2 py-2.5 font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 sm:hidden dark:text-white dark:hover:bg-zinc-900"
+            >
+              Entrar
+            </Link>
+          </nav>
+        )}
       </header>
 
       {/* Hero */}

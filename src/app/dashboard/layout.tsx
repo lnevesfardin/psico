@@ -35,9 +35,9 @@ export default async function DashboardLayout({
     <ProfileProvider>
       <WorkingHoursProvider>
         <AppointmentsProvider>
-          <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
+          <div className="flex min-h-screen flex-col bg-zinc-50 md:flex-row dark:bg-zinc-950">
             <Sidebar />
-            <main className="flex-1 overflow-x-hidden">{children}</main>
+            <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
           </div>
           <ChatAssistant />
         </AppointmentsProvider>
