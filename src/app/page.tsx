@@ -156,7 +156,7 @@ export default function Home() {
               <a
                 key={href}
                 href={href}
-                className="transition-colors hover:text-zinc-900 dark:hover:text-white"
+                className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white"
               >
                 {label}
               </a>
@@ -176,13 +176,13 @@ export default function Home() {
             </span>
             <Link
               href="/login"
-              className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 sm:px-4 sm:py-2 sm:text-sm dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors duration-300 ease-in-out hover:bg-zinc-50 sm:px-4 sm:py-2 sm:text-sm dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
             >
               Entrar
             </Link>
             <Link
               href="/cadastro"
-              className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:scale-[1.03] hover:bg-zinc-700 active:scale-95 sm:px-4 sm:py-2 sm:text-sm dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-300 ease-in-out hover:scale-[1.03] hover:bg-zinc-700 active:scale-95 sm:px-4 sm:py-2 sm:text-sm dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
               Testar Grátis
             </Link>
@@ -209,7 +209,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 py-24 sm:py-32">
+      <section className="relative overflow-hidden px-6 py-28 sm:py-40">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,theme(colors.brand.100),transparent_60%)] dark:bg-[radial-gradient(circle_at_top,theme(colors.brand.950),transparent_60%)]"
@@ -225,7 +225,7 @@ export default function Home() {
             Feito para psicólogos e consultórios
           </motion.span>
           <motion.h1
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-4xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-6xl dark:text-white"
@@ -233,24 +233,24 @@ export default function Home() {
             Gestão de consultório de psicologia sem complicação
           </motion.h1>
           <motion.p
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="mt-6 max-w-xl text-lg leading-8 text-zinc-600 dark:text-zinc-400"
+            className="mt-8 max-w-xl text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400"
           >
             O Psi Rob une prontuário eletrônico, agenda, pacientes e financeiro
             em um só sistema, para que você cuide dos seus pacientes e não da
             planilha.
           </motion.p>
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-10 flex flex-col gap-4 sm:flex-row"
+            className="mt-12 flex flex-col gap-4 sm:flex-row"
           >
             <Link
               href="/cadastro"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-600/20 transition-transform hover:scale-[1.03] hover:bg-brand-700 active:scale-95"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-600/20 transition-all duration-300 ease-in-out hover:scale-[1.03] hover:bg-brand-700 active:scale-95"
             >
               Criar minha conta grátis
               <ArrowRight className="h-5 w-5" />
@@ -260,37 +260,37 @@ export default function Home() {
       </section>
 
       {/* Recursos */}
-      <section id="recursos" className="px-6 py-24">
+      <section id="recursos" className="px-6 py-24 lg:py-32">
         <div className="mx-auto max-w-6xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Tudo que seu consultório precisa
             </h2>
-            <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-400">
+            <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
               Quatro pilares que simplificam a rotina clínica e administrativa
               do seu dia a dia.
             </p>
           </Reveal>
-          <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map(({ icon: Icon, title, description }, i) => (
               <Reveal key={title} delay={i * 0.08}>
                 <motion.div
                   whileHover={{ y: -8 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                  transition={{ duration: 0.35, ease: "easeInOut" }}
                   className="group relative h-full"
                 >
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-400/0 to-brand-300/0 opacity-0 blur-2xl transition-opacity duration-500 group-hover:from-brand-400/40 group-hover:to-brand-200/20 group-hover:opacity-100 dark:group-hover:from-brand-500/30 dark:group-hover:to-brand-400/10"
+                    className="pointer-events-none absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-400/0 to-brand-300/0 opacity-0 blur-2xl transition-opacity duration-400 ease-in-out group-hover:from-brand-400/40 group-hover:to-brand-200/20 group-hover:opacity-100 dark:group-hover:from-brand-500/30 dark:group-hover:to-brand-400/10"
                   />
-                  <div className="relative h-full rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm transition-shadow duration-300 group-hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="relative h-full rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm transition-shadow duration-300 ease-in-out group-hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
                       <Icon className="h-6 w-6" />
                     </div>
                     <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                       {title}
                     </h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+                    <p className="mt-2 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
                       {description}
                     </p>
                   </div>
@@ -302,8 +302,8 @@ export default function Home() {
       </section>
 
       {/* Sobre */}
-      <section id="sobre" className="bg-zinc-50 px-6 py-24 dark:bg-zinc-900/40">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
+      <section id="sobre" className="bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-zinc-900/40">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
           <Reveal>
             <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
               Sobre o Psi Rob
@@ -311,13 +311,13 @@ export default function Home() {
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
               Construído por quem entende a rotina clínica
             </h2>
-            <p className="mt-6 text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+            <p className="mt-6 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
               O Psi Rob nasceu para resolver um problema real: psicólogos
               perdendo tempo com burocracia em vez de atendimento. Nossa
               plataforma une segurança, simplicidade e conformidade com o
               Código de Ética do psicólogo em cada funcionalidade.
             </p>
-            <p className="mt-4 text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+            <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
               Cada psicólogo tem sua própria conta, agenda e link de
               agendamento — seus dados e os dos seus pacientes ficam
               isolados dos de qualquer outro profissional na plataforma.
@@ -332,12 +332,12 @@ export default function Home() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-2xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-900"
+                className="rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900"
               >
                 <div className="text-3xl font-bold text-brand-600 dark:text-brand-400">
                   {stat.value}
                 </div>
-                <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                <div className="mt-1 text-sm font-normal text-zinc-600 dark:text-zinc-400">
                   {stat.label}
                 </div>
               </div>
@@ -347,42 +347,42 @@ export default function Home() {
       </section>
 
       {/* Depoimentos */}
-      <section id="depoimentos" className="px-6 py-24">
+      <section id="depoimentos" className="px-6 py-24 lg:py-32">
         <div className="mx-auto max-w-6xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Quem usa, recomenda
             </h2>
-            <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-400">
+            <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
               Psicólogos que trocaram planilha e caderno pelo Psi Rob.
             </p>
           </Reveal>
-          <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div className="mt-20 grid grid-cols-1 gap-8 sm:grid-cols-3">
             {testimonials.map((t, i) => (
               <Reveal key={t.name} delay={i * 0.1}>
                 <motion.div
                   whileHover={{ y: -6 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                  transition={{ duration: 0.35, ease: "easeInOut" }}
                   className="group relative h-full"
                 >
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute -inset-4 rounded-3xl bg-brand-300/0 opacity-0 blur-2xl transition-opacity duration-500 group-hover:bg-brand-300/30 group-hover:opacity-100 dark:group-hover:bg-brand-500/20"
+                    className="pointer-events-none absolute -inset-4 rounded-3xl bg-brand-300/0 opacity-0 blur-2xl transition-opacity duration-400 ease-in-out group-hover:bg-brand-300/30 group-hover:opacity-100 dark:group-hover:bg-brand-500/20"
                   />
-                  <div className="relative flex h-full flex-col rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="relative flex h-full flex-col rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="flex gap-0.5 text-amber-400">
                       {Array.from({ length: 5 }).map((_, starIndex) => (
                         <Star key={starIndex} className="h-4 w-4 fill-current" />
                       ))}
                     </div>
-                    <p className="mt-4 flex-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+                    <p className="mt-5 flex-1 text-base font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
                       &ldquo;{t.quote}&rdquo;
                     </p>
-                    <div className="mt-6 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                    <div className="mt-8 border-t border-zinc-100 pt-5 dark:border-zinc-800">
                       <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                         {t.name}
                       </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                      <p className="text-xs font-normal text-zinc-500 dark:text-zinc-500">
                         {t.role}
                       </p>
                     </div>
@@ -395,17 +395,17 @@ export default function Home() {
       </section>
 
       {/* Planos */}
-      <section id="planos" className="bg-zinc-50 px-6 py-24 dark:bg-zinc-900/40">
+      <section id="planos" className="bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-zinc-900/40">
         <div className="mx-auto max-w-4xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Planos para todo tamanho de consultório
             </h2>
-            <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-400">
+            <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
               Comece grátis, sem cartão de crédito. Cancele quando quiser.
             </p>
           </Reveal>
-          <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {plans.map((plan, i) => (
               <Reveal key={plan.name} delay={i * 0.1}>
                 <div
@@ -423,20 +423,20 @@ export default function Home() {
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                     {plan.name}
                   </h3>
-                  <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-1 text-sm font-normal leading-relaxed text-zinc-500 dark:text-zinc-400">
                     {plan.description}
                   </p>
                   <div className="mt-6 flex items-baseline gap-1">
                     <span className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">
                       {plan.price}
                     </span>
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                    <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
                       {plan.period}
                     </span>
                   </div>
                   <ul className="mt-6 space-y-3">
                     {planFeatures.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                      <li key={f} className="flex items-start gap-2 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
                         {f}
                       </li>
@@ -444,7 +444,7 @@ export default function Home() {
                   </ul>
                   <Link
                     href="/cadastro"
-                    className={`mt-8 flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform hover:scale-[1.02] active:scale-95 ${
+                    className={`mt-8 flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all duration-300 ease-in-out hover:scale-[1.02] active:scale-95 ${
                       plan.highlighted
                         ? "bg-brand-600 text-white hover:bg-brand-700"
                         : "bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
@@ -461,14 +461,14 @@ export default function Home() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="px-6 py-24">
+      <section id="faq" className="px-6 py-24 lg:py-32">
         <div className="mx-auto max-w-3xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Perguntas frequentes
             </h2>
           </Reveal>
-          <div className="mt-12 space-y-3">
+          <div className="mt-16 divide-y divide-zinc-100 border-t border-b border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
             {faq.map((item, i) => (
               <Reveal key={item.question} delay={i * 0.06}>
                 <FaqItem question={item.question} answer={item.answer} />
@@ -479,28 +479,28 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-zinc-100 px-6 py-12 dark:border-zinc-900">
+      <footer className="mt-auto border-t border-zinc-100 px-6 py-16 dark:border-zinc-900">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
           <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
             Psi Rob
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-6 text-sm text-zinc-600 dark:text-zinc-400">
-            <a href="#recursos" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
+          <nav className="flex flex-wrap items-center justify-center gap-6 text-sm font-normal text-zinc-600 dark:text-zinc-400">
+            <a href="#recursos" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
               Recursos
             </a>
-            <a href="#sobre" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
+            <a href="#sobre" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
               Sobre
             </a>
-            <a href="#" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
+            <a href="#" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
               Termos de Uso
             </a>
-            <a href="#" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
+            <a href="#" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
               Privacidade
             </a>
           </nav>
-          <p className="text-sm text-zinc-500 dark:text-zinc-500">
+          <p className="text-sm font-normal text-zinc-500 dark:text-zinc-500">
             © {new Date().getFullYear()} Psi Rob. Todos os direitos reservados.
           </p>
         </div>
@@ -513,27 +513,27 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rounded-2xl border border-zinc-100 bg-white px-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <div>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 py-4 text-left text-sm font-semibold text-zinc-900 dark:text-white"
+        className="flex w-full items-center justify-between gap-4 py-5 text-left text-sm font-semibold text-zinc-900 transition-colors duration-300 ease-in-out hover:text-brand-600 dark:text-white dark:hover:text-brand-400"
         aria-expanded={open}
       >
         {question}
         <ChevronDown
-          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-300 ${
+          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-300 ease-in-out ${
             open ? "rotate-180" : ""
           }`}
         />
       </button>
       <div
-        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
       >
         <div className="overflow-hidden">
-          <p className="pb-4 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+          <p className="pb-5 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
             {answer}
           </p>
         </div>

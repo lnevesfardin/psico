@@ -4,7 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import type { ReactNode } from "react";
 
 const variants: Variants = {
-  hidden: { opacity: 0, y: 28 },
+  hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
 };
 
