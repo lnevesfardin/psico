@@ -10,6 +10,7 @@ import {
   Wallet,
   ArrowRight,
   ShieldCheck,
+  ShieldAlert,
   Star,
   Check,
   ChevronDown,
@@ -119,11 +120,30 @@ const faq = [
 ];
 
 const navLinks = [
+  { href: "#como-funciona", label: "Como Funciona" },
   { href: "#recursos", label: "Recursos" },
   { href: "#sobre", label: "Sobre" },
   { href: "#depoimentos", label: "Depoimentos" },
   { href: "#planos", label: "Planos" },
   { href: "#faq", label: "FAQ" },
+];
+
+// Link do aviso de segurança fica fora de navLinks: precisa de estilo
+// destacado (cor de alerta) em vez de se misturar com a navegação comum.
+const safetyLink = { href: "#seguranca", label: "Aviso de Segurança" };
+
+const howItWorksClient = [
+  "Acesse a página de agendamento — ou o link direto de um psicólogo — sem precisar criar conta.",
+  "Escolha o profissional certo pelo perfil: especialidade, abordagem, faixa etária atendida e valor da consulta.",
+  "Marque o dia e horário disponíveis e preencha seus dados.",
+  "Acompanhe seus agendamentos e receba a confirmação do psicólogo.",
+];
+
+const howItWorksPsicologo = [
+  "Crie sua conta gratuita e monte seu perfil: CRP, abordagem, especialidades e valor da consulta.",
+  "Configure sua disponibilidade e compartilhe seu link de agendamento público.",
+  "Gerencie pacientes, prontuário eletrônico e agenda em um só lugar.",
+  "Controle o financeiro e acompanhe os agendamentos feitos pelos seus clientes.",
 ];
 
 export default function Home() {
@@ -161,6 +181,13 @@ export default function Home() {
                 {label}
               </a>
             ))}
+            <a
+              href={safetyLink.href}
+              className="inline-flex items-center gap-1.5 text-rose-600 transition-colors duration-300 ease-in-out hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              {safetyLink.label}
+            </a>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -201,6 +228,14 @@ export default function Home() {
                 {label}
               </a>
             ))}
+            <a
+              href={safetyLink.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-2.5 text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              {safetyLink.label}
+            </a>
             <div className="mt-1 px-2 py-1.5 sm:hidden">
               <ThemeToggle />
             </div>
@@ -256,6 +291,63 @@ export default function Home() {
               <ArrowRight className="h-5 w-5" />
             </Link>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Como Funciona */}
+      <section id="como-funciona" className="bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-zinc-900/40">
+        <div className="mx-auto max-w-6xl">
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Como funciona
+            </h2>
+            <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+              O Psi Rob funciona de um jeito para quem busca atendimento e de
+              outro para quem atende — veja como cada lado usa a plataforma.
+            </p>
+          </Reveal>
+          <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <Reveal>
+              <div className="h-full rounded-2xl border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                  <Users className="h-3.5 w-3.5" />
+                  Sendo Cliente
+                </div>
+                <ol className="mt-6 space-y-5">
+                  {howItWorksClient.map((step, i) => (
+                    <li key={step} className="flex items-start gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                        {i + 1}
+                      </span>
+                      <p className="text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+                        {step}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <div className="h-full rounded-2xl border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Sendo Psicólogo
+                </div>
+                <ol className="mt-6 space-y-5">
+                  {howItWorksPsicologo.map((step, i) => (
+                    <li key={step} className="flex items-start gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                        {i + 1}
+                      </span>
+                      <p className="text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+                        {step}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </Reveal>
+          </div>
         </div>
       </section>
 
@@ -478,6 +570,38 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Aviso de Segurança */}
+      <section id="seguranca" className="px-6 py-24 lg:py-32">
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-start gap-4 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+            <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0" />
+            <p className="text-sm leading-relaxed sm:text-base">
+              <strong>Aviso de Segurança:</strong> Esta plataforma não é um
+              canal de socorro nem oferece auxílio imediato para pessoas em
+              risco de suicídio. Em momentos de crise, busque ajuda pelo
+              telefone{" "}
+              <a
+                href="tel:188"
+                className="font-bold underline underline-offset-2 hover:text-rose-900 dark:hover:text-rose-100"
+              >
+                188
+              </a>{" "}
+              (CVV) ou pelo site{" "}
+              <a
+                href="https://www.cvv.org.br"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold underline underline-offset-2 hover:text-rose-900 dark:hover:text-rose-100"
+              >
+                www.cvv.org.br
+              </a>
+              . Em emergências, vá sem hesitar à unidade hospitalar mais
+              próxima.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="mt-auto border-t border-zinc-100 px-6 py-16 dark:border-zinc-900">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
@@ -492,6 +616,13 @@ export default function Home() {
             </a>
             <a href="#sobre" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
               Sobre
+            </a>
+            <a
+              href={safetyLink.href}
+              className="inline-flex items-center gap-1.5 font-semibold text-rose-600 transition-colors duration-300 ease-in-out hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+            >
+              <ShieldAlert className="h-3.5 w-3.5" />
+              {safetyLink.label}
             </a>
             <a href="#" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
               Termos de Uso
