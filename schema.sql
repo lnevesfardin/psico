@@ -52,9 +52,12 @@ create index if not exists perfis_faixas_etarias_idx on perfis using gin (faixas
 -- granular (ver tabela "disponibilidades" abaixo): um psicólogo pode atender
 -- terça e quinta 9h-20h só online, e sábado 8h-12h só presencial, por
 -- exemplo. As 3 colunas antigas não são mais lidas por nenhuma tela.
-alter table perfis drop column if exists dias_disponiveis;
-alter table perfis drop column if exists horario_inicio;
-alter table perfis drop column if exists horario_fim;
+-- CASCADE: a view perfis_publico (recriada mais abaixo, sem essas colunas)
+-- depende delas — sem cascade o drop falha com "2BP01 cannot drop column
+-- ... because other objects depend on it".
+alter table perfis drop column if exists dias_disponiveis cascade;
+alter table perfis drop column if exists horario_inicio cascade;
+alter table perfis drop column if exists horario_fim cascade;
 
 -- Endereço do consultório é opcional: só psicólogos que atendem
 -- presencialmente preenchem, pra aparecer o link do Google Maps na página
