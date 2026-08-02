@@ -253,7 +253,7 @@ export default function Home() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
-              href="/agendar"
+              href="/cadastro?perfil=cliente"
               className="hidden rounded-full px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:text-zinc-900 md:block dark:text-zinc-400 dark:hover:text-white"
             >
               Encontrar psicólogo
@@ -286,7 +286,7 @@ export default function Home() {
               </a>
             ))}
             <Link
-              href="/agendar"
+              href="/cadastro?perfil=cliente"
               onClick={() => setMobileMenuOpen(false)}
               className="rounded-lg px-2 py-2.5 transition-colors hover:bg-zinc-100 hover:text-zinc-900 md:hidden dark:hover:bg-white/5 dark:hover:text-white"
             >
@@ -458,7 +458,11 @@ export default function Home() {
 
           <Reveal delay={0.2} className="mt-10 flex justify-center">
             <Link
-              href={fluxo === "psicologo" ? "/cadastro" : "/agendar"}
+              href={
+                fluxo === "psicologo"
+                  ? "/cadastro?perfil=psicologo"
+                  : "/cadastro?perfil=cliente"
+              }
               className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] hover:bg-brand-500 active:scale-95"
             >
               {fluxo === "psicologo"

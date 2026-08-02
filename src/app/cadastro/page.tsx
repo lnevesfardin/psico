@@ -5,9 +5,15 @@ import { AuthForm } from "@/components/auth/auth-form";
 export default async function CadastroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; perfil?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, perfil } = await searchParams;
+  const initialRole =
+    perfil === "cliente"
+      ? ("client" as const)
+      : perfil === "psicologo"
+        ? ("psychologist" as const)
+        : undefined;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-zinc-950">
@@ -36,7 +42,11 @@ export default async function CadastroPage({
             agendamentos.
           </p>
           <div className="mt-6">
-            <AuthForm mode="cadastro" initialError={error} />
+            <AuthForm
+              mode="cadastro"
+              initialError={error}
+              initialRole={initialRole}
+            />
           </div>
         </div>
       </div>

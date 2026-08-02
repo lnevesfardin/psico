@@ -82,12 +82,17 @@ async function resolveLoginError(
 export function AuthForm({
   mode,
   initialError,
+  initialRole,
 }: {
   mode: Mode;
   initialError?: string;
+  /** Pré-seleciona cliente/psicólogo quando o cadastro é aberto por um
+   *  atalho que já sabe o papel (ex.: "Encontrar um psicólogo" na landing).
+   *  A pessoa ainda pode trocar antes de enviar. */
+  initialRole?: Role;
 }) {
   const router = useRouter();
-  const [role, setRole] = useState<Role | null>(null);
+  const [role, setRole] = useState<Role | null>(initialRole ?? null);
   const [name, setName] = useState("");
   const [telefone, setTelefone] = useState("");
   const [crp, setCrp] = useState("");
