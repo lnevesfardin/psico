@@ -1,5 +1,10 @@
 export type Modalidade = "presencial" | "online";
 
+// Usado só no formulário de adicionar bloco: "ambos" não é gravado no banco
+// (cada linha de disponibilidades continua sendo presencial OU online) — ao
+// escolher "ambos", a tela cria os dois blocos de uma vez.
+export type ModalidadeSelecao = Modalidade | "ambos";
+
 export type DisponibilidadeBlock = {
   id: string;
   diaSemana: number; // 0=Domingo ... 6=Sábado

@@ -65,6 +65,20 @@ export function maskPhone(value: string): string {
     .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
 }
 
+export function formatEndereco(partes: {
+  rua: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}): string {
+  const linha1 = [partes.rua, partes.numero].filter(Boolean).join(", ");
+  const linha2 = [partes.bairro, [partes.cidade, partes.uf].filter(Boolean).join(" - ")]
+    .filter(Boolean)
+    .join(", ");
+  return [linha1, linha2].filter(Boolean).join(" - ");
+}
+
 export function toWhatsappLink(phone: string, message?: string): string {
   let digits = phone.replace(/\D/g, "");
   if (digits.length <= 11) digits = `55${digits}`;

@@ -18,7 +18,7 @@ export default async function AgendarPage({
     supabase
       .from("perfis_publico")
       .select(
-        "id, nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_endereco, consultorio_maps_url"
+        "id, nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url"
       )
       .eq("id", psicologoId)
       .single<PerfilPublico>(),

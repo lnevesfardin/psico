@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarCheck, ExternalLink, MapPin, User, X } from "lucide-react";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatEndereco } from "@/lib/format";
 
 export type PsicologoResumo = {
   id: string;
@@ -19,7 +19,11 @@ export type PsicologoResumo = {
   abordagens: string[];
   faixas_etarias: string[];
   tem_consultorio: boolean;
-  consultorio_endereco: string;
+  consultorio_rua: string;
+  consultorio_numero: string;
+  consultorio_bairro: string;
+  consultorio_cidade: string;
+  consultorio_uf: string;
   consultorio_maps_url: string;
 };
 
@@ -188,13 +192,19 @@ export function PsicologoCard({ psicologo }: { psicologo: PsicologoResumo }) {
               </p>
             )}
 
-            {psicologo.tem_consultorio && psicologo.consultorio_endereco && (
+            {psicologo.tem_consultorio && psicologo.consultorio_rua && (
               <div className="mt-4">
                 <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                   Consultório
                 </p>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                  {psicologo.consultorio_endereco}
+                  {formatEndereco({
+                    rua: psicologo.consultorio_rua,
+                    numero: psicologo.consultorio_numero,
+                    bairro: psicologo.consultorio_bairro,
+                    cidade: psicologo.consultorio_cidade,
+                    uf: psicologo.consultorio_uf,
+                  })}
                 </p>
                 {psicologo.consultorio_maps_url && (
                   <a

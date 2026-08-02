@@ -19,7 +19,13 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { generateTimeSlots } from "@/lib/disponibilidade-data";
 import type { ModalidadeAtendimento } from "@/lib/dashboard-data";
-import { formatCurrency, formatDateLabel, nextDays, todayIso } from "@/lib/format";
+import {
+  formatCurrency,
+  formatDateLabel,
+  formatEndereco,
+  nextDays,
+  todayIso,
+} from "@/lib/format";
 
 export type PerfilPublico = {
   id: string;
@@ -35,7 +41,11 @@ export type PerfilPublico = {
   abordagens: string[];
   faixas_etarias: string[];
   tem_consultorio: boolean;
-  consultorio_endereco: string;
+  consultorio_rua: string;
+  consultorio_numero: string;
+  consultorio_bairro: string;
+  consultorio_cidade: string;
+  consultorio_uf: string;
   consultorio_maps_url: string;
 };
 
@@ -698,9 +708,17 @@ export function BookingWizard({
                   </p>
                   {modalidade === "presencial" &&
                     perfil.tem_consultorio &&
-                    perfil.consultorio_endereco && (
+                    perfil.consultorio_rua && (
                       <div className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        <p>{perfil.consultorio_endereco}</p>
+                        <p>
+                          {formatEndereco({
+                            rua: perfil.consultorio_rua,
+                            numero: perfil.consultorio_numero,
+                            bairro: perfil.consultorio_bairro,
+                            cidade: perfil.consultorio_cidade,
+                            uf: perfil.consultorio_uf,
+                          })}
+                        </p>
                         {perfil.consultorio_maps_url && (
                           <a
                             href={perfil.consultorio_maps_url}

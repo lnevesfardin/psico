@@ -61,9 +61,16 @@ alter table perfis drop column if exists horario_fim cascade;
 
 -- Endereço do consultório é opcional: só psicólogos que atendem
 -- presencialmente preenchem, pra aparecer o link do Google Maps na página
--- pública de agendamento.
+-- pública de agendamento. Campos separados (em vez de um texto livre único)
+-- pra dar pra montar o endereço formatado e alimentar o select em cascata
+-- de cidade a partir do estado (ver src/lib/ibge.ts).
 alter table perfis add column if not exists tem_consultorio boolean not null default false;
-alter table perfis add column if not exists consultorio_endereco text not null default '';
+alter table perfis drop column if exists consultorio_endereco cascade;
+alter table perfis add column if not exists consultorio_rua text not null default '';
+alter table perfis add column if not exists consultorio_numero text not null default '';
+alter table perfis add column if not exists consultorio_bairro text not null default '';
+alter table perfis add column if not exists consultorio_cidade text not null default '';
+alter table perfis add column if not exists consultorio_uf text not null default '';
 alter table perfis add column if not exists consultorio_maps_url text not null default '';
 
 create or replace trigger perfis_set_updated_at
@@ -359,7 +366,11 @@ select
   abordagens,
   faixas_etarias,
   tem_consultorio,
-  consultorio_endereco,
+  consultorio_rua,
+  consultorio_numero,
+  consultorio_bairro,
+  consultorio_cidade,
+  consultorio_uf,
   consultorio_maps_url
 from perfis;
 

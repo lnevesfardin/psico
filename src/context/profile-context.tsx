@@ -25,7 +25,11 @@ type ProfileRow = {
   abordagens: string[];
   faixas_etarias: string[];
   tem_consultorio: boolean;
-  consultorio_endereco: string;
+  consultorio_rua: string;
+  consultorio_numero: string;
+  consultorio_bairro: string;
+  consultorio_cidade: string;
+  consultorio_uf: string;
   consultorio_maps_url: string;
 };
 
@@ -44,7 +48,11 @@ function rowToProfile(row: ProfileRow): Profile {
     abordagens: row.abordagens,
     faixasEtarias: row.faixas_etarias,
     temConsultorio: row.tem_consultorio,
-    consultorioEndereco: row.consultorio_endereco,
+    consultorioRua: row.consultorio_rua,
+    consultorioNumero: row.consultorio_numero,
+    consultorioBairro: row.consultorio_bairro,
+    consultorioCidade: row.consultorio_cidade,
+    consultorioUf: row.consultorio_uf,
     consultorioMapsUrl: row.consultorio_maps_url,
   };
 }
@@ -68,7 +76,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     supabase
       .from("perfis")
       .select(
-        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_endereco, consultorio_maps_url"
+        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url"
       )
       .eq("id", user.id)
       .single()
@@ -100,8 +108,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       patch.faixas_etarias = updates.faixasEtarias;
     if (updates.temConsultorio !== undefined)
       patch.tem_consultorio = updates.temConsultorio;
-    if (updates.consultorioEndereco !== undefined)
-      patch.consultorio_endereco = updates.consultorioEndereco;
+    if (updates.consultorioRua !== undefined)
+      patch.consultorio_rua = updates.consultorioRua;
+    if (updates.consultorioNumero !== undefined)
+      patch.consultorio_numero = updates.consultorioNumero;
+    if (updates.consultorioBairro !== undefined)
+      patch.consultorio_bairro = updates.consultorioBairro;
+    if (updates.consultorioCidade !== undefined)
+      patch.consultorio_cidade = updates.consultorioCidade;
+    if (updates.consultorioUf !== undefined)
+      patch.consultorio_uf = updates.consultorioUf;
     if (updates.consultorioMapsUrl !== undefined)
       patch.consultorio_maps_url = updates.consultorioMapsUrl;
 

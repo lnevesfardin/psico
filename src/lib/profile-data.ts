@@ -12,7 +12,11 @@ export type Profile = {
   abordagens: string[];
   faixasEtarias: string[];
   temConsultorio: boolean;
-  consultorioEndereco: string;
+  consultorioRua: string;
+  consultorioNumero: string;
+  consultorioBairro: string;
+  consultorioCidade: string;
+  consultorioUf: string;
   consultorioMapsUrl: string;
 };
 
@@ -30,6 +34,10 @@ export const defaultProfile: Profile = {
   abordagens: [],
   faixasEtarias: [],
   temConsultorio: false,
-  consultorioEndereco: "",
+  consultorioRua: "",
+  consultorioNumero: "",
+  consultorioBairro: "",
+  consultorioCidade: "",
+  consultorioUf: "",
   consultorioMapsUrl: "",
 };

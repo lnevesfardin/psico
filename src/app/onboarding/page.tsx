@@ -15,6 +15,7 @@ import {
   Plus,
   Trash2,
   Video,
+  Layers,
   ArrowRight,
   Loader2,
 } from "lucide-react";
@@ -27,15 +28,26 @@ import type { Profile } from "@/lib/profile-data";
 import {
   weekdayShort,
   weekdayLabels,
-  type Modalidade,
+  type ModalidadeSelecao,
 } from "@/lib/disponibilidade-data";
 import { TimeSelect } from "@/components/ui/time-select";
+import { CidadeSelect } from "@/components/ui/cidade-select";
 import { brStates } from "@/lib/br-states";
 import {
   especialidadesOptions,
   abordagensOptions,
   faixasEtariasOptions,
 } from "@/lib/psico-options";
+
+const modalidadeSelecaoOptions: {
+  value: ModalidadeSelecao;
+  label: string;
+  icon: typeof MapPin;
+}[] = [
+  { value: "presencial", label: "Presencial", icon: MapPin },
+  { value: "online", label: "Online", icon: Video },
+  { value: "ambos", label: "Ambos", icon: Layers },
+];
 
 export default function OnboardingPage() {
   return (
@@ -59,7 +71,8 @@ function OnboardingContent() {
   const [builderDias, setBuilderDias] = useState<number[]>([]);
   const [builderStart, setBuilderStart] = useState("09:00");
   const [builderEnd, setBuilderEnd] = useState("20:00");
-  const [builderModalidade, setBuilderModalidade] = useState<Modalidade>("online");
+  const [builderModalidade, setBuilderModalidade] =
+    useState<ModalidadeSelecao>("online");
   const [addingBlock, setAddingBlock] = useState(false);
   const [blockError, setBlockError] = useState<string | null>(null);
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
@@ -102,7 +115,12 @@ function OnboardingContent() {
     }
     setAddingBlock(true);
     try {
-      await addBlocks(builderDias, builderStart, builderEnd, builderModalidade);
+      if (builderModalidade === "ambos") {
+        await addBlocks(builderDias, builderStart, builderEnd, "presencial");
+        await addBlocks(builderDias, builderStart, builderEnd, "online");
+      } else {
+        await addBlocks(builderDias, builderStart, builderEnd, builderModalidade);
+      }
       setBuilderDias([]);
     } catch (err) {
       setBlockError(err instanceof Error ? err.message : "Erro ao adicionar horário.");
@@ -133,7 +151,12 @@ function OnboardingContent() {
     form.uf.trim() !== "" &&
     form.whatsapp.trim() !== "" &&
     form.price > 0 &&
-    (!form.temConsultorio || form.consultorioEndereco.trim() !== "");
+    (!form.temConsultorio ||
+      (form.consultorioRua.trim() !== "" &&
+        form.consultorioNumero.trim() !== "" &&
+        form.consultorioBairro.trim() !== "" &&
+        form.consultorioCidade.trim() !== "" &&
+        form.consultorioUf.trim() !== ""));
   const hasDisponibilidade = blocks.length > 0;
   const canFinish = profileComplete && hasDisponibilidade;
 
@@ -393,17 +416,76 @@ function OnboardingContent() {
 
             {form.temConsultorio && (
               <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <label className="col-span-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Rua
+                    <input
+                      type="text"
+                      required
+                      value={form.consultorioRua}
+                      onChange={(e) => set("consultorioRua", e.target.value)}
+                      placeholder="Rua Exemplo"
+                      className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Número
+                    <input
+                      type="text"
+                      required
+                      value={form.consultorioNumero}
+                      onChange={(e) => set("consultorioNumero", e.target.value)}
+                      placeholder="123"
+                      className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                    />
+                  </label>
+                </div>
+
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Endereço do consultório
+                  Bairro
                   <input
                     type="text"
                     required
-                    value={form.consultorioEndereco}
-                    onChange={(e) => set("consultorioEndereco", e.target.value)}
-                    placeholder="Rua Exemplo, 123 - Bairro, Cidade - UF"
+                    value={form.consultorioBairro}
+                    onChange={(e) => set("consultorioBairro", e.target.value)}
+                    placeholder="Centro"
                     className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
                   />
                 </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Estado
+                    <select
+                      required
+                      value={form.consultorioUf}
+                      onChange={(e) => {
+                        set("consultorioUf", e.target.value);
+                        set("consultorioCidade", "");
+                      }}
+                      className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                    >
+                      <option value="" disabled>
+                        UF
+                      </option>
+                      {brStates.map((uf) => (
+                        <option key={uf} value={uf}>
+                          {uf}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Cidade
+                    <CidadeSelect
+                      uf={form.consultorioUf}
+                      value={form.consultorioCidade}
+                      onChange={(value) => set("consultorioCidade", value)}
+                      required
+                    />
+                  </label>
+                </div>
+
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   Link do Google Maps{" "}
                   <span className="font-normal text-zinc-400">(opcional)</span>
@@ -473,12 +555,7 @@ function OnboardingContent() {
                 Modalidade
               </label>
               <div className="mt-2 inline-flex rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
-                {(
-                  [
-                    { value: "presencial", label: "Presencial", icon: MapPin },
-                    { value: "online", label: "Online", icon: Video },
-                  ] as const
-                ).map(({ value, label, icon: Icon }) => (
+                {modalidadeSelecaoOptions.map(({ value, label, icon: Icon }) => (
                   <button
                     key={value}
                     type="button"
