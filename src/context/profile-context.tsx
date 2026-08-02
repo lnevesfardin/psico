@@ -31,6 +31,7 @@ type ProfileRow = {
   consultorio_cidade: string;
   consultorio_uf: string;
   consultorio_maps_url: string;
+  sala_online_url: string;
 };
 
 function rowToProfile(row: ProfileRow): Profile {
@@ -54,6 +55,7 @@ function rowToProfile(row: ProfileRow): Profile {
     consultorioCidade: row.consultorio_cidade,
     consultorioUf: row.consultorio_uf,
     consultorioMapsUrl: row.consultorio_maps_url,
+    salaOnlineUrl: row.sala_online_url,
   };
 }
 
@@ -76,7 +78,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     supabase
       .from("perfis")
       .select(
-        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url"
+        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url, sala_online_url"
       )
       .eq("id", user.id)
       .single()
@@ -120,6 +122,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       patch.consultorio_uf = updates.consultorioUf;
     if (updates.consultorioMapsUrl !== undefined)
       patch.consultorio_maps_url = updates.consultorioMapsUrl;
+    if (updates.salaOnlineUrl !== undefined)
+      patch.sala_online_url = updates.salaOnlineUrl;
 
     const { error } = await supabase
       .from("perfis")

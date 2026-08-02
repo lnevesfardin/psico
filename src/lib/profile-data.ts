@@ -18,6 +18,7 @@ export type Profile = {
   consultorioCidade: string;
   consultorioUf: string;
   consultorioMapsUrl: string;
+  salaOnlineUrl: string;
 };
 
 export const defaultProfile: Profile = {
@@ -40,4 +41,5 @@ export const defaultProfile: Profile = {
   consultorioCidade: "",
   consultorioUf: "",
   consultorioMapsUrl: "",
+  salaOnlineUrl: "",
 };

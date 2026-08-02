@@ -66,6 +66,12 @@ alter table perfis drop column if exists horario_fim cascade;
 -- de cidade a partir do estado (ver src/lib/ibge.ts).
 alter table perfis add column if not exists tem_consultorio boolean not null default false;
 alter table perfis drop column if exists consultorio_endereco cascade;
+
+-- Sala fixa de videochamada do psicólogo (Meet/Zoom/Whereby), enviada nos
+-- lembretes das consultas online. NUNCA entra em perfis_publico: se fosse
+-- exposta, qualquer visitante poderia pegar o link e invadir sessões. Só o
+-- despachante de notificações (service role) lê esta coluna.
+alter table perfis add column if not exists sala_online_url text not null default '';
 alter table perfis add column if not exists consultorio_rua text not null default '';
 alter table perfis add column if not exists consultorio_numero text not null default '';
 alter table perfis add column if not exists consultorio_bairro text not null default '';
@@ -238,6 +244,50 @@ create or replace trigger lancamentos_financeiros_set_updated_at
   for each row execute function set_updated_at();
 
 -- =========================================================
+-- notificacoes — fila (outbox) de lembretes de consulta.
+-- Uma linha por (consulta × destinatário × canal): uma consulta online
+-- confirmada com e-mail e webhook ligados gera 4 linhas (paciente/psicólogo
+-- × e-mail/webhook). Quem cria e envia é o endpoint
+-- /api/notificacoes/dispatch, chamado pelo pg_cron (ver no fim do arquivo).
+--
+-- LGPD: "payload" guarda só dado de agendamento (nome, data, hora,
+-- modalidade, local/link). Nunca prontuário, motivo da consulta ou CPF.
+-- =========================================================
+create table if not exists notificacoes (
+  id uuid primary key default gen_random_uuid(),
+  consulta_id uuid not null references consultas(id) on delete cascade,
+  tipo text not null check (tipo in ('lembrete_1h')),
+  destinatario text not null check (destinatario in ('paciente', 'psicologo')),
+  canal text not null check (canal in ('email', 'webhook')),
+  destino text not null, -- endereço de e-mail ou URL do webhook
+  payload jsonb not null,
+  status text not null default 'pendente'
+    check (status in ('pendente', 'enviado', 'erro', 'cancelado')),
+  tentativas int not null default 0,
+  erro text,
+  agendado_para timestamptz not null, -- início da consulta menos 1h
+  enviado_em timestamptz,
+  created_at timestamptz not null default now(),
+  -- Garantia de idempotência: mesmo se o cron rodar duas vezes em paralelo,
+  -- o mesmo lembrete nunca é enfileirado (nem enviado) duas vezes.
+  unique (consulta_id, tipo, destinatario, canal)
+);
+
+create index if not exists notificacoes_pendentes_idx
+  on notificacoes (agendado_para)
+  where status = 'pendente';
+
+-- =========================================================
+-- app_secrets — URL da aplicação e segredo usados pelo pg_cron para chamar
+-- o endpoint de despacho. Fica no banco (e não no arquivo) porque este
+-- schema.sql vai para o git; os valores são inseridos à mão no SQL Editor.
+-- =========================================================
+create table if not exists app_secrets (
+  chave text primary key,
+  valor text not null
+);
+
+-- =========================================================
 -- Row Level Security
 -- =========================================================
 alter table perfis enable row level security;
@@ -246,6 +296,11 @@ alter table pacientes enable row level security;
 alter table sessoes_prontuario enable row level security;
 alter table consultas enable row level security;
 alter table lancamentos_financeiros enable row level security;
+alter table notificacoes enable row level security;
+-- app_secrets fica com RLS ligada e SEM NENHUMA POLICY de propósito: assim
+-- nem a anon key (que vai pro bundle JS) nem um usuário logado conseguem ler
+-- o segredo do cron. Só postgres (o próprio pg_cron) e a service_role key.
+alter table app_secrets enable row level security;
 
 drop policy if exists "psicologo_ve_proprio_perfil" on perfis;
 create policy "psicologo_ve_proprio_perfil" on perfis
@@ -336,6 +391,18 @@ create policy "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros
 drop policy if exists "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
   for delete using (auth.uid() = psicologo_id);
+
+-- Psicólogo enxerga (só leitura) os lembretes das próprias consultas, para
+-- poder conferir o que foi enviado. Escrita é exclusiva do despachante, que
+-- usa a service_role key e portanto ignora RLS.
+drop policy if exists "psicologo_ve_proprias_notificacoes" on notificacoes;
+create policy "psicologo_ve_proprias_notificacoes" on notificacoes
+  for select using (
+    exists (
+      select 1 from consultas c
+      where c.id = notificacoes.consulta_id and c.psicologo_id = auth.uid()
+    )
+  );
 
 -- =========================================================
 -- View pública (usada pela página /agendar/[psicologoId])
@@ -651,3 +718,66 @@ begin
     alter publication supabase_realtime add table lancamentos_financeiros;
   end if;
 end $$;
+
+-- =========================================================
+-- Lembretes de consulta (1h antes) — agendamento
+--
+-- pg_cron chama, a cada 10 minutos, o endpoint /api/notificacoes/dispatch
+-- da aplicação, que enfileira e envia os lembretes. O cron da Vercel não
+-- serve aqui: no plano grátis ele só roda 1x por dia.
+--
+-- ANTES DE FUNCIONAR, rode uma vez (com os seus valores reais — não commite):
+--   insert into app_secrets (chave, valor) values
+--     ('app_url', 'https://SEU-APP.vercel.app'),
+--     ('cron_secret', 'UM-SEGREDO-LONGO-E-ALEATORIO')
+--   on conflict (chave) do update set valor = excluded.valor;
+-- O mesmo valor de cron_secret precisa estar na env var CRON_SECRET da Vercel.
+-- =========================================================
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+create or replace function disparar_lembretes()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_url text;
+  v_secret text;
+begin
+  select valor into v_url from app_secrets where chave = 'app_url';
+  select valor into v_secret from app_secrets where chave = 'cron_secret';
+
+  -- Sem configuração ainda: não faz nada em vez de estourar erro a cada 10
+  -- minutos no log do banco.
+  if v_url is null or v_secret is null then
+    return;
+  end if;
+
+  perform net.http_post(
+    url := v_url || '/api/notificacoes/dispatch',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_secret
+    ),
+    body := '{}'::jsonb
+  );
+end;
+$$;
+
+-- unschedule antes de agendar: "cron.schedule" com o mesmo nome atualiza o
+-- job, mas o unschedule explícito deixa o arquivo reexecutável sem depender
+-- desse detalhe de versão do pg_cron.
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'lembretes-consulta') then
+    perform cron.unschedule('lembretes-consulta');
+  end if;
+end $$;
+
+select cron.schedule(
+  'lembretes-consulta',
+  '*/10 * * * *',
+  $$select disparar_lembretes()$$
+);

@@ -605,11 +605,16 @@ export function BookingWizard({
                 E-mail
                 <input
                   type="email"
+                  required
                   placeholder="voce@exemplo.com"
                   value={form.email}
                   onChange={(e) => set("email", e.target.value)}
                   className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
                 />
+                <span className="mt-1.5 block text-xs font-normal text-zinc-400">
+                  Enviamos aqui o lembrete da consulta 1 hora antes, com o link
+                  da sala ou o endereço do consultório.
+                </span>
               </label>
 
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
