@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   CalendarClock,
+  CalendarCheck,
   FileText,
   Users,
   Wallet,
@@ -16,8 +17,29 @@ import {
   ChevronDown,
   Menu,
   X,
+  Sparkles,
+  Search,
+  UserPlus,
+  BellRing,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
+
+/** Superfície padrão dos cards: sutil no claro, translúcida no escuro. */
+const cardBase =
+  "rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-300 dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none dark:backdrop-blur-sm";
+
+const cardHover =
+  "hover:-translate-y-1 hover:border-brand-300 hover:shadow-xl dark:hover:border-brand-500/50";
+
+/** Halo desfocado de fundo — só decorativo, nunca captura clique. */
+function Glow({ className }: { className: string }) {
+  return (
+    <div
+      aria-hidden
+      className={`pointer-events-none absolute -z-10 rounded-full blur-[110px] ${className}`}
+    />
+  );
+}
 
 const features = [
   {
@@ -46,8 +68,8 @@ const features = [
   },
 ];
 
-// Depoimentos ilustrativos — trocar por relatos reais de clientes antes de
-// publicar a página em produção.
+// Depoimentos ilustrativos — trocar por relatos reais de clientes (e fotos
+// com autorização, no lugar das iniciais) antes de publicar em produção.
 const testimonials = [
   {
     quote:
@@ -131,27 +153,74 @@ const navLinks = [
 // destacado (cor de alerta) em vez de se misturar com a navegação comum.
 const safetyLink = { href: "#seguranca", label: "Aviso de Segurança" };
 
-const howItWorksClient = [
-  "Acesse a página de agendamento — ou o link direto de um psicólogo — sem precisar criar conta.",
-  "Escolha o profissional certo pelo perfil: especialidade, abordagem, faixa etária atendida e valor da consulta.",
-  "Marque o dia e horário disponíveis e preencha seus dados.",
-  "Acompanhe seus agendamentos e receba a confirmação do psicólogo.",
-];
+type Fluxo = "psicologo" | "paciente";
 
-const howItWorksPsicologo = [
-  "Crie sua conta gratuita e monte seu perfil: CRP, abordagem, especialidades e valor da consulta.",
-  "Configure sua disponibilidade e compartilhe seu link de agendamento público.",
-  "Gerencie pacientes, prontuário eletrônico e agenda em um só lugar.",
-  "Controle o financeiro e acompanhe os agendamentos feitos pelos seus clientes.",
-];
+const howItWorks: Record<
+  Fluxo,
+  { icon: typeof Search; title: string; description: string }[]
+> = {
+  paciente: [
+    {
+      icon: Search,
+      title: "Encontre um profissional",
+      description:
+        "Acesse a página de agendamento — ou o link direto de um psicólogo — sem precisar criar conta.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Confira o perfil completo",
+      description:
+        "Compare especialidade, abordagem, faixa etária atendida, região e valor da consulta.",
+    },
+    {
+      icon: CalendarCheck,
+      title: "Escolha dia e horário",
+      description:
+        "Veja os horários realmente disponíveis, escolha presencial ou online e preencha seus dados.",
+    },
+    {
+      icon: BellRing,
+      title: "Receba a confirmação",
+      description:
+        "Acompanhe tudo em “Meus Agendamentos” e receba a confirmação do psicólogo.",
+    },
+  ],
+  psicologo: [
+    {
+      icon: UserPlus,
+      title: "Crie sua conta gratuita",
+      description:
+        "Monte seu perfil: CRP, abordagem, especialidades e valor da consulta.",
+    },
+    {
+      icon: CalendarClock,
+      title: "Configure sua disponibilidade",
+      description:
+        "Defina dias, horários e modalidade e compartilhe seu link de agendamento público.",
+    },
+    {
+      icon: FileText,
+      title: "Gerencie pacientes e prontuários",
+      description:
+        "Agenda, cadastro de pacientes e prontuário eletrônico em um só lugar.",
+    },
+    {
+      icon: Wallet,
+      title: "Acompanhe o financeiro",
+      description:
+        "Controle recebimentos e acompanhe os agendamentos feitos pelos seus clientes.",
+    },
+  ],
+};
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [fluxo, setFluxo] = useState<Fluxo>("psicologo");
 
   return (
-    <div className="flex min-h-screen flex-col bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
+    <div className="flex min-h-screen flex-col bg-white font-sans text-zinc-900 dark:bg-ink-950 dark:text-zinc-50">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/80">
+      <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur-md dark:border-white/5 dark:bg-ink-950/80">
         <div className="mx-auto flex max-w-[85rem] items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-2 sm:gap-3">
             <button
@@ -159,7 +228,7 @@ export default function Home() {
               onClick={() => setMobileMenuOpen((v) => !v)}
               aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
               aria-expanded={mobileMenuOpen}
-              className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-400 dark:hover:bg-zinc-900"
+              className="rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-100 lg:hidden dark:text-zinc-400 dark:hover:bg-white/5"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -170,7 +239,7 @@ export default function Home() {
             </div>
           </div>
 
-          <nav className="hidden items-center gap-10 text-sm font-medium text-zinc-600 lg:flex dark:text-zinc-400">
+          <nav className="hidden items-center gap-8 text-sm font-medium text-zinc-600 lg:flex dark:text-zinc-400">
             {navLinks.map(({ href, label }) => (
               <a
                 key={href}
@@ -183,22 +252,21 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:inline-flex dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              Online · horários disponíveis esta semana
-            </span>
+            <Link
+              href="/agendar"
+              className="hidden rounded-full px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:text-zinc-900 md:block dark:text-zinc-400 dark:hover:text-white"
+            >
+              Encontrar psicólogo
+            </Link>
             <Link
               href="/login"
-              className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors duration-300 ease-in-out hover:bg-zinc-50 sm:px-4 sm:py-2 sm:text-sm dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors duration-300 ease-in-out hover:bg-zinc-50 sm:px-4 sm:py-2 sm:text-sm dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/5"
             >
               Entrar
             </Link>
             <Link
               href="/cadastro"
-              className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-300 ease-in-out hover:scale-[1.03] hover:bg-zinc-700 active:scale-95 sm:px-4 sm:py-2 sm:text-sm dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-brand-600/20 transition-all duration-300 ease-in-out hover:scale-[1.03] hover:bg-brand-500 active:scale-95 sm:px-4 sm:py-2 sm:text-sm"
             >
               Testar Grátis
             </Link>
@@ -206,37 +274,44 @@ export default function Home() {
         </div>
 
         {mobileMenuOpen && (
-          <nav className="flex flex-col gap-1 border-t border-zinc-100 px-6 py-3 text-sm font-medium text-zinc-600 lg:hidden dark:border-zinc-900 dark:text-zinc-400">
+          <nav className="flex flex-col gap-1 border-t border-zinc-100 px-6 py-3 text-sm font-medium text-zinc-600 lg:hidden dark:border-white/5 dark:text-zinc-400">
             {navLinks.map(({ href, label }) => (
               <a
                 key={href}
                 href={href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="rounded-lg px-2 py-2.5 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-white"
+                className="rounded-lg px-2 py-2.5 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/5 dark:hover:text-white"
               >
                 {label}
               </a>
             ))}
+            <Link
+              href="/agendar"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg px-2 py-2.5 transition-colors hover:bg-zinc-100 hover:text-zinc-900 md:hidden dark:hover:bg-white/5 dark:hover:text-white"
+            >
+              Encontrar psicólogo
+            </Link>
           </nav>
         )}
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 py-28 sm:py-40">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,theme(colors.brand.100),transparent_60%)] dark:bg-[radial-gradient(circle_at_top,theme(colors.brand.950),transparent_60%)]"
-        />
+      <section className="relative overflow-hidden px-6 py-24 sm:py-36">
+        <Glow className="left-1/2 top-[-8rem] h-[34rem] w-[34rem] -translate-x-1/2 bg-brand-300/40 dark:bg-brand-500/15" />
+        <Glow className="right-[-6rem] top-[10rem] h-[22rem] w-[22rem] bg-sky-200/30 dark:bg-sky-500/10" />
+
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <motion.span
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-300"
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/80 px-4 py-1.5 text-sm font-medium text-brand-700 backdrop-blur-sm dark:border-brand-500/25 dark:bg-brand-500/10 dark:text-brand-300"
           >
-            <ShieldCheck className="h-4 w-4" />
-            Feito para psicólogos e consultórios
+            <Sparkles className="h-4 w-4" />
+            A plataforma simples para psicólogos focarem no que importa: pessoas.
           </motion.span>
+
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -245,6 +320,7 @@ export default function Home() {
           >
             Gestão de consultório de psicologia sem complicação
           </motion.h1>
+
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -255,82 +331,148 @@ export default function Home() {
             em um só sistema, para que você cuide dos seus pacientes e não da
             planilha.
           </motion.p>
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-12 flex flex-col gap-4 sm:flex-row"
+            className="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row"
           >
             <Link
               href="/cadastro"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-600/20 transition-all duration-300 ease-in-out hover:scale-[1.03] hover:bg-brand-700 active:scale-95"
+              className="group inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-600/25 transition-all duration-300 ease-in-out hover:scale-[1.03] hover:bg-brand-500 hover:shadow-xl hover:shadow-brand-500/30 active:scale-95"
             >
               Criar minha conta grátis
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-0.5" />
             </Link>
+            <a
+              href="#como-funciona"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white/60 px-8 py-3.5 text-base font-semibold text-zinc-700 backdrop-blur-sm transition-all duration-300 ease-in-out hover:border-brand-300 hover:bg-white active:scale-95 dark:border-white/15 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-brand-500/50 dark:hover:bg-white/10"
+            >
+              Ver como funciona
+            </a>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="mt-10 flex flex-col items-center gap-3 sm:flex-row"
+          >
+            <div className="flex -space-x-2">
+              {["MT", "CE", "AP", "LF"].map((iniciais, i) => (
+                <span
+                  key={iniciais}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-brand-800 dark:border-ink-950 ${
+                    ["bg-brand-200", "bg-brand-300", "bg-brand-100", "bg-brand-200"][i]
+                  }`}
+                >
+                  {iniciais}
+                </span>
+              ))}
+            </div>
+            <p className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
+              <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                +1.000 psicólogos
+              </span>{" "}
+              já simplificaram a rotina clínica
+            </p>
           </motion.div>
         </div>
       </section>
 
       {/* Como Funciona */}
-      <section id="como-funciona" className="bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-zinc-900/40">
-        <div className="mx-auto max-w-6xl">
+      <section
+        id="como-funciona"
+        className="relative overflow-hidden bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-ink-900/60"
+      >
+        <div className="mx-auto max-w-5xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Como funciona
             </h2>
             <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-              O Psi Rob funciona de um jeito para quem busca atendimento e de
-              outro para quem atende — veja como cada lado usa a plataforma.
+              O Psi Rob funciona de um jeito para quem atende e de outro para
+              quem busca atendimento. Escolha o seu lado.
             </p>
           </Reveal>
-          <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <Reveal>
-              <div className="h-full rounded-2xl border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
-                <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-                  <Users className="h-3.5 w-3.5" />
-                  Sendo Cliente
+
+          <Reveal delay={0.1} className="mt-10 flex justify-center">
+            <div
+              role="tablist"
+              aria-label="Escolha o fluxo"
+              className="inline-flex rounded-full border border-zinc-200 bg-white p-1 dark:border-white/10 dark:bg-white/[0.04]"
+            >
+              {(
+                [
+                  { value: "psicologo", label: "Sou Psicólogo" },
+                  { value: "paciente", label: "Sou Paciente" },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={fluxo === value}
+                  onClick={() => setFluxo(value)}
+                  className={`rounded-full px-5 py-2 text-sm font-semibold transition-all duration-300 ${
+                    fluxo === value
+                      ? "bg-brand-600 text-white shadow-md shadow-brand-600/20"
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Reveal>
+
+          <motion.div
+            key={fluxo}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2"
+          >
+            {howItWorks[fluxo].map(({ icon: Icon, title, description }, i) => (
+              <div key={title} className={`${cardBase} ${cardHover} p-6`}>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                      Passo {i + 1}
+                    </p>
+                    <h3 className="mt-1 font-semibold text-zinc-900 dark:text-white">
+                      {title}
+                    </h3>
+                    <p className="mt-1.5 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+                      {description}
+                    </p>
+                  </div>
                 </div>
-                <ol className="mt-6 space-y-5">
-                  {howItWorksClient.map((step, i) => (
-                    <li key={step} className="flex items-start gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
-                        {i + 1}
-                      </span>
-                      <p className="text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-                        {step}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
               </div>
-            </Reveal>
-            <Reveal delay={0.1}>
-              <div className="h-full rounded-2xl border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
-                <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Sendo Psicólogo
-                </div>
-                <ol className="mt-6 space-y-5">
-                  {howItWorksPsicologo.map((step, i) => (
-                    <li key={step} className="flex items-start gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
-                        {i + 1}
-                      </span>
-                      <p className="text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-                        {step}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </Reveal>
-          </div>
+            ))}
+          </motion.div>
+
+          <Reveal delay={0.2} className="mt-10 flex justify-center">
+            <Link
+              href={fluxo === "psicologo" ? "/cadastro" : "/agendar"}
+              className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] hover:bg-brand-500 active:scale-95"
+            >
+              {fluxo === "psicologo"
+                ? "Criar minha conta grátis"
+                : "Encontrar um psicólogo"}
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+            </Link>
+          </Reveal>
         </div>
       </section>
 
       {/* Recursos */}
-      <section id="recursos" className="px-6 py-24 lg:py-32">
+      <section id="recursos" className="relative overflow-hidden px-6 py-24 lg:py-32">
+        <Glow className="left-[-8rem] top-[6rem] h-[26rem] w-[26rem] bg-brand-200/40 dark:bg-brand-500/10" />
         <div className="mx-auto max-w-6xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -341,30 +483,20 @@ export default function Home() {
               do seu dia a dia.
             </p>
           </Reveal>
-          <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-20 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {features.map(({ icon: Icon, title, description }, i) => (
               <Reveal key={title} delay={i * 0.08}>
-                <motion.div
-                  whileHover={{ y: -8 }}
-                  transition={{ duration: 0.35, ease: "easeInOut" }}
-                  className="group relative h-full"
-                >
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-400/0 to-brand-300/0 opacity-0 blur-2xl transition-opacity duration-400 ease-in-out group-hover:from-brand-400/40 group-hover:to-brand-200/20 group-hover:opacity-100 dark:group-hover:from-brand-500/30 dark:group-hover:to-brand-400/10"
-                  />
-                  <div className="relative h-full rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm transition-shadow duration-300 ease-in-out group-hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                      {title}
-                    </h3>
-                    <p className="mt-2 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-                      {description}
-                    </p>
+                <div className={`${cardBase} ${cardHover} h-full p-6`}>
+                  <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                    <Icon className="h-6 w-6" />
                   </div>
-                </motion.div>
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    {description}
+                  </p>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -372,7 +504,10 @@ export default function Home() {
       </section>
 
       {/* Sobre */}
-      <section id="sobre" className="bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-zinc-900/40">
+      <section
+        id="sobre"
+        className="bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-ink-900/60"
+      >
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
           <Reveal>
             <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
@@ -393,7 +528,7 @@ export default function Home() {
               isolados dos de qualquer outro profissional na plataforma.
             </p>
           </Reveal>
-          <Reveal delay={0.15} className="grid grid-cols-2 gap-6">
+          <Reveal delay={0.15} className="grid grid-cols-2 gap-5">
             {[
               { value: "1.000+", label: "Profissionais ativos" },
               { value: "50 mil+", label: "Sessões registradas" },
@@ -402,7 +537,7 @@ export default function Home() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900"
+                className={`${cardBase} ${cardHover} p-8 text-center`}
               >
                 <div className="text-3xl font-bold text-brand-600 dark:text-brand-400">
                   {stat.value}
@@ -427,37 +562,44 @@ export default function Home() {
               Psicólogos que trocaram planilha e caderno pelo Psi Rob.
             </p>
           </Reveal>
-          <div className="mt-20 grid grid-cols-1 gap-8 sm:grid-cols-3">
+          <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {testimonials.map((t, i) => (
               <Reveal key={t.name} delay={i * 0.1}>
-                <motion.div
-                  whileHover={{ y: -6 }}
-                  transition={{ duration: 0.35, ease: "easeInOut" }}
-                  className="group relative h-full"
+                <div
+                  className={`${cardBase} ${cardHover} relative flex h-full flex-col overflow-hidden p-8`}
                 >
-                  <div
+                  <span
                     aria-hidden
-                    className="pointer-events-none absolute -inset-4 rounded-3xl bg-brand-300/0 opacity-0 blur-2xl transition-opacity duration-400 ease-in-out group-hover:bg-brand-300/30 group-hover:opacity-100 dark:group-hover:bg-brand-500/20"
-                  />
-                  <div className="relative flex h-full flex-col rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="flex gap-0.5 text-amber-400">
-                      {Array.from({ length: 5 }).map((_, starIndex) => (
-                        <Star key={starIndex} className="h-4 w-4 fill-current" />
-                      ))}
-                    </div>
-                    <p className="mt-5 flex-1 text-base font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-                      &ldquo;{t.quote}&rdquo;
-                    </p>
-                    <div className="mt-8 border-t border-zinc-100 pt-5 dark:border-zinc-800">
-                      <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                    className="pointer-events-none absolute -right-2 -top-6 select-none text-[7rem] leading-none text-brand-500/10 dark:text-brand-400/10"
+                  >
+                    &rdquo;
+                  </span>
+                  <div className="flex gap-0.5 text-amber-400">
+                    {Array.from({ length: 5 }).map((_, starIndex) => (
+                      <Star key={starIndex} className="h-4 w-4 fill-current" />
+                    ))}
+                  </div>
+                  <p className="relative mt-5 flex-1 text-base font-normal leading-relaxed text-zinc-600 dark:text-zinc-300">
+                    {t.quote}
+                  </p>
+                  <div className="mt-8 flex items-center gap-3 border-t border-zinc-100 pt-5 dark:border-white/10">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+                      {t.name
+                        .split(" ")
+                        .slice(0, 2)
+                        .map((n) => n[0])
+                        .join("")}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
                         {t.name}
                       </p>
-                      <p className="text-xs font-normal text-zinc-500 dark:text-zinc-500">
+                      <p className="truncate text-xs font-normal text-zinc-500 dark:text-zinc-400">
                         {t.role}
                       </p>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -465,7 +607,11 @@ export default function Home() {
       </section>
 
       {/* Planos */}
-      <section id="planos" className="bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-zinc-900/40">
+      <section
+        id="planos"
+        className="relative overflow-hidden bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-ink-900/60"
+      >
+        <Glow className="left-1/2 top-[4rem] h-[30rem] w-[30rem] -translate-x-1/2 bg-brand-300/30 dark:bg-brand-500/12" />
         <div className="mx-auto max-w-4xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -479,14 +625,14 @@ export default function Home() {
             {plans.map((plan, i) => (
               <Reveal key={plan.name} delay={i * 0.1}>
                 <div
-                  className={`relative h-full rounded-2xl border p-8 ${
+                  className={`relative h-full rounded-2xl border p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:shadow-none dark:backdrop-blur-sm ${
                     plan.highlighted
-                      ? "border-brand-300 bg-white shadow-xl shadow-brand-600/10 dark:border-brand-800 dark:bg-zinc-900"
-                      : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+                      ? "border-brand-300 bg-white shadow-xl shadow-brand-600/10 dark:border-brand-500/40 dark:bg-brand-500/[0.07]"
+                      : "border-zinc-200 bg-white hover:border-brand-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/50"
                   }`}
                 >
                   {plan.highlighted && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white">
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white shadow-md shadow-brand-600/30">
                       Mais popular
                     </span>
                   )}
@@ -506,7 +652,10 @@ export default function Home() {
                   </div>
                   <ul className="mt-6 space-y-3">
                     {planFeatures.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+                      <li
+                        key={f}
+                        className="flex items-start gap-2 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400"
+                      >
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
                         {f}
                       </li>
@@ -516,7 +665,7 @@ export default function Home() {
                     href="/cadastro"
                     className={`mt-8 flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all duration-300 ease-in-out hover:scale-[1.02] active:scale-95 ${
                       plan.highlighted
-                        ? "bg-brand-600 text-white hover:bg-brand-700"
+                        ? "bg-brand-600 text-white shadow-lg shadow-brand-600/25 hover:bg-brand-500"
                         : "bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
                     }`}
                   >
@@ -538,7 +687,7 @@ export default function Home() {
               Perguntas frequentes
             </h2>
           </Reveal>
-          <div className="mt-16 divide-y divide-zinc-100 border-t border-b border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
+          <div className="mt-16 space-y-3">
             {faq.map((item, i) => (
               <Reveal key={item.question} delay={i * 0.06}>
                 <FaqItem question={item.question} answer={item.answer} />
@@ -549,39 +698,41 @@ export default function Home() {
       </section>
 
       {/* Aviso de Segurança */}
-      <section id="seguranca" className="px-6 py-24 lg:py-32">
+      <section id="seguranca" className="px-6 pb-24 lg:pb-32">
         <div className="mx-auto max-w-3xl">
-          <div className="flex items-start gap-4 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
-            <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0" />
-            <p className="text-sm leading-relaxed sm:text-base">
-              <strong>Aviso de Segurança:</strong> Esta plataforma não é um
-              canal de socorro nem oferece auxílio imediato para pessoas em
-              risco de suicídio. Em momentos de crise, busque ajuda pelo
-              telefone{" "}
-              <a
-                href="tel:188"
-                className="font-bold underline underline-offset-2 hover:text-rose-900 dark:hover:text-rose-100"
-              >
-                188
-              </a>{" "}
-              (CVV) ou pelo site{" "}
-              <a
-                href="https://www.cvv.org.br"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-bold underline underline-offset-2 hover:text-rose-900 dark:hover:text-rose-100"
-              >
-                www.cvv.org.br
-              </a>
-              . Em emergências, vá sem hesitar à unidade hospitalar mais
-              próxima.
-            </p>
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800 sm:p-8 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <ShieldAlert className="h-7 w-7 shrink-0" />
+              <p className="text-sm leading-relaxed sm:text-base">
+                <strong>Aviso de Segurança:</strong> Esta plataforma não é um
+                canal de socorro nem oferece auxílio imediato para pessoas em
+                risco de suicídio. Em momentos de crise, busque ajuda pelo
+                telefone{" "}
+                <a
+                  href="tel:188"
+                  className="font-bold text-amber-600 underline decoration-2 underline-offset-4 transition-colors hover:text-amber-500 dark:text-amber-300 dark:hover:text-amber-200"
+                >
+                  188
+                </a>{" "}
+                (CVV) ou pelo site{" "}
+                <a
+                  href="https://www.cvv.org.br"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-amber-600 underline decoration-2 underline-offset-4 transition-colors hover:text-amber-500 dark:text-amber-300 dark:hover:text-amber-200"
+                >
+                  www.cvv.org.br
+                </a>
+                . Em emergências, vá sem hesitar à unidade hospitalar mais
+                próxima.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-zinc-100 px-6 py-16 dark:border-zinc-900">
+      <footer className="mt-auto border-t border-zinc-100 px-6 py-16 dark:border-white/5">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
           <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -589,10 +740,16 @@ export default function Home() {
             Psi Rob
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-6 text-sm font-normal text-zinc-600 dark:text-zinc-400">
-            <a href="#recursos" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
+            <a
+              href="#recursos"
+              className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white"
+            >
               Recursos
             </a>
-            <a href="#sobre" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
+            <a
+              href="#sobre"
+              className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white"
+            >
               Sobre
             </a>
             <a
@@ -602,10 +759,16 @@ export default function Home() {
               <ShieldAlert className="h-3.5 w-3.5" />
               {safetyLink.label}
             </a>
-            <a href="#" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
+            <a
+              href="#"
+              className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white"
+            >
               Termos de Uso
             </a>
-            <a href="#" className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white">
+            <a
+              href="#"
+              className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white"
+            >
               Privacidade
             </a>
           </nav>
@@ -622,19 +785,29 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div>
+    <div
+      className={`overflow-hidden rounded-xl border transition-colors duration-300 ${
+        open
+          ? "border-brand-300 bg-brand-50/40 dark:border-brand-500/40 dark:bg-brand-500/[0.06]"
+          : "border-zinc-200 bg-white hover:border-brand-200 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20"
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 py-5 text-left text-sm font-semibold text-zinc-900 transition-colors duration-300 ease-in-out hover:text-brand-600 dark:text-white dark:hover:text-brand-400"
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-zinc-900 transition-colors duration-300 ease-in-out hover:text-brand-700 dark:text-white dark:hover:text-brand-300"
         aria-expanded={open}
       >
         {question}
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-300 ease-in-out ${
-            open ? "rotate-180" : ""
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all duration-300 ${
+            open
+              ? "rotate-180 bg-brand-600 text-white"
+              : "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400"
           }`}
-        />
+        >
+          <ChevronDown className="h-4 w-4" />
+        </span>
       </button>
       <div
         className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
@@ -642,7 +815,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
         }`}
       >
         <div className="overflow-hidden">
-          <p className="pb-5 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <p className="px-5 pb-5 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
             {answer}
           </p>
         </div>

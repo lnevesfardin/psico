@@ -11,7 +11,10 @@
 }
 
 .dark {
-  --background: #0a0a0a;
+  /* Preto puro (#000/#0a0a0a) deixava a interface com cara de terminal e
+     cansa a vista; este tom levemente azulado é mais acolhedor e dá contraste
+     suficiente para os cards translúcidos por cima. */
+  --background: #0d1117;
   --foreground: #ededed;
 }
 
@@ -32,6 +35,12 @@
   --color-brand-800: #3c4830;
   --color-brand-900: #333c2a;
   --color-brand-950: #1a2015;
+
+  /* Superfícies do dark theme: base levemente azulada (ink-950) e um degrau
+     acima (ink-900) para seções alternadas. Usadas no lugar de zinc-950/900
+     puros, que ficavam frios demais. */
+  --color-ink-900: #131922;
+  --color-ink-950: #0d1117;
 }
 
 html {
