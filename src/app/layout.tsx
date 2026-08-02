@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import "./globals.css";
 
 // Gotham é uma fonte paga (não está no Google Fonts) — Montserrat é a
@@ -44,6 +45,11 @@ export default function RootLayout({
           }}
         />
         <AuthProvider>{children}</AuthProvider>
+        {/* Flutuante e único para o site inteiro (landing, área do cliente
+            e do psicólogo) — evita duplicar o toggle em cada header/sidebar. */}
+        <div className="fixed bottom-4 left-4 z-40">
+          <ThemeToggle />
+        </div>
       </body>
     </html>
   );

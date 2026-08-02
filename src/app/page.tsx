@@ -18,7 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const features = [
   {
@@ -184,9 +183,6 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:block">
-              <ThemeToggle />
-            </div>
             <span className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:inline-flex dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -221,9 +217,6 @@ export default function Home() {
                 {label}
               </a>
             ))}
-            <div className="mt-1 px-2 py-1.5 sm:hidden">
-              <ThemeToggle />
-            </div>
           </nav>
         )}
       </header>

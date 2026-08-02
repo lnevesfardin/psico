@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navItems = [
   { href: "/dashboard/agenda", label: "Agenda de Hoje", icon: CalendarDays },
@@ -64,7 +63,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      <div className="border-t border-zinc-100 px-6 py-4 dark:border-zinc-900">
+      {/* pb extra no desktop: dá espaço pro toggle de tema flutuante (fixo no
+          canto inferior esquerdo da viewport) não cobrir o botão Sair. */}
+      <div className="border-t border-zinc-100 px-6 py-4 md:pb-16 dark:border-zinc-900">
         <Link
           href="/dashboard/perfil"
           onClick={onNavigate}
@@ -96,7 +97,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </p>
           </div>
         </Link>
-        <div className="mt-4 flex items-center justify-between gap-2">
+        <div className="mt-4">
           <button
             type="button"
             onClick={handleSignOut}
@@ -105,7 +106,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <LogOut className="h-4 w-4" />
             Sair
           </button>
-          <ThemeToggle />
         </div>
       </div>
     </div>
