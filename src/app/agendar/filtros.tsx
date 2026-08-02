@@ -17,6 +17,8 @@ export type FiltrosState = {
   uf: string;
   cidade: string;
   faixa: string;
+  precoMin: string;
+  precoMax: string;
 };
 
 const emptyFiltros: FiltrosState = {
@@ -26,6 +28,8 @@ const emptyFiltros: FiltrosState = {
   uf: "",
   cidade: "",
   faixa: "",
+  precoMin: "",
+  precoMax: "",
 };
 
 function toQueryString(filtros: FiltrosState) {
@@ -129,6 +133,35 @@ export function FiltrosPsicologos({ initial }: { initial: FiltrosState }) {
           placeholder="Cidade"
           className={fieldClass}
         />
+      </div>
+
+      <div>
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          Faixa de preço (R$)
+        </span>
+        <div className="mt-1.5 flex items-center gap-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step="1"
+            value={form.precoMin}
+            onChange={(e) => set("precoMin", e.target.value)}
+            placeholder="Mínimo"
+            className={fieldClass}
+          />
+          <span className="text-sm text-zinc-400">até</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step="1"
+            value={form.precoMax}
+            onChange={(e) => set("precoMax", e.target.value)}
+            placeholder="Máximo"
+            className={fieldClass}
+          />
+        </div>
       </div>
 
       {hasFilters && (

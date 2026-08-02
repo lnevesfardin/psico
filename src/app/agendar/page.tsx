@@ -1,22 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, MapPin, ShieldAlert, User } from "lucide-react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { formatCurrency } from "@/lib/format";
 import { FiltrosPsicologos, type FiltrosState } from "./filtros";
-
-type PerfilPublicoResumo = {
-  id: string;
-  nome: string;
-  titulo: string;
-  crp: string;
-  uf: string;
-  cidade: string;
-  foto_url: string | null;
-  valor_consulta: number;
-  especialidades: string[];
-  abordagens: string[];
-  faixas_etarias: string[];
-};
+import { PsicologoCard, type PsicologoResumo } from "./psicologo-card";
 
 export default async function AgendarDiretorioPage({
   searchParams,
@@ -33,14 +19,18 @@ export default async function AgendarDiretorioPage({
     uf: first(params.uf),
     cidade: first(params.cidade),
     faixa: first(params.faixa),
+    precoMin: first(params.precoMin),
+    precoMax: first(params.precoMax),
   };
+  const precoMin = Number(filtros.precoMin);
+  const precoMax = Number(filtros.precoMax);
 
   const supabase = await createClient();
 
   let query = supabase
     .from("perfis_publico")
     .select(
-      "id, nome, titulo, crp, uf, cidade, foto_url, valor_consulta, especialidades, abordagens, faixas_etarias"
+      "id, nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, especialidades, abordagens, faixas_etarias"
     )
     .order("nome");
 
@@ -51,9 +41,13 @@ export default async function AgendarDiretorioPage({
   if (filtros.faixa) query = query.contains("faixas_etarias", [filtros.faixa]);
   if (filtros.uf) query = query.eq("uf", filtros.uf);
   if (filtros.cidade) query = query.ilike("cidade", `%${filtros.cidade}%`);
+  if (filtros.precoMin && Number.isFinite(precoMin))
+    query = query.gte("valor_consulta", precoMin);
+  if (filtros.precoMax && Number.isFinite(precoMax))
+    query = query.lte("valor_consulta", precoMax);
 
   const [{ data: psicologos }, { data: userData }] = await Promise.all([
-    query.returns<PerfilPublicoResumo[]>(),
+    query.returns<PsicologoResumo[]>(),
     supabase.auth.getUser(),
   ]);
   const voltarHref = userData.user ? "/agendamentos" : "/";
@@ -106,71 +100,9 @@ export default async function AgendarDiretorioPage({
           </p>
         ) : (
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {psicologos.map((psicologo) => {
-              const badges = [
-                ...psicologo.abordagens,
-                ...psicologo.especialidades,
-              ].slice(0, 3);
-              const regiao = [psicologo.cidade, psicologo.uf]
-                .filter(Boolean)
-                .join(" - ");
-
-              return (
-                <Link
-                  key={psicologo.id}
-                  href={`/agendar/${psicologo.id}`}
-                  className="flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-brand-300 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-300">
-                    {psicologo.foto_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={psicologo.foto_url}
-                        alt={psicologo.nome}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
-                          {psicologo.nome}
-                        </p>
-                        <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                          {psicologo.titulo} · {psicologo.crp}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-sm font-semibold text-brand-600 dark:text-brand-400">
-                        {formatCurrency(psicologo.valor_consulta)}
-                      </span>
-                    </div>
-
-                    {regiao && (
-                      <p className="mt-1.5 flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {regiao}
-                      </p>
-                    )}
-
-                    {badges.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {badges.map((badge) => (
-                          <span
-                            key={badge}
-                            className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300"
-                          >
-                            {badge}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+            {psicologos.map((psicologo) => (
+              <PsicologoCard key={psicologo.id} psicologo={psicologo} />
+            ))}
           </div>
         )}
       </div>
