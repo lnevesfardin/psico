@@ -4,7 +4,7 @@ import { ChatAssistant } from "@/components/chat/assistant";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole } from "@/lib/auth/role";
 import { ProfileProvider } from "@/context/profile-context";
-import { WorkingHoursProvider } from "@/context/working-hours-context";
+import { DisponibilidadeProvider } from "@/context/disponibilidade-context";
 import { AppointmentsProvider } from "@/context/appointments-context";
 
 export default async function DashboardLayout({
@@ -31,9 +31,22 @@ export default async function DashboardLayout({
     redirect("/agendamentos");
   }
 
+  // Perfil + disponibilidade são obrigatórios antes de usar o painel: sem
+  // nenhum bloco de disponibilidade cadastrado, manda pro onboarding em vez
+  // de liberar uma Agenda/link público vazios. Cobre tanto quem acabou de
+  // escolher "Sou Psicólogo" quanto contas antigas que nunca configuraram.
+  const { count } = await supabase
+    .from("disponibilidades")
+    .select("id", { count: "exact", head: true })
+    .eq("psicologo_id", user.id);
+
+  if (!count) {
+    redirect("/onboarding");
+  }
+
   return (
     <ProfileProvider>
-      <WorkingHoursProvider>
+      <DisponibilidadeProvider>
         <AppointmentsProvider>
           <div className="flex min-h-screen flex-col bg-zinc-50 md:flex-row dark:bg-zinc-950">
             <Sidebar />
@@ -41,7 +54,7 @@ export default async function DashboardLayout({
           </div>
           <ChatAssistant />
         </AppointmentsProvider>
-      </WorkingHoursProvider>
+      </DisponibilidadeProvider>
     </ProfileProvider>
   );
 }

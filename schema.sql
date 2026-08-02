@@ -26,10 +26,6 @@ create table if not exists perfis (
   bio text,
   valor_consulta numeric(10, 2) not null default 0,
   whatsapp text,
-  -- disponibilidade para agendamento online
-  dias_disponiveis int[] not null default '{1,2,3,4,5,6}', -- 0=domingo ... 6=sábado
-  horario_inicio time not null default '09:00',
-  horario_fim time not null default '20:00',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -51,9 +47,46 @@ create index if not exists perfis_especialidades_idx on perfis using gin (especi
 create index if not exists perfis_abordagens_idx on perfis using gin (abordagens);
 create index if not exists perfis_faixas_etarias_idx on perfis using gin (faixas_etarias);
 
+-- Disponibilidade deixou de ser um único par de horário aplicado a todos os
+-- dias marcados (dias_disponiveis/horario_inicio/horario_fim) e passou a ser
+-- granular (ver tabela "disponibilidades" abaixo): um psicólogo pode atender
+-- terça e quinta 9h-20h só online, e sábado 8h-12h só presencial, por
+-- exemplo. As 3 colunas antigas não são mais lidas por nenhuma tela.
+alter table perfis drop column if exists dias_disponiveis;
+alter table perfis drop column if exists horario_inicio;
+alter table perfis drop column if exists horario_fim;
+
+-- Endereço do consultório é opcional: só psicólogos que atendem
+-- presencialmente preenchem, pra aparecer o link do Google Maps na página
+-- pública de agendamento.
+alter table perfis add column if not exists tem_consultorio boolean not null default false;
+alter table perfis add column if not exists consultorio_endereco text not null default '';
+alter table perfis add column if not exists consultorio_maps_url text not null default '';
+
 create or replace trigger perfis_set_updated_at
   before update on perfis
   for each row execute function set_updated_at();
+
+-- =========================================================
+-- disponibilidades (blocos de horário do psicólogo para agendamento online)
+-- Um psicólogo tem N linhas: cada uma é um dia da semana + intervalo de
+-- horário + modalidade (presencial OU online, nunca as duas na mesma linha
+-- — pra atender nas duas modalidades no mesmo dia/horário, cadastra-se dois
+-- blocos). Substitui perfis.dias_disponiveis/horario_inicio/horario_fim.
+-- =========================================================
+create table if not exists disponibilidades (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  dia_semana int not null check (dia_semana between 0 and 6), -- 0=domingo ... 6=sábado
+  horario_inicio time not null,
+  horario_fim time not null,
+  modalidade text not null check (modalidade in ('presencial', 'online')),
+  created_at timestamptz not null default now(),
+  check (horario_fim > horario_inicio)
+);
+
+create index if not exists disponibilidades_psicologo_id_idx
+  on disponibilidades (psicologo_id);
 
 -- =========================================================
 -- pacientes
@@ -198,6 +231,7 @@ create or replace trigger lancamentos_financeiros_set_updated_at
 -- Row Level Security
 -- =========================================================
 alter table perfis enable row level security;
+alter table disponibilidades enable row level security;
 alter table pacientes enable row level security;
 alter table sessoes_prontuario enable row level security;
 alter table consultas enable row level security;
@@ -212,6 +246,19 @@ create policy "psicologo_cria_proprio_perfil" on perfis
 drop policy if exists "psicologo_edita_proprio_perfil" on perfis;
 create policy "psicologo_edita_proprio_perfil" on perfis
   for update using (auth.uid() = id) with check (auth.uid() = id);
+
+drop policy if exists "psicologo_ve_proprias_disponibilidades" on disponibilidades;
+create policy "psicologo_ve_proprias_disponibilidades" on disponibilidades
+  for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_cria_proprias_disponibilidades" on disponibilidades;
+create policy "psicologo_cria_proprias_disponibilidades" on disponibilidades
+  for insert with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_edita_proprias_disponibilidades" on disponibilidades;
+create policy "psicologo_edita_proprias_disponibilidades" on disponibilidades
+  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprias_disponibilidades" on disponibilidades;
+create policy "psicologo_apaga_proprias_disponibilidades" on disponibilidades
+  for delete using (auth.uid() = psicologo_id);
 
 drop policy if exists "psicologo_ve_proprios_pacientes" on pacientes;
 create policy "psicologo_ve_proprios_pacientes" on pacientes
@@ -308,12 +355,24 @@ select
   especialidades,
   abordagens,
   faixas_etarias,
-  dias_disponiveis,
-  horario_inicio,
-  horario_fim
+  tem_consultorio,
+  consultorio_endereco,
+  consultorio_maps_url
 from perfis;
 
 grant select on perfis_publico to anon, authenticated;
+
+-- View pública de "disponibilidades" — a página /agendar/[psicologoId]
+-- precisa saber os blocos de horário do psicólogo pra montar os dias e
+-- horários disponíveis, sem exigir login. Mesmas colunas da tabela: nada
+-- sensível aqui (só dia/horário/modalidade).
+drop view if exists disponibilidades_publico cascade;
+
+create or replace view disponibilidades_publico as
+select id, psicologo_id, dia_semana, horario_inicio, horario_fim, modalidade
+from disponibilidades;
+
+grant select on disponibilidades_publico to anon, authenticated;
 
 -- View pública de "consultas" — a página /agendar/[psicologoId] precisa
 -- saber quais horários já estão ocupados para um psicólogo, mas a RLS de

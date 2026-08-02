@@ -14,9 +14,10 @@ import {
   MessageSquareText,
   ShieldAlert,
   Users,
+  ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { generateTimeSlots } from "@/lib/working-hours-data";
+import { generateTimeSlots } from "@/lib/disponibilidade-data";
 import type { ModalidadeAtendimento } from "@/lib/dashboard-data";
 import { formatCurrency, formatDateLabel, nextDays, todayIso } from "@/lib/format";
 
@@ -33,9 +34,17 @@ export type PerfilPublico = {
   especialidades: string[];
   abordagens: string[];
   faixas_etarias: string[];
-  dias_disponiveis: number[];
+  tem_consultorio: boolean;
+  consultorio_endereco: string;
+  consultorio_maps_url: string;
+};
+
+export type DisponibilidadePublica = {
+  id: string;
+  dia_semana: number;
   horario_inicio: string;
   horario_fim: string;
+  modalidade: ModalidadeAtendimento;
 };
 
 type SlotOcupado = { data: string; horario: string; status: string };
@@ -58,25 +67,21 @@ const escolaridadeOptions = [
   "Doutorado",
 ];
 
-const modalidadeOptions: {
-  value: ModalidadeAtendimento;
-  label: string;
-  description: string;
-  icon: typeof MapPin;
-}[] = [
-  {
-    value: "presencial",
+const modalidadeInfo: Record<
+  ModalidadeAtendimento,
+  { label: string; description: string; icon: typeof MapPin }
+> = {
+  presencial: {
     label: "Presencial",
     description: "Atendimento no consultório",
     icon: MapPin,
   },
-  {
-    value: "online",
+  online: {
     label: "Online",
     description: "Atendimento por videochamada",
     icon: Video,
   },
-];
+};
 
 const emptyForm = {
   nomeCompleto: "",
@@ -98,9 +103,11 @@ const stepOrder: Exclude<Step, "sucesso">[] = ["tipo", "horario", "dados", "resu
 export function BookingWizard({
   psicologoId,
   perfil,
+  disponibilidades,
 }: {
   psicologoId: string;
   perfil: PerfilPublico;
+  disponibilidades: DisponibilidadePublica[];
 }) {
   const [step, setStep] = useState<Step>("tipo");
   const [modalidade, setModalidade] = useState<ModalidadeAtendimento | null>(null);
@@ -149,28 +156,53 @@ export function BookingWizard({
     });
   }, []);
 
-  const availableDates = useMemo(
+  // Só oferece os tiles de modalidade que o psicólogo realmente cadastrou
+  // disponibilidade — evita deixar escolher "Presencial" e não achar
+  // nenhum dia/horário na etapa seguinte.
+  const modalidadesOfertadas = useMemo(
     () =>
-      nextDays(14).filter((iso) => {
-        const [y, m, d] = iso.split("-").map(Number);
-        return perfil.dias_disponiveis.includes(new Date(y, m - 1, d).getDay());
-      }),
-    [perfil.dias_disponiveis]
+      (["presencial", "online"] as const).filter((m) =>
+        disponibilidades.some((d) => d.modalidade === m)
+      ),
+    [disponibilidades]
   );
+
+  const blocosDaModalidade = useMemo(
+    () => disponibilidades.filter((d) => d.modalidade === modalidade),
+    [disponibilidades, modalidade]
+  );
+
+  const availableDates = useMemo(() => {
+    if (!modalidade) return [];
+    const dias = new Set(blocosDaModalidade.map((b) => b.dia_semana));
+    return nextDays(14).filter((iso) => {
+      const [y, m, d] = iso.split("-").map(Number);
+      return dias.has(new Date(y, m - 1, d).getDay());
+    });
+  }, [blocosDaModalidade, modalidade]);
 
   const now = new Date();
   const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
     now.getMinutes()
   ).padStart(2, "0")}`;
 
-  const timeSlots = useMemo(
-    () =>
-      generateTimeSlots(
-        perfil.horario_inicio.slice(0, 5),
-        perfil.horario_fim.slice(0, 5)
-      ),
-    [perfil.horario_inicio, perfil.horario_fim]
-  );
+  // União dos blocos do dia da semana selecionado (pode haver mais de um
+  // bloco pra mesma modalidade no mesmo dia, ex.: manhã e noite separadas).
+  const timeSlots = useMemo(() => {
+    const [y, m, d] = selectedDate.split("-").map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    const slots = new Set<string>();
+    for (const bloco of blocosDaModalidade) {
+      if (bloco.dia_semana !== dow) continue;
+      for (const slot of generateTimeSlots(
+        bloco.horario_inicio.slice(0, 5),
+        bloco.horario_fim.slice(0, 5)
+      )) {
+        slots.add(slot);
+      }
+    }
+    return Array.from(slots).sort();
+  }, [blocosDaModalidade, selectedDate]);
 
   const availableTimes = useMemo(() => {
     return timeSlots.filter((time) => {
@@ -365,24 +397,34 @@ export function BookingWizard({
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               Escolha como prefere ser atendido(a).
             </p>
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {modalidadeOptions.map(({ value, label, description, icon: Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => selectModalidade(value)}
-                  className="flex flex-col items-start gap-3 rounded-2xl border border-zinc-200 bg-white p-5 text-left transition-colors hover:border-brand-400 hover:bg-brand-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-brand-950/40"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-zinc-900 dark:text-white">{label}</p>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {modalidadesOfertadas.length === 0 ? (
+              <p className="mt-5 rounded-lg border border-dashed border-zinc-200 px-4 py-6 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
+                Este psicólogo ainda não configurou horários de agendamento
+                online.
+              </p>
+            ) : (
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {modalidadesOfertadas.map((value) => {
+                  const { label, description, icon: Icon } = modalidadeInfo[value];
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => selectModalidade(value)}
+                      className="flex flex-col items-start gap-3 rounded-2xl border border-zinc-200 bg-white p-5 text-left transition-colors hover:border-brand-400 hover:bg-brand-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-brand-950/40"
+                    >
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-zinc-900 dark:text-white">{label}</p>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -654,6 +696,24 @@ export function BookingWizard({
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     Tipo de atendimento
                   </p>
+                  {modalidade === "presencial" &&
+                    perfil.tem_consultorio &&
+                    perfil.consultorio_endereco && (
+                      <div className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        <p>{perfil.consultorio_endereco}</p>
+                        {perfil.consultorio_maps_url && (
+                          <a
+                            href={perfil.consultorio_maps_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-0.5 inline-flex items-center gap-1 font-semibold text-brand-600 hover:underline dark:text-brand-400"
+                          >
+                            Ver no Google Maps
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    )}
                 </div>
               </div>
 

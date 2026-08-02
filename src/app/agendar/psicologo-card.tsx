@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, MapPin, User, X } from "lucide-react";
+import { CalendarCheck, ExternalLink, MapPin, User, X } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 
 export type PsicologoResumo = {
@@ -18,6 +18,9 @@ export type PsicologoResumo = {
   especialidades: string[];
   abordagens: string[];
   faixas_etarias: string[];
+  tem_consultorio: boolean;
+  consultorio_endereco: string;
+  consultorio_maps_url: string;
 };
 
 function Avatar({
@@ -183,6 +186,28 @@ export function PsicologoCard({ psicologo }: { psicologo: PsicologoResumo }) {
               <p className="mt-4 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-300">
                 {psicologo.bio}
               </p>
+            )}
+
+            {psicologo.tem_consultorio && psicologo.consultorio_endereco && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  Consultório
+                </p>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+                  {psicologo.consultorio_endereco}
+                </p>
+                {psicologo.consultorio_maps_url && (
+                  <a
+                    href={psicologo.consultorio_maps_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline dark:text-brand-400"
+                  >
+                    Ver no Google Maps
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
             )}
 
             {psicologo.faixas_etarias.length > 0 && (

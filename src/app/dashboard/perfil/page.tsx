@@ -13,11 +13,19 @@ import {
   Brain,
   Users,
   MapPin,
+  Plus,
+  Trash2,
+  Video,
+  Building2,
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import type { Profile } from "@/lib/profile-data";
-import { useWorkingHours } from "@/context/working-hours-context";
-import { weekdayShort, type WorkingHours } from "@/lib/working-hours-data";
+import { useDisponibilidade } from "@/context/disponibilidade-context";
+import {
+  weekdayShort,
+  weekdayLabels,
+  type Modalidade,
+} from "@/lib/disponibilidade-data";
 import { TimeSelect } from "@/components/ui/time-select";
 import { brStates } from "@/lib/br-states";
 import {
@@ -33,40 +41,56 @@ export default function PerfilPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { workingHours, updateWorkingHours } = useWorkingHours();
-  const [hoursDraft, setHoursDraft] = useState<WorkingHours | null>(null);
-  const [hoursSaved, setHoursSaved] = useState(false);
-  const [hoursError, setHoursError] = useState<string | null>(null);
+  const { blocks, addBlocks, removeBlock } = useDisponibilidade();
+  const [builderDias, setBuilderDias] = useState<number[]>([]);
+  const [builderStart, setBuilderStart] = useState("09:00");
+  const [builderEnd, setBuilderEnd] = useState("20:00");
+  const [builderModalidade, setBuilderModalidade] = useState<Modalidade>("online");
+  const [addingBlock, setAddingBlock] = useState(false);
+  const [blockError, setBlockError] = useState<string | null>(null);
+  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
   const form = draft ?? profile;
-  const hoursForm = hoursDraft ?? workingHours;
 
-  function toggleDay(day: number) {
-    const days = hoursForm.days.includes(day)
-      ? hoursForm.days.filter((d) => d !== day)
-      : [...hoursForm.days, day].sort();
-    setHoursDraft({ ...hoursForm, days });
-    setHoursSaved(false);
+  function toggleBuilderDia(day: number) {
+    setBuilderDias((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
+    );
   }
 
-  function setHoursField<K extends keyof WorkingHours>(
-    key: K,
-    value: WorkingHours[K]
-  ) {
-    setHoursDraft({ ...hoursForm, [key]: value });
-    setHoursSaved(false);
-  }
-
-  async function handleHoursSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setHoursError(null);
+  async function handleAddBlock() {
+    setBlockError(null);
+    if (builderDias.length === 0) {
+      setBlockError("Escolha pelo menos um dia da semana.");
+      return;
+    }
+    if (builderEnd <= builderStart) {
+      setBlockError("O horário final precisa ser depois do inicial.");
+      return;
+    }
+    setAddingBlock(true);
     try {
-      await updateWorkingHours(hoursForm);
-      setHoursDraft(null);
-      setHoursSaved(true);
-      setTimeout(() => setHoursSaved(false), 2500);
+      await addBlocks(builderDias, builderStart, builderEnd, builderModalidade);
+      setBuilderDias([]);
     } catch (err) {
-      setHoursError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setBlockError(err instanceof Error ? err.message : "Erro ao adicionar horário.");
+    } finally {
+      setAddingBlock(false);
+    }
+  }
+
+  async function handleRemoveBlock(id: string) {
+    setRemovingIds((prev) => new Set(prev).add(id));
+    try {
+      await removeBlock(id);
+    } catch (err) {
+      setBlockError(err instanceof Error ? err.message : "Erro ao remover horário.");
+    } finally {
+      setRemovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -387,6 +411,53 @@ export default function PerfilPage() {
           </label>
         </div>
 
+        {/* Consultório físico */}
+        <div>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-700">
+            <span className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <Building2 className="h-4 w-4 text-zinc-400" />
+              Atendo presencialmente em um consultório
+            </span>
+            <input
+              type="checkbox"
+              checked={form.temConsultorio}
+              onChange={(e) => set("temConsultorio", e.target.checked)}
+              className="h-4 w-4 accent-brand-600"
+            />
+          </label>
+
+          {form.temConsultorio && (
+            <div className="mt-3 space-y-3">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Endereço do consultório
+                <input
+                  type="text"
+                  required
+                  value={form.consultorioEndereco}
+                  onChange={(e) => set("consultorioEndereco", e.target.value)}
+                  placeholder="Rua Exemplo, 123 - Bairro, Cidade - UF"
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Link do Google Maps{" "}
+                <span className="font-normal text-zinc-400">(opcional)</span>
+                <input
+                  type="url"
+                  value={form.consultorioMapsUrl}
+                  onChange={(e) => set("consultorioMapsUrl", e.target.value)}
+                  placeholder="https://maps.app.goo.gl/..."
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+              <p className="text-xs text-zinc-400">
+                Cole o link de compartilhamento do Google Maps do seu
+                consultório, pra pacientes acharem o local com facilidade.
+              </p>
+            </div>
+          )}
+        </div>
+
         {error && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
             {error}
@@ -409,33 +480,30 @@ export default function PerfilPage() {
         </div>
       </form>
 
-      <form
-        onSubmit={handleHoursSubmit}
-        className="mt-6 space-y-5 rounded-2xl border border-zinc-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"
-      >
+      <div className="mt-6 space-y-5 rounded-2xl border border-zinc-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-white">
             <CalendarClock className="h-4 w-4 text-zinc-400" />
             Disponibilidade para Agendamento Online
           </h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Escolha os dias e o horário em que pacientes podem marcar consultas
-            pelo seu link público.
+            Adicione blocos de horário por dia da semana e modalidade — dá pra
+            ter dias e horários diferentes pra presencial e online.
           </p>
         </div>
 
-        <div>
+        <div className="rounded-xl border border-dashed border-zinc-200 p-4 dark:border-zinc-700">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Dias da semana
           </label>
           <div className="mt-2 flex flex-wrap gap-2">
             {weekdayShort.map((label, day) => {
-              const active = hoursForm.days.includes(day);
+              const active = builderDias.includes(day);
               return (
                 <button
                   key={day}
                   type="button"
-                  onClick={() => toggleDay(day)}
+                  onClick={() => toggleBuilderDia(day)}
                   className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
                     active
                       ? "border-brand-600 bg-brand-600 text-white"
@@ -447,43 +515,109 @@ export default function PerfilPage() {
               );
             })}
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:max-w-xs">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Início
-            <TimeSelect
-              value={hoursForm.startTime}
-              onChange={(value) => setHoursField("startTime", value)}
-              required
-            />
-          </label>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Término
-            <TimeSelect
-              value={hoursForm.endTime}
-              onChange={(value) => setHoursField("endTime", value)}
-              required
-            />
-          </label>
-        </div>
-
-        {hoursError && (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
-            {hoursError}
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:max-w-xs">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Início
+              <TimeSelect value={builderStart} onChange={setBuilderStart} required />
+            </label>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Término
+              <TimeSelect value={builderEnd} onChange={setBuilderEnd} required />
+            </label>
           </div>
-        )}
 
-        <div className="flex items-center justify-end border-t border-zinc-100 pt-5 dark:border-zinc-800">
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Modalidade
+            </label>
+            <div className="mt-2 inline-flex rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
+              {(
+                [
+                  { value: "presencial", label: "Presencial", icon: MapPin },
+                  { value: "online", label: "Online", icon: Video },
+                ] as const
+              ).map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setBuilderModalidade(value)}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    builderModalidade === value
+                      ? "bg-brand-600 text-white"
+                      : "text-zinc-600 dark:text-zinc-400"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {blockError && (
+            <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">
+              {blockError}
+            </p>
+          )}
+
           <button
-            type="submit"
-            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+            type="button"
+            onClick={handleAddBlock}
+            disabled={addingBlock}
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {hoursSaved ? <Check className="h-4 w-4" /> : null}
-            {hoursSaved ? "Salvo!" : "Salvar disponibilidade"}
+            <Plus className="h-4 w-4" />
+            {addingBlock ? "Adicionando..." : "Adicionar horário"}
           </button>
         </div>
-      </form>
+
+        <div>
+          <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Horários cadastrados
+          </h3>
+          {blocks.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-400">
+              Nenhum horário cadastrado ainda.
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {blocks.map((block) => (
+                <li
+                  key={block.id}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3.5 py-2.5 text-sm dark:bg-zinc-950/50"
+                >
+                  <span className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                    <span className="font-medium">
+                      {weekdayLabels[block.diaSemana]}
+                    </span>
+                    <span className="text-zinc-400">·</span>
+                    {block.startTime}–{block.endTime}
+                    <span className="text-zinc-400">·</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {block.modalidade === "presencial" ? (
+                        <MapPin className="h-3 w-3" />
+                      ) : (
+                        <Video className="h-3 w-3" />
+                      )}
+                      {block.modalidade === "presencial" ? "Presencial" : "Online"}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveBlock(block.id)}
+                    disabled={removingIds.has(block.id)}
+                    aria-label="Remover horário"
+                    className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

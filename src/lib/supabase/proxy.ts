@@ -33,7 +33,11 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isPsychologistArea = pathname.startsWith("/dashboard");
+  // Onboarding é tratado como parte da área do psicólogo pra fins de acesso
+  // (exige sessão, bloqueia cliente) mas fica fora de /dashboard de
+  // propósito — página cheia, sem sidebar, focada só no setup obrigatório.
+  const isPsychologistArea =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding");
   const isClientArea = pathname.startsWith("/agendamentos");
   const isProtected = isPsychologistArea || isClientArea;
   const isAuthPage = pathname === "/login" || pathname === "/cadastro";

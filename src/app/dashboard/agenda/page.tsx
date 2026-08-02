@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
 import { formatDateLabel, formatDateShort, nextDays, todayIso, toWhatsappLink } from "@/lib/format";
-import { weekdayShort } from "@/lib/working-hours-data";
+import { weekdayShort } from "@/lib/disponibilidade-data";
 import { useAppointments } from "@/context/appointments-context";
 import { useProfile } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";

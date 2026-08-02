@@ -11,6 +11,9 @@ export type Profile = {
   especialidades: string[];
   abordagens: string[];
   faixasEtarias: string[];
+  temConsultorio: boolean;
+  consultorioEndereco: string;
+  consultorioMapsUrl: string;
 };
 
 export const defaultProfile: Profile = {
@@ -26,4 +29,7 @@ export const defaultProfile: Profile = {
   especialidades: [],
   abordagens: [],
   faixasEtarias: [],
+  temConsultorio: false,
+  consultorioEndereco: "",
+  consultorioMapsUrl: "",
 };

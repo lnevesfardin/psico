@@ -24,6 +24,9 @@ type ProfileRow = {
   especialidades: string[];
   abordagens: string[];
   faixas_etarias: string[];
+  tem_consultorio: boolean;
+  consultorio_endereco: string;
+  consultorio_maps_url: string;
 };
 
 function rowToProfile(row: ProfileRow): Profile {
@@ -40,6 +43,9 @@ function rowToProfile(row: ProfileRow): Profile {
     especialidades: row.especialidades,
     abordagens: row.abordagens,
     faixasEtarias: row.faixas_etarias,
+    temConsultorio: row.tem_consultorio,
+    consultorioEndereco: row.consultorio_endereco,
+    consultorioMapsUrl: row.consultorio_maps_url,
   };
 }
 
@@ -62,7 +68,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     supabase
       .from("perfis")
       .select(
-        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias"
+        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_endereco, consultorio_maps_url"
       )
       .eq("id", user.id)
       .single()
@@ -76,9 +82,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const supabase = createClient();
 
-    // Lista explícita de colunas: nunca gravar o objeto inteiro em cache,
-    // já que "perfis" também guarda a disponibilidade (working-hours-context)
-    // e um update largo aqui reverteria o que aquele contexto salvou.
+    // Lista explícita de colunas: nunca gravar o objeto inteiro em cache.
     const patch: Record<string, unknown> = {};
     if (updates.name !== undefined) patch.nome = updates.name;
     if (updates.title !== undefined) patch.titulo = updates.title;
@@ -94,6 +98,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (updates.abordagens !== undefined) patch.abordagens = updates.abordagens;
     if (updates.faixasEtarias !== undefined)
       patch.faixas_etarias = updates.faixasEtarias;
+    if (updates.temConsultorio !== undefined)
+      patch.tem_consultorio = updates.temConsultorio;
+    if (updates.consultorioEndereco !== undefined)
+      patch.consultorio_endereco = updates.consultorioEndereco;
+    if (updates.consultorioMapsUrl !== undefined)
+      patch.consultorio_maps_url = updates.consultorioMapsUrl;
 
     const { error } = await supabase
       .from("perfis")
