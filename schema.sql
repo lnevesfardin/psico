@@ -38,6 +38,19 @@ create table if not exists perfis (
 -- coluna existir a recebam ao reexecutar este arquivo no SQL Editor.
 alter table perfis add column if not exists uf text not null default '';
 
+-- Campos de busca/filtragem do diretório público (/agendar): demandas
+-- atendidas, abordagem(ns) clínica(s), faixas etárias atendidas e cidade
+-- (região = uf + cidade). Arrays porque um psicólogo tipicamente atende mais
+-- de uma especialidade/abordagem/faixa etária.
+alter table perfis add column if not exists especialidades text[] not null default '{}';
+alter table perfis add column if not exists abordagens text[] not null default '{}';
+alter table perfis add column if not exists faixas_etarias text[] not null default '{}';
+alter table perfis add column if not exists cidade text not null default '';
+
+create index if not exists perfis_especialidades_idx on perfis using gin (especialidades);
+create index if not exists perfis_abordagens_idx on perfis using gin (abordagens);
+create index if not exists perfis_faixas_etarias_idx on perfis using gin (faixas_etarias);
+
 create or replace trigger perfis_set_updated_at
   before update on perfis
   for each row execute function set_updated_at();
@@ -288,9 +301,13 @@ select
   titulo,
   crp,
   uf,
+  cidade,
   foto_url,
   bio,
   valor_consulta,
+  especialidades,
+  abordagens,
+  faixas_etarias,
   dias_disponiveis,
   horario_inicio,
   horario_fim

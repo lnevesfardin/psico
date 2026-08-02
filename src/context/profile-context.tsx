@@ -16,10 +16,14 @@ type ProfileRow = {
   titulo: string;
   crp: string;
   uf: string;
+  cidade: string;
   foto_url: string | null;
   bio: string | null;
   valor_consulta: number;
   whatsapp: string | null;
+  especialidades: string[];
+  abordagens: string[];
+  faixas_etarias: string[];
 };
 
 function rowToProfile(row: ProfileRow): Profile {
@@ -28,10 +32,14 @@ function rowToProfile(row: ProfileRow): Profile {
     title: row.titulo,
     crp: row.crp,
     uf: row.uf,
+    cidade: row.cidade,
     photoUrl: row.foto_url ?? "",
     bio: row.bio ?? "",
     price: row.valor_consulta,
     whatsapp: row.whatsapp ?? "",
+    especialidades: row.especialidades,
+    abordagens: row.abordagens,
+    faixasEtarias: row.faixas_etarias,
   };
 }
 
@@ -53,7 +61,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
     supabase
       .from("perfis")
-      .select("nome, titulo, crp, uf, foto_url, bio, valor_consulta, whatsapp")
+      .select(
+        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias"
+      )
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
@@ -74,10 +84,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (updates.title !== undefined) patch.titulo = updates.title;
     if (updates.crp !== undefined) patch.crp = updates.crp;
     if (updates.uf !== undefined) patch.uf = updates.uf;
+    if (updates.cidade !== undefined) patch.cidade = updates.cidade;
     if (updates.photoUrl !== undefined) patch.foto_url = updates.photoUrl;
     if (updates.bio !== undefined) patch.bio = updates.bio;
     if (updates.price !== undefined) patch.valor_consulta = updates.price;
     if (updates.whatsapp !== undefined) patch.whatsapp = updates.whatsapp;
+    if (updates.especialidades !== undefined)
+      patch.especialidades = updates.especialidades;
+    if (updates.abordagens !== undefined) patch.abordagens = updates.abordagens;
+    if (updates.faixasEtarias !== undefined)
+      patch.faixas_etarias = updates.faixasEtarias;
 
     const { error } = await supabase
       .from("perfis")

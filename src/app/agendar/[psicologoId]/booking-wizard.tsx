@@ -13,6 +13,7 @@ import {
   User,
   MessageSquareText,
   ShieldAlert,
+  Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { generateTimeSlots } from "@/lib/working-hours-data";
@@ -24,9 +25,14 @@ export type PerfilPublico = {
   nome: string;
   titulo: string;
   crp: string;
+  uf: string;
+  cidade: string;
   foto_url: string | null;
   bio: string | null;
   valor_consulta: number;
+  especialidades: string[];
+  abordagens: string[];
+  faixas_etarias: string[];
   dias_disponiveis: number[];
   horario_inicio: string;
   horario_fim: string;
@@ -267,7 +273,7 @@ export function BookingWizard({
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
-        <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+        <div className="flex items-start gap-3 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/60">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-900 dark:text-brand-300">
             {perfil.foto_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -281,13 +287,37 @@ export function BookingWizard({
                 .join("")
             )}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
               {perfil.nome} · {perfil.titulo}
             </p>
             <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
               {perfil.crp} · {formatCurrency(perfil.valor_consulta)} / sessão
             </p>
+            {(perfil.cidade || perfil.uf) && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                {[perfil.cidade, perfil.uf].filter(Boolean).join(" - ")}
+              </p>
+            )}
+            {perfil.faixas_etarias.length > 0 && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <Users className="h-3.5 w-3.5 shrink-0" />
+                Atende: {perfil.faixas_etarias.join(", ")}
+              </p>
+            )}
+            {(perfil.abordagens.length > 0 || perfil.especialidades.length > 0) && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[...perfil.abordagens, ...perfil.especialidades].map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

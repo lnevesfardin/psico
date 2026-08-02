@@ -9,6 +9,10 @@ import {
   Check,
   IdCard,
   CalendarClock,
+  Tags,
+  Brain,
+  Users,
+  MapPin,
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import type { Profile } from "@/lib/profile-data";
@@ -16,6 +20,11 @@ import { useWorkingHours } from "@/context/working-hours-context";
 import { weekdayShort, type WorkingHours } from "@/lib/working-hours-data";
 import { TimeSelect } from "@/components/ui/time-select";
 import { brStates } from "@/lib/br-states";
+import {
+  especialidadesOptions,
+  abordagensOptions,
+  faixasEtariasOptions,
+} from "@/lib/psico-options";
 
 export default function PerfilPage() {
   const { profile, updateProfile } = useProfile();
@@ -64,6 +73,19 @@ export default function PerfilPage() {
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
     setDraft({ ...form, [key]: value });
     setSaved(false);
+  }
+
+  function toggleListItem(
+    key: "especialidades" | "abordagens" | "faixasEtarias",
+    value: string
+  ) {
+    const current = form[key];
+    set(
+      key,
+      current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value]
+    );
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -193,8 +215,8 @@ export default function PerfilPage() {
           </label>
         </div>
 
-        {/* CRP e UF */}
-        <div className="grid grid-cols-2 gap-4 sm:max-w-xs">
+        {/* CRP, UF e cidade */}
+        <div className="grid grid-cols-2 gap-4 sm:max-w-md sm:grid-cols-3">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             <span className="flex items-center gap-1.5">
               <IdCard className="h-4 w-4 text-zinc-400" />
@@ -224,6 +246,100 @@ export default function PerfilPage() {
               ))}
             </select>
           </label>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-zinc-400" />
+              Cidade
+            </span>
+            <input
+              type="text"
+              value={form.cidade}
+              onChange={(e) => set("cidade", e.target.value)}
+              placeholder="São Paulo"
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+        </div>
+
+        {/* Especialidades / demandas atendidas */}
+        <div>
+          <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <Tags className="h-4 w-4 text-zinc-400" />
+            Especialidades / Demandas atendidas
+          </span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {especialidadesOptions.map((option) => {
+              const active = form.especialidades.includes(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => toggleListItem("especialidades", option)}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Abordagem clínica */}
+        <div>
+          <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <Brain className="h-4 w-4 text-zinc-400" />
+            Abordagem clínica
+          </span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {abordagensOptions.map((option) => {
+              const active = form.abordagens.includes(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => toggleListItem("abordagens", option)}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Faixa etária atendida */}
+        <div>
+          <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <Users className="h-4 w-4 text-zinc-400" />
+            Faixa etária atendida
+          </span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {faixasEtariasOptions.map((option) => {
+              const active = form.faixasEtarias.includes(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => toggleListItem("faixasEtarias", option)}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Biografia */}
