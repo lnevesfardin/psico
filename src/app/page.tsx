@@ -253,12 +253,6 @@ export default function Home() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
-              href="/cadastro?perfil=cliente"
-              className="hidden rounded-full px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:text-zinc-900 md:block dark:text-zinc-400 dark:hover:text-white"
-            >
-              Encontrar psicólogo
-            </Link>
-            <Link
               href="/login"
               className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors duration-300 ease-in-out hover:bg-zinc-50 sm:px-4 sm:py-2 sm:text-sm dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/5"
             >
@@ -285,13 +279,6 @@ export default function Home() {
                 {label}
               </a>
             ))}
-            <Link
-              href="/cadastro?perfil=cliente"
-              onClick={() => setMobileMenuOpen(false)}
-              className="rounded-lg px-2 py-2.5 transition-colors hover:bg-zinc-100 hover:text-zinc-900 md:hidden dark:hover:bg-white/5 dark:hover:text-white"
-            >
-              Encontrar psicólogo
-            </Link>
           </nav>
         )}
       </header>
