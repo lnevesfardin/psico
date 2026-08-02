@@ -181,13 +181,6 @@ export default function Home() {
                 {label}
               </a>
             ))}
-            <a
-              href={safetyLink.href}
-              className="inline-flex items-center gap-1.5 text-rose-600 transition-colors duration-300 ease-in-out hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
-            >
-              <ShieldAlert className="h-4 w-4" />
-              {safetyLink.label}
-            </a>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -228,14 +221,6 @@ export default function Home() {
                 {label}
               </a>
             ))}
-            <a
-              href={safetyLink.href}
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-1.5 rounded-lg px-2 py-2.5 text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
-            >
-              <ShieldAlert className="h-4 w-4" />
-              {safetyLink.label}
-            </a>
             <div className="mt-1 px-2 py-1.5 sm:hidden">
               <ThemeToggle />
             </div>
