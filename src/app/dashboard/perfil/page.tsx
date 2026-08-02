@@ -112,8 +112,12 @@ export default function PerfilPage() {
     }
   }
 
+  // Forma funcional (e não { ...form }): duas chamadas seguidas de set() no
+  // mesmo handler — como trocar a UF e limpar a cidade — precisam se
+  // acumular, senão a segunda descarta a primeira por partir de um "form"
+  // capturado no render anterior.
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
-    setDraft({ ...form, [key]: value });
+    setDraft((prev) => ({ ...(prev ?? profile), [key]: value }));
     setSaved(false);
   }
 

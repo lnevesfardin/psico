@@ -80,8 +80,12 @@ function OnboardingContent() {
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
 
+  // Forma funcional (e não { ...form }): duas chamadas seguidas de set() no
+  // mesmo handler — como trocar a UF e limpar a cidade — precisam se
+  // acumular, senão a segunda descarta a primeira por partir de um "form"
+  // capturado no render anterior.
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
-    setDraft({ ...form, [key]: value });
+    setDraft((prev) => ({ ...(prev ?? profile), [key]: value }));
   }
 
   function toggleListItem(
