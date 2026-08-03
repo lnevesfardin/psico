@@ -31,8 +31,19 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+// Datas de consulta são sempre horário de Brasília (consultas.data é um
+// `date` sem fuso). toISOString() devolve UTC, então entre 21h e meia-noite
+// ele já apontava para o dia seguinte — a "Agenda de Hoje" mostrava o dia
+// errado e o formulário de nova consulta nascia com a data trocada.
+// "en-CA" é usado só porque formata como yyyy-mm-dd.
+const FUSO_BR = "America/Sao_Paulo";
+
+function isoNoFusoBr(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO_BR }).format(date);
+}
+
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return isoNoFusoBr(new Date());
 }
 
 export function nextDays(count: number): string[] {
@@ -40,7 +51,7 @@ export function nextDays(count: number): string[] {
   for (let i = 0; i < count; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    days.push(d.toISOString().slice(0, 10));
+    days.push(isoNoFusoBr(d));
   }
   return days;
 }
