@@ -351,5 +351,15 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ enfileirados, enviados, cancelados, falhas });
+  // "consultasNaJanela" e "canais" existem para diagnóstico: sem eles,
+  // enfileirados=0 é ambíguo (não há consulta próxima? ou nenhum canal está
+  // configurado?) e só dá pra descobrir olhando o banco na mão.
+  return NextResponse.json({
+    enfileirados,
+    enviados,
+    cancelados,
+    falhas,
+    consultasNaJanela: naJanela.length,
+    canais: { email: emailConfigurado(), webhook: webhookConfigurado() },
+  });
 }
