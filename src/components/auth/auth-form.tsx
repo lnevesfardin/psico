@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2, User, Stethoscope } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole, type Role } from "@/lib/auth/role";
 import { brStates } from "@/lib/br-states";
+import { StepIndicator } from "@/components/auth/step-indicator";
 
 type Mode = "login" | "cadastro";
 
@@ -156,7 +157,10 @@ export function AuthForm({
       return;
     }
     if (data.session) {
-      router.push(dashboardPathForRole(role));
+      // E-mail já confirmado automaticamente (projeto Supabase sem
+      // confirmação obrigatória): pula direto pro passo 3, sem passar
+      // pela tela de código.
+      router.push("/onboarding");
       router.refresh();
     } else {
       setAwaitingCode(true);
@@ -179,8 +183,9 @@ export function AuthForm({
       return;
     }
     if (!data.session || !data.user) return;
-    const resolvedRole = await fetchUserRole(supabase, data.user.id);
-    router.push(dashboardPathForRole(resolvedRole ?? role));
+    // Passo 3: /onboarding resolve o papel sozinho e decide o que mostrar
+    // (formulário completo pro psicólogo, confirmação simples pro cliente).
+    router.push("/onboarding");
     router.refresh();
   }
 
@@ -211,6 +216,7 @@ export function AuthForm({
   if (awaitingCode) {
     return (
       <div>
+        <StepIndicator current={2} />
         <h2 className="text-center text-lg font-semibold text-zinc-900 dark:text-white">
           Digite o código de verificação
         </h2>
@@ -265,6 +271,7 @@ export function AuthForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {mode === "cadastro" && <StepIndicator current={1} />}
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
           {error}

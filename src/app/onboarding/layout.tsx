@@ -22,11 +22,14 @@ export default async function OnboardingLayout({
 
   const role = await fetchUserRole(supabase, user.id);
 
+  // Cliente não tem "conclusão" a verificar aqui: o passo 3 dele é só uma
+  // tela de confirmação (ver onboarding-cliente.tsx), sempre pode revê-la.
   if (role === "client") {
-    redirect("/agendamentos");
+    return children;
   }
 
-  // Já concluiu o onboarding antes: não faz sentido preencher de novo.
+  // Psicólogo já concluiu o onboarding antes: não faz sentido preencher de
+  // novo (mesmo gate que manda de volta pra cá em dashboard/layout.tsx).
   const { count } = await supabase
     .from("disponibilidades")
     .select("id", { count: "exact", head: true })

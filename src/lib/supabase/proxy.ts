@@ -33,13 +33,15 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  // Onboarding é tratado como parte da área do psicólogo pra fins de acesso
-  // (exige sessão, bloqueia cliente) mas fica fora de /dashboard de
-  // propósito — página cheia, sem sidebar, focada só no setup obrigatório.
-  const isPsychologistArea =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding");
+  const isPsychologistArea = pathname.startsWith("/dashboard");
   const isClientArea = pathname.startsWith("/agendamentos");
-  const isProtected = isPsychologistArea || isClientArea;
+  // Onboarding é o passo 3 do cadastro (ver StepIndicator) tanto pra
+  // psicólogo quanto pra cliente — exige sessão como as demais áreas
+  // protegidas, mas fica fora do guard de role abaixo: cada papel vê um
+  // conteúdo diferente na própria página (onboarding-psicologo.tsx /
+  // onboarding-cliente.tsx), sem bounce entre áreas aqui no middleware.
+  const isOnboarding = pathname.startsWith("/onboarding");
+  const isProtected = isPsychologistArea || isClientArea || isOnboarding;
   const isAuthPage = pathname === "/login" || pathname === "/cadastro";
 
   if (!user && isProtected) {
