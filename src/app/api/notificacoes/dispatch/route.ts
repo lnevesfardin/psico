@@ -36,6 +36,7 @@ function diaIso(epochMs: number): string {
 type ConsultaRow = {
   id: string;
   psicologo_id: string;
+  paciente_id: string | null;
   paciente_nome: string;
   data: string;
   horario: string;
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
   const { data: consultas, error: erroConsultas } = await supabase
     .from("consultas")
     .select(
-      "id, psicologo_id, paciente_nome, data, horario, status, modalidade, email, cliente_id"
+      "id, psicologo_id, paciente_id, paciente_nome, data, horario, status, modalidade, email, cliente_id"
     )
     .eq("status", "confirmada")
     .eq("tipo", "consulta")
@@ -156,24 +157,38 @@ export async function POST(request: Request) {
     const clienteIds = [
       ...new Set(naJanela.map((c) => c.cliente_id).filter((id): id is string => !!id)),
     ];
+    const pacienteIds = [
+      ...new Set(naJanela.map((c) => c.paciente_id).filter((id): id is string => !!id)),
+    ];
 
-    const [{ data: perfis }, { data: profiles }] = await Promise.all([
-      supabase
-        .from("perfis")
-        .select(
-          "id, nome, sala_online_url, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url"
-        )
-        .in("id", psicologoIds)
-        .returns<PerfilRow[]>(),
-      supabase
-        .from("profiles")
-        .select("id, email")
-        .in("id", [...psicologoIds, ...clienteIds])
-        .returns<{ id: string; email: string }[]>(),
-    ]);
+    const [{ data: perfis }, { data: profiles }, { data: pacientes }] =
+      await Promise.all([
+        supabase
+          .from("perfis")
+          .select(
+            "id, nome, sala_online_url, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url"
+          )
+          .in("id", psicologoIds)
+          .returns<PerfilRow[]>(),
+        supabase
+          .from("profiles")
+          .select("id, email")
+          .in("id", [...psicologoIds, ...clienteIds])
+          .returns<{ id: string; email: string }[]>(),
+        pacienteIds.length > 0
+          ? supabase
+              .from("pacientes")
+              .select("id, email")
+              .in("id", pacienteIds)
+              .returns<{ id: string; email: string | null }[]>()
+          : Promise.resolve({ data: [] as { id: string; email: string | null }[] }),
+      ]);
 
     const perfilPorId = new Map((perfis ?? []).map((p) => [p.id, p]));
     const emailPorId = new Map((profiles ?? []).map((p) => [p.id, p.email]));
+    const emailPacientePorId = new Map(
+      (pacientes ?? []).map((p) => [p.id, p.email])
+    );
 
     const linhas: Record<string, unknown>[] = [];
 
@@ -186,10 +201,14 @@ export async function POST(request: Request) {
           ANTECEDENCIA_MIN * 60_000
       );
 
-      // E-mail informado no agendamento público tem prioridade; se a pessoa
-      // agendou logada, cai para o e-mail da conta dela.
+      // Ordem de preferência do e-mail do paciente:
+      // 1. o informado no próprio agendamento público (mais específico);
+      // 2. o cadastro do paciente (caminho das consultas criadas à mão na
+      //    Agenda, que não capturam e-mail);
+      // 3. a conta do cliente, quando ele agendou logado.
       const emailPaciente =
         consulta.email ||
+        (consulta.paciente_id ? emailPacientePorId.get(consulta.paciente_id) : null) ||
         (consulta.cliente_id ? emailPorId.get(consulta.cliente_id) : null) ||
         null;
       const emailPsicologo = emailPorId.get(consulta.psicologo_id) ?? null;
