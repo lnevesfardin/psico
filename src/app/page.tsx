@@ -310,6 +310,16 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative overflow-hidden px-6 py-20 sm:py-28 lg:py-32">
+        {/* Textura de fundo bem sutil (mesma ilustração do cartão, só que em
+            tons de cinza e bem clara) — ecoa o fundo fotográfico da seção
+            "4 passos" sem competir com o texto ou com a versão colorida. */}
+        <Image
+          src="/images/hero-fundo.webp"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover object-center opacity-[0.07] dark:opacity-[0.05]"
+        />
         <Glow className="left-1/2 top-[-8rem] h-[34rem] w-[34rem] -translate-x-1/2 bg-brand-300/40 dark:bg-brand-500/15" />
         <Glow className="right-[-6rem] top-[10rem] h-[22rem] w-[22rem] bg-sky-200/30 dark:bg-sky-500/10" />
 
