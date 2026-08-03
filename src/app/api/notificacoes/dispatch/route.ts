@@ -33,6 +33,28 @@ function diaIso(epochMs: number): string {
   return new Date(epochMs).toISOString().slice(0, 10);
 }
 
+/**
+ * Papel declarado pela chave em SUPABASE_SERVICE_ROLE_KEY, só para
+ * diagnóstico. Trocar a service_role pela anon por engano é um erro fácil de
+ * cometer (as duas ficam lado a lado no painel do Supabase) e silencioso: a
+ * RLS continua valendo e toda query volta vazia, sem erro. Não expõe a
+ * chave — só o campo "role" do JWT, que não é segredo.
+ */
+function papelDaChave(): string {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) return "ausente";
+  const partes = key.split(".");
+  if (partes.length !== 3) return "formato-nao-jwt";
+  try {
+    const payload = JSON.parse(
+      Buffer.from(partes[1], "base64url").toString("utf8")
+    ) as { role?: string };
+    return payload.role ?? "sem-role";
+  } catch {
+    return "ilegivel";
+  }
+}
+
 type ConsultaRow = {
   id: string;
   psicologo_id: string;
@@ -360,6 +382,10 @@ export async function POST(request: Request) {
     cancelados,
     falhas,
     consultasNaJanela: naJanela.length,
+    // Quantas a query trouxe antes do recorte por horário: se vier 0 aqui e
+    // existir consulta no banco, o problema é a chave/RLS, não a janela.
+    consultasNaQuery: consultas?.length ?? 0,
+    papelDaChave: papelDaChave(),
     canais: { email: emailConfigurado(), webhook: webhookConfigurado() },
   });
 }
