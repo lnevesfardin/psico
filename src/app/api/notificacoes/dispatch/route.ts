@@ -322,6 +322,9 @@ export async function POST(request: Request) {
   let enviados = 0;
   let cancelados = 0;
   let falhas = 0;
+  // Erros ficam gravados em notificacoes.erro, mas repetir os últimos aqui
+  // evita ter de abrir o banco a cada tentativa para saber o que houve.
+  const errosRecentes: string[] = [];
 
   for (const notificacao of pendentes ?? []) {
     // A consulta pode ter sido desmarcada depois que o lembrete foi
@@ -370,6 +373,7 @@ export async function POST(request: Request) {
         })
         .eq("id", notificacao.id);
       falhas++;
+      if (errosRecentes.length < 3) errosRecentes.push(resultado.erro);
     }
   }
 
@@ -387,5 +391,6 @@ export async function POST(request: Request) {
     consultasNaQuery: consultas?.length ?? 0,
     papelDaChave: papelDaChave(),
     canais: { email: emailConfigurado(), webhook: webhookConfigurado() },
+    ...(errosRecentes.length > 0 ? { errosRecentes } : {}),
   });
 }
