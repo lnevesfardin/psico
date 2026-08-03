@@ -22,6 +22,7 @@ import {
   Search,
   UserPlus,
   BellRing,
+  MonitorSmartphone,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
 
@@ -213,6 +214,29 @@ const howItWorks: Record<
     },
   ],
 };
+
+// Passo a passo real do fluxo de agendamento do paciente (ver
+// booking-wizard.tsx): busca por filtro, escolha de horário realmente
+// disponível na agenda do psicólogo, dados de contato para confirmação
+// via WhatsApp e sessão presencial ou online.
+const quickSteps = [
+  {
+    icon: Search,
+    title: "Procure um psicólogo de acordo com sua demanda",
+  },
+  {
+    icon: CalendarClock,
+    title: "Escolha um horário disponível na agenda dele",
+  },
+  {
+    icon: FileText,
+    title: "Preencha seus dados e receba a confirmação pelo WhatsApp",
+  },
+  {
+    icon: MonitorSmartphone,
+    title: "Faça a sessão presencial ou online, no computador ou celular",
+  },
+];
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -427,6 +451,47 @@ export default function Home() {
               </div>
             </motion.div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Passo a passo — visão rápida do agendamento */}
+      <section className="relative overflow-hidden border-y border-zinc-100 px-6 py-20 dark:border-white/5">
+        <Image
+          src="/images/passos-fundo.webp"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-white/85 dark:bg-ink-950/90" />
+
+        <div className="relative mx-auto max-w-6xl">
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Marcar uma consulta em 4 passos
+            </h2>
+          </Reveal>
+          <div className="mt-14 grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-4 sm:gap-8">
+            {quickSteps.map(({ icon: Icon, title }, i) => (
+              <Reveal
+                key={title}
+                delay={i * 0.08}
+                className="flex flex-col items-center text-center"
+              >
+                <div className="relative">
+                  <span className="absolute -left-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white shadow-md shadow-brand-600/30">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-300">
+                    <Icon className="h-7 w-7" />
+                  </div>
+                </div>
+                <p className="mt-4 max-w-[11rem] text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {title}
+                </p>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
