@@ -127,6 +127,53 @@ export async function createPatient(
   return rowToPatient(data as PacienteRow);
 }
 
+export async function updatePatient(
+  supabase: SupabaseClient,
+  patientId: string,
+  input: NewPatientInput
+): Promise<Patient> {
+  const { data, error } = await supabase
+    .from("pacientes")
+    .update({
+      nome: input.name,
+      cpf: input.cpf || null,
+      telefone: input.phone || null,
+      email: input.email || null,
+      data_nascimento: input.birthDate || null,
+      contato_emergencia_nome: input.emergencyContactName || null,
+      contato_emergencia_telefone: input.emergencyContactPhone || null,
+      tem_plano_saude: input.hasInsurance,
+      plano_saude_nome: input.hasInsurance ? input.insuranceName || null : null,
+      data_primeira_consulta: input.firstAppointmentDate || null,
+      escolaridade: input.escolaridade || null,
+      como_conheceu: input.comoConheceu || null,
+      observacoes: input.observacoes || null,
+    })
+    .eq("id", patientId)
+    .select(PACIENTE_COLUMNS)
+    .single();
+  if (error) throw new Error(error.message);
+  return rowToPatient(data as PacienteRow);
+}
+
+export function patientToFormInput(patient: Patient): NewPatientInput {
+  return {
+    name: patient.name,
+    cpf: patient.cpf,
+    phone: patient.phone,
+    email: patient.email,
+    birthDate: patient.birthDate,
+    emergencyContactName: patient.emergencyContact.name,
+    emergencyContactPhone: patient.emergencyContact.phone,
+    hasInsurance: patient.hasInsurance,
+    insuranceName: patient.insuranceName,
+    firstAppointmentDate: patient.firstAppointmentDate,
+    escolaridade: patient.escolaridade,
+    comoConheceu: patient.comoConheceu,
+    observacoes: patient.observacoes,
+  };
+}
+
 export async function deletePatient(
   supabase: SupabaseClient,
   patientId: string

@@ -14,6 +14,7 @@ import {
   Lock,
   Clock,
   Trash2,
+  Pencil,
   CalendarCheck,
   GraduationCap,
   HelpCircle,
@@ -25,7 +26,10 @@ import {
   addSessionNote,
   deletePatient,
   getPatientWithSessions,
+  patientToFormInput,
+  updatePatient,
 } from "@/lib/patients-client";
+import { PatientFormModal } from "@/components/patient-form-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
 
@@ -45,6 +49,7 @@ export default function PatientDetailPage({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -125,15 +130,25 @@ export default function PatientDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Voltar para pacientes
         </Link>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
-        >
-          <Trash2 className="h-4 w-4" />
-          {deleting ? "Excluindo..." : "Excluir paciente"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <Pencil className="h-4 w-4" />
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
+          >
+            <Trash2 className="h-4 w-4" />
+            {deleting ? "Excluindo..." : "Excluir paciente"}
+          </button>
+        </div>
       </div>
 
       {deleteError && (
@@ -342,6 +357,22 @@ export default function PatientDetailPage({
             </div>
           </div>
         </div>
+      )}
+
+      {editOpen && patient && (
+        <PatientFormModal
+          title="Editar Paciente"
+          submitLabel="Salvar Alterações"
+          initialValues={patientToFormInput(patient)}
+          onClose={() => setEditOpen(false)}
+          onSave={(input) => updatePatient(createClient(), patient.id, input)}
+          onSaved={(updated) => {
+            setPatient((prev) =>
+              prev ? { ...updated, sessions: prev.sessions } : updated
+            );
+            setEditOpen(false);
+          }}
+        />
       )}
     </div>
   );
