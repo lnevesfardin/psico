@@ -22,7 +22,7 @@ export type Profile = {
 };
 
 export const defaultProfile: Profile = {
-  name: "Dr. Luiz Eduardo",
+  name: "",
   title: "Psicólogo Clínico",
   crp: "CRP 06/123456",
   uf: "SP",
