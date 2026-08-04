@@ -209,15 +209,26 @@ export default function PatientDetailPage({
             label="Data de nascimento"
             value={patient.birthDate ? formatDateShort(patient.birthDate) : "—"}
           />
-          <InfoCard
-            icon={HeartPulse}
-            label="Plano de saúde"
-            value={
-              patient.hasInsurance
-                ? patient.insuranceName || "Sim"
-                : "Não possui"
-            }
-          />
+          <div className="rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
+                <HeartPulse className="h-4 w-4" />
+                Plano de saúde
+              </div>
+              <span
+                className={
+                  patient.hasInsurance
+                    ? "text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                    : "text-xs font-semibold text-rose-600 dark:text-rose-400"
+                }
+              >
+                {patient.hasInsurance ? "Sim" : "Não"}
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm font-medium text-zinc-900 dark:text-white">
+              {patient.hasInsurance ? patient.insuranceName || "—" : "—"}
+            </p>
+          </div>
           <div className="sm:col-span-2 rounded-xl border border-amber-100 bg-amber-50 p-4 dark:border-amber-950 dark:bg-amber-950/40">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
               <ShieldAlert className="h-4 w-4" />
