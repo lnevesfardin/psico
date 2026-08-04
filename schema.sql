@@ -121,6 +121,10 @@ create table if not exists pacientes (
   contato_emergencia_telefone text,
   tem_plano_saude boolean not null default false,
   plano_saude_nome text,
+  data_primeira_consulta date,
+  escolaridade text,
+  como_conheceu text,
+  observacoes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (psicologo_id, cpf)
@@ -132,6 +136,10 @@ alter table pacientes alter column cpf drop not null;
 alter table pacientes alter column telefone drop not null;
 alter table pacientes add column if not exists tem_plano_saude boolean not null default false;
 alter table pacientes add column if not exists plano_saude_nome text;
+alter table pacientes add column if not exists data_primeira_consulta date;
+alter table pacientes add column if not exists escolaridade text;
+alter table pacientes add column if not exists como_conheceu text;
+alter table pacientes add column if not exists observacoes text;
 
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
 create index if not exists pacientes_nome_idx on pacientes using gin (nome gin_trgm_ops);

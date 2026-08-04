@@ -12,10 +12,14 @@ type PacienteRow = {
   contato_emergencia_telefone: string | null;
   tem_plano_saude: boolean;
   plano_saude_nome: string | null;
+  data_primeira_consulta: string | null;
+  escolaridade: string | null;
+  como_conheceu: string | null;
+  observacoes: string | null;
 };
 
 const PACIENTE_COLUMNS =
-  "id, nome, cpf, telefone, email, data_nascimento, contato_emergencia_nome, contato_emergencia_telefone, tem_plano_saude, plano_saude_nome";
+  "id, nome, cpf, telefone, email, data_nascimento, contato_emergencia_nome, contato_emergencia_telefone, tem_plano_saude, plano_saude_nome, data_primeira_consulta, escolaridade, como_conheceu, observacoes";
 
 function rowToPatient(row: PacienteRow, sessions: SessionNote[] = []): Patient {
   return {
@@ -31,6 +35,10 @@ function rowToPatient(row: PacienteRow, sessions: SessionNote[] = []): Patient {
     },
     hasInsurance: row.tem_plano_saude,
     insuranceName: row.plano_saude_nome ?? "",
+    firstAppointmentDate: row.data_primeira_consulta ?? "",
+    escolaridade: row.escolaridade ?? "",
+    comoConheceu: row.como_conheceu ?? "",
+    observacoes: row.observacoes ?? "",
     sessions,
   };
 }
@@ -84,6 +92,10 @@ export type NewPatientInput = {
   emergencyContactPhone: string;
   hasInsurance: boolean;
   insuranceName: string;
+  firstAppointmentDate: string;
+  escolaridade: string;
+  comoConheceu: string;
+  observacoes: string;
 };
 
 export async function createPatient(
@@ -104,6 +116,10 @@ export async function createPatient(
       contato_emergencia_telefone: input.emergencyContactPhone || null,
       tem_plano_saude: input.hasInsurance,
       plano_saude_nome: input.hasInsurance ? input.insuranceName || null : null,
+      data_primeira_consulta: input.firstAppointmentDate || null,
+      escolaridade: input.escolaridade || null,
+      como_conheceu: input.comoConheceu || null,
+      observacoes: input.observacoes || null,
     })
     .select(PACIENTE_COLUMNS)
     .single();

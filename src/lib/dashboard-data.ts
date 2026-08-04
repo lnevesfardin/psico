@@ -17,6 +17,10 @@ export type Patient = {
   };
   hasInsurance: boolean;
   insuranceName: string;
+  firstAppointmentDate: string; // yyyy-mm-dd (ou "" se não informado)
+  escolaridade: string;
+  comoConheceu: string;
+  observacoes: string;
   sessions: SessionNote[];
 };
 

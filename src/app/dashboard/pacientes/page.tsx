@@ -134,6 +134,10 @@ function NewPatientModal({
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
   const [hasInsurance, setHasInsurance] = useState(false);
   const [insuranceName, setInsuranceName] = useState("");
+  const [firstAppointmentDate, setFirstAppointmentDate] = useState("");
+  const [escolaridade, setEscolaridade] = useState("");
+  const [comoConheceu, setComoConheceu] = useState("");
+  const [observacoes, setObservacoes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,6 +157,10 @@ function NewPatientModal({
         emergencyContactPhone,
         hasInsurance,
         insuranceName,
+        firstAppointmentDate,
+        escolaridade,
+        comoConheceu,
+        observacoes,
       });
       onCreated(patient);
     } catch (err) {
@@ -270,6 +278,16 @@ function NewPatientModal({
             </label>
           </div>
 
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Data da primeira consulta
+            <input
+              type="date"
+              value={firstAppointmentDate}
+              onChange={(e) => setFirstAppointmentDate(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+
           <div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -300,6 +318,43 @@ function NewPatientModal({
                 className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               />
             )}
+          </div>
+
+          <div className="border-t border-zinc-100 pt-4 dark:border-zinc-800">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+              Dados Adicionais
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-4">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Escolaridade
+                <input
+                  type="text"
+                  placeholder="Ensino superior completo"
+                  value={escolaridade}
+                  onChange={(e) => setEscolaridade(e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Por onde conheceu o profissional
+                <input
+                  type="text"
+                  placeholder="Indicação, Instagram..."
+                  value={comoConheceu}
+                  onChange={(e) => setComoConheceu(e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+            </div>
+            <label className="mt-4 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Observações, medicamentos, tratamentos e outros dados adicionais
+              <textarea
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                rows={3}
+                className="mt-1.5 w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              />
+            </label>
           </div>
         </div>
 
