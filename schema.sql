@@ -140,9 +140,22 @@ alter table pacientes add column if not exists data_primeira_consulta date;
 alter table pacientes add column if not exists escolaridade text;
 alter table pacientes add column if not exists como_conheceu text;
 alter table pacientes add column if not exists observacoes text;
+-- Vínculo opcional com a conta de login do cliente (auth.users), usado pra
+-- mostrar o check-in de humor (ver seção "checkins_humor" no fim do
+-- arquivo) na ficha do paciente. "pacientes" (cadastro feito pelo
+-- psicólogo) e a conta de cliente que agenda em /agendamentos são registros
+-- independentes por padrão — este vínculo é feito manualmente pelo
+-- psicólogo via e-mail (RPC vincular_paciente_cliente), nunca automático.
+alter table pacientes add column if not exists cliente_user_id uuid references auth.users(id) on delete set null;
 
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
 create index if not exists pacientes_nome_idx on pacientes using gin (nome gin_trgm_ops);
+create index if not exists pacientes_cliente_user_id_idx
+  on pacientes (cliente_user_id) where cliente_user_id is not null;
+-- Evita vincular a mesma conta de cliente a dois pacientes do mesmo
+-- psicólogo por engano (ficaria ambíguo qual ficha mostra o humor de quem).
+create unique index if not exists pacientes_psicologo_cliente_unique
+  on pacientes (psicologo_id, cliente_user_id) where cliente_user_id is not null;
 
 create or replace trigger pacientes_set_updated_at
   before update on pacientes
@@ -793,3 +806,143 @@ select cron.schedule(
   '*/10 * * * *',
   $$select disparar_lembretes()$$
 );
+
+-- =========================================================
+-- checkins_humor — check-in diário de humor do cliente. Dado de saúde
+-- sensível (LGPD), mesmo tratamento de "sessoes_prontuario": nunca
+-- logado/exposto além do necessário, RLS restringe leitura ao próprio
+-- cliente e ao(s) psicólogo(s) com paciente vinculado a essa conta.
+-- =========================================================
+create table if not exists checkins_humor (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references auth.users(id) on delete cascade,
+  -- Sempre calculada no cliente via todayIso() (fuso America/Sao_Paulo) e
+  -- enviada explicitamente — nunca current_date do servidor (que é UTC).
+  -- Mesmo motivo do comentário sobre consultas.data em src/lib/format.ts.
+  data date not null,
+  humor smallint not null check (humor between 1 and 5), -- 1=Muito Ruim .. 5=Ótimo
+  energia smallint not null check (energia between 1 and 5),
+  tags text[] not null default '{}'
+    check (tags <@ array['sono','trabalho','alimentacao','exercicio','relacionamentos','saude']::text[]),
+  reflexao_positiva text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  -- Um check-in por dia por cliente: reabrir a tela no mesmo dia atualiza
+  -- (upsert) em vez de duplicar — é o que mantém "3 dias seguidos" e a
+  -- média por dia da semana simples de calcular.
+  unique (cliente_id, data)
+);
+
+create index if not exists checkins_humor_cliente_data_idx
+  on checkins_humor (cliente_id, data desc);
+
+create or replace trigger checkins_humor_set_updated_at
+  before update on checkins_humor
+  for each row execute function set_updated_at();
+
+alter table checkins_humor enable row level security;
+
+drop policy if exists "cliente_ve_proprios_checkins" on checkins_humor;
+create policy "cliente_ve_proprios_checkins" on checkins_humor
+  for select using (auth.uid() = cliente_id);
+drop policy if exists "cliente_cria_proprios_checkins" on checkins_humor;
+create policy "cliente_cria_proprios_checkins" on checkins_humor
+  for insert with check (auth.uid() = cliente_id);
+drop policy if exists "cliente_edita_proprios_checkins" on checkins_humor;
+create policy "cliente_edita_proprios_checkins" on checkins_humor
+  for update using (auth.uid() = cliente_id) with check (auth.uid() = cliente_id);
+
+-- Mesmo padrão de "psicologo_ve_proprias_sessoes", só que o join é por
+-- cliente_user_id (vínculo manual) em vez de paciente_id direto. Só
+-- SELECT — o psicólogo nunca cria/edita humor do paciente.
+drop policy if exists "psicologo_ve_humor_pacientes_vinculados" on checkins_humor;
+create policy "psicologo_ve_humor_pacientes_vinculados" on checkins_humor
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.cliente_user_id = checkins_humor.cliente_id
+        and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- =========================================================
+-- vincular_paciente_cliente — liga um cadastro de paciente (feito pelo
+-- psicólogo) à conta de login do cliente, por e-mail. security definer
+-- porque precisa ler "profiles" por e-mail de outra pessoa, o que a RLS
+-- normal bloqueia (usuario_ve_proprio_profile só permite auth.uid() = id).
+-- Ao contrário de criar_agendamento_publico/email_existe, NÃO dá grant pra
+-- anon: só um psicólogo autenticado, dono do paciente, pode chamar.
+-- =========================================================
+create or replace function vincular_paciente_cliente(
+  p_paciente_id uuid,
+  p_email text
+)
+returns table (cliente_user_id uuid, cliente_nome text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_cliente_id uuid;
+  v_cliente_nome text;
+begin
+  if not exists (
+    select 1 from pacientes where id = p_paciente_id and psicologo_id = auth.uid()
+  ) then
+    raise exception 'Paciente não encontrado';
+  end if;
+
+  select id, name into v_cliente_id, v_cliente_nome
+  from profiles
+  where lower(email) = lower(p_email) and role = 'client'
+  limit 1;
+
+  if v_cliente_id is null then
+    raise exception 'Não encontramos uma conta de cliente com esse e-mail. Peça para a pessoa criar uma conta em /cadastro (como cliente) antes de vincular.';
+  end if;
+
+  if exists (
+    select 1 from pacientes
+    where psicologo_id = auth.uid()
+      and cliente_user_id = v_cliente_id
+      and id <> p_paciente_id
+  ) then
+    raise exception 'Esta conta de cliente já está vinculada a outro paciente da sua lista.';
+  end if;
+
+  update pacientes set cliente_user_id = v_cliente_id where id = p_paciente_id;
+
+  return query select v_cliente_id, v_cliente_nome;
+end;
+$$;
+
+grant execute on function vincular_paciente_cliente(uuid, text) to authenticated;
+
+-- =========================================================
+-- meu_psicologo_contato — telefone/nome do psicólogo da consulta mais
+-- recente do cliente logado, usado só pelo botão de emergência do check-in
+-- de humor (abrir WhatsApp). security definer pelo mesmo motivo de sempre:
+-- a RLS de "perfis" é auth.uid() = id, e mesmo sem RLS um select * vazaria
+-- sala_online_url, que nunca deve sair do despachante de notificações.
+-- =========================================================
+create or replace function meu_psicologo_contato()
+returns table (psicologo_id uuid, nome text, whatsapp text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select p.id, p.nome, p.whatsapp
+  from perfis p
+  where p.id = (
+    select c.psicologo_id
+    from consultas c
+    where c.cliente_id = auth.uid()
+      and c.tipo = 'consulta'
+      and c.status <> 'desmarcada'
+    order by c.data desc, c.horario desc
+    limit 1
+  );
+$$;
+
+grant execute on function meu_psicologo_contato() to authenticated;

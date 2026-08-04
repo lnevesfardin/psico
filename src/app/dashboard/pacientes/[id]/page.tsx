@@ -30,6 +30,7 @@ import {
   updatePatient,
 } from "@/lib/patients-client";
 import { PatientFormModal } from "@/components/patient-form-modal";
+import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
 
@@ -44,7 +45,7 @@ export default function PatientDetailPage({
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"dados" | "evolucao">("dados");
+  const [tab, setTab] = useState<"dados" | "evolucao" | "humor">("dados");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -202,7 +203,7 @@ export default function PatientDetailPage({
       </div>
 
       <div className="mt-6 inline-flex rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        {(["dados", "evolucao"] as const).map((t) => (
+        {(["dados", "evolucao", "humor"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -213,7 +214,11 @@ export default function PatientDetailPage({
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
-            {t === "dados" ? "Dados Pessoais" : "Evolução / Prontuário"}
+            {t === "dados"
+              ? "Dados Pessoais"
+              : t === "evolucao"
+              ? "Evolução / Prontuário"
+              : "Humor"}
           </button>
         ))}
       </div>
@@ -357,6 +362,18 @@ export default function PatientDetailPage({
             </div>
           </div>
         </div>
+      )}
+
+      {tab === "humor" && (
+        <PatientMoodTab
+          patient={patient}
+          onLinked={(clienteUserId) =>
+            setPatient((prev) => (prev ? { ...prev, clienteUserId } : prev))
+          }
+          onUnlinked={() =>
+            setPatient((prev) => (prev ? { ...prev, clienteUserId: null } : prev))
+          }
+        />
       )}
 
       {editOpen && patient && (

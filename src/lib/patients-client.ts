@@ -16,10 +16,11 @@ type PacienteRow = {
   escolaridade: string | null;
   como_conheceu: string | null;
   observacoes: string | null;
+  cliente_user_id: string | null;
 };
 
 const PACIENTE_COLUMNS =
-  "id, nome, cpf, telefone, email, data_nascimento, contato_emergencia_nome, contato_emergencia_telefone, tem_plano_saude, plano_saude_nome, data_primeira_consulta, escolaridade, como_conheceu, observacoes";
+  "id, nome, cpf, telefone, email, data_nascimento, contato_emergencia_nome, contato_emergencia_telefone, tem_plano_saude, plano_saude_nome, data_primeira_consulta, escolaridade, como_conheceu, observacoes, cliente_user_id";
 
 function rowToPatient(row: PacienteRow, sessions: SessionNote[] = []): Patient {
   return {
@@ -40,6 +41,7 @@ function rowToPatient(row: PacienteRow, sessions: SessionNote[] = []): Patient {
     comoConheceu: row.como_conheceu ?? "",
     observacoes: row.observacoes ?? "",
     sessions,
+    clienteUserId: row.cliente_user_id,
   };
 }
 
@@ -179,6 +181,33 @@ export async function deletePatient(
   patientId: string
 ): Promise<void> {
   const { error } = await supabase.from("pacientes").delete().eq("id", patientId);
+  if (error) throw new Error(error.message);
+}
+
+export async function linkPatientToClient(
+  supabase: SupabaseClient,
+  patientId: string,
+  email: string
+): Promise<{ clienteUserId: string; clienteNome: string }> {
+  const { data, error } = await supabase
+    .rpc("vincular_paciente_cliente", {
+      p_paciente_id: patientId,
+      p_email: email.trim(),
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  const row = data as { cliente_user_id: string; cliente_nome: string };
+  return { clienteUserId: row.cliente_user_id, clienteNome: row.cliente_nome };
+}
+
+export async function unlinkPatientFromClient(
+  supabase: SupabaseClient,
+  patientId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("pacientes")
+    .update({ cliente_user_id: null })
+    .eq("id", patientId);
   if (error) throw new Error(error.message);
 }
 

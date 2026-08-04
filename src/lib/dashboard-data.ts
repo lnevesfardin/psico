@@ -22,6 +22,9 @@ export type Patient = {
   comoConheceu: string;
   observacoes: string;
   sessions: SessionNote[];
+  // Conta de login do cliente vinculada manualmente pelo psicólogo (ver
+  // vincular_paciente_cliente no schema.sql) — null se ainda não vinculado.
+  clienteUserId: string | null;
 };
 
 export type AppointmentStatus =
