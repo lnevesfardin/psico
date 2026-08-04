@@ -244,7 +244,7 @@ export default function PerfilPage() {
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
               required
-              placeholder="Dr. Luiz Eduardo"
+              placeholder="Ex: Luiz Eduardo"
               className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
           </label>
