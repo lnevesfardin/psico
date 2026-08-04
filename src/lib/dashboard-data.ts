@@ -15,6 +15,8 @@ export type Patient = {
     name: string;
     phone: string;
   };
+  hasInsurance: boolean;
+  insuranceName: string;
   sessions: SessionNote[];
 };
 

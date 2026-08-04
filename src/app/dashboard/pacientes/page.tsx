@@ -132,6 +132,8 @@ function NewPatientModal({
   const [birthDate, setBirthDate] = useState("");
   const [emergencyContactName, setEmergencyContactName] = useState("");
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+  const [hasInsurance, setHasInsurance] = useState(false);
+  const [insuranceName, setInsuranceName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -149,6 +151,8 @@ function NewPatientModal({
         birthDate,
         emergencyContactName,
         emergencyContactPhone,
+        hasInsurance,
+        insuranceName,
       });
       onCreated(patient);
     } catch (err) {
@@ -264,6 +268,38 @@ function NewPatientModal({
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               />
             </label>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Possui plano de saúde?
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={hasInsurance}
+                onClick={() => setHasInsurance((v) => !v)}
+                className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  hasInsurance ? "bg-brand-600" : "bg-zinc-200 dark:bg-zinc-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    hasInsurance ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            {hasInsurance && (
+              <input
+                type="text"
+                placeholder="Nome do convênio"
+                value={insuranceName}
+                onChange={(e) => setInsuranceName(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              />
+            )}
           </div>
         </div>
 

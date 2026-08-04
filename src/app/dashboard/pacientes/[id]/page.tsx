@@ -9,6 +9,7 @@ import {
   CreditCard,
   Mail,
   Cake,
+  HeartPulse,
   ShieldAlert,
   Lock,
   Clock,
@@ -207,6 +208,15 @@ export default function PatientDetailPage({
             icon={Cake}
             label="Data de nascimento"
             value={patient.birthDate ? formatDateShort(patient.birthDate) : "—"}
+          />
+          <InfoCard
+            icon={HeartPulse}
+            label="Plano de saúde"
+            value={
+              patient.hasInsurance
+                ? patient.insuranceName || "Sim"
+                : "Não possui"
+            }
           />
           <div className="sm:col-span-2 rounded-xl border border-amber-100 bg-amber-50 p-4 dark:border-amber-950 dark:bg-amber-950/40">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
