@@ -52,7 +52,7 @@ export default async function DashboardLayout({
             <Sidebar />
             <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
           </div>
-          <ChatAssistant />
+          <ChatAssistant role="psychologist" />
         </AppointmentsProvider>
       </DisponibilidadeProvider>
     </ProfileProvider>

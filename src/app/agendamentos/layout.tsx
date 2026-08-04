@@ -33,7 +33,7 @@ export default async function AgendamentosLayout({
         <ClientAreaHeader />
         {children}
       </div>
-      <ChatAssistant />
+      <ChatAssistant role="client" />
     </ClientProfileProvider>
   );
 }
