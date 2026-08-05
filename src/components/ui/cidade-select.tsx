@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchMunicipios } from "@/lib/ibge";
 
-const fieldClass =
+const defaultFieldClass =
   "mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white";
 
 export function CidadeSelect({
@@ -11,11 +11,22 @@ export function CidadeSelect({
   value,
   onChange,
   required,
+  placeholder,
+  className = defaultFieldClass,
 }: {
   uf: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  // Texto do placeholder quando não obrigatório (ex.: filtro de busca, onde
+  // "vazio" é uma opção válida — "todas as cidades" — e não só um estado
+  // transitório antes de escolher.
+  placeholder?: string;
+  // Sobrescreve o estilo padrão (que inclui mt-1.5, pensado pra ficar
+  // dentro de um <label>) — necessário quando o campo é usado solto num
+  // grid, como no filtro de busca, senão o mt-1.5 desalinha com os
+  // vizinhos.
+  className?: string;
 }) {
   const [cidades, setCidades] = useState<string[]>([]);
   // Guardam o UF a que "cidades"/a falha se referem, em vez de um booleano
@@ -58,7 +69,7 @@ export function CidadeSelect({
         required={required}
         disabled={!uf}
         placeholder={uf ? "Digite a cidade" : "Selecione o estado primeiro"}
-        className={fieldClass}
+        className={className}
       />
     );
   }
@@ -69,10 +80,13 @@ export function CidadeSelect({
       onChange={(e) => onChange(e.target.value)}
       required={required}
       disabled={loading}
-      className={fieldClass}
+      className={className}
     >
-      <option value="" disabled>
-        {loading ? "Carregando cidades..." : "Selecione a cidade"}
+      {/* Só desabilita a opção em branco quando o campo é obrigatório —
+          num filtro opcional, "vazio" precisa continuar selecionável pra
+          voltar a "todas as cidades". */}
+      <option value="" disabled={required}>
+        {loading ? "Carregando cidades..." : placeholder ?? "Selecione a cidade"}
       </option>
       {/* Garante que uma cidade já salva apareça selecionada mesmo se, por
           algum motivo, não estiver na lista atual do IBGE. */}

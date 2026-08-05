@@ -33,7 +33,7 @@ export default async function AgendamentosLayout({
         <ClientAreaSidebar />
         <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
       </div>
-      <ChatAssistant />
+      <ChatAssistant role="client" />
     </ClientProfileProvider>
   );
 }

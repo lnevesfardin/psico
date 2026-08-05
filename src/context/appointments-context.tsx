@@ -77,7 +77,10 @@ type AppointmentsContextValue = {
   appointments: Appointment[];
   loading: boolean;
   addAppointment: (appointment: Omit<Appointment, "id">) => Promise<void>;
-  updateStatus: (id: string, status: AppointmentStatus) => Promise<void>;
+  updateStatus: (
+    id: string,
+    status: AppointmentStatus
+  ) => Promise<{ patientCreated: boolean }>;
   deleteAppointment: (id: string) => Promise<void>;
 };
 
@@ -172,9 +175,32 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     setAppointments((prev) => [...prev, rowToAppointment(data as ConsultaRow)]);
   }
 
-  async function updateStatus(id: string, status: AppointmentStatus) {
-    if (!user) return;
+  async function updateStatus(
+    id: string,
+    status: AppointmentStatus
+  ): Promise<{ patientCreated: boolean }> {
+    if (!user) return { patientCreated: false };
     const supabase = createClient();
+
+    // Confirmar uma consulta pública de alguém que ainda não é paciente
+    // cadastrado (patientId null) cria o cadastro automaticamente a partir
+    // dos dados já preenchidos no agendamento — via RPC pra manter status +
+    // criação do paciente atômicos (ver confirmar_consulta_e_criar_paciente
+    // no schema.sql). Demais transições de status seguem update direto.
+    const current = appointments.find((a) => a.id === id);
+    if (status === "confirmada" && current && !current.patientId) {
+      const { data, error } = await supabase
+        .rpc("confirmar_consulta_e_criar_paciente", { p_consulta_id: id })
+        .single();
+      if (error) throw new Error(error.message);
+      const row = data as { paciente_id: string | null; criado: boolean };
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, status, patientId: row.paciente_id } : a
+        )
+      );
+      return { patientCreated: row.criado };
+    }
 
     const { error } = await supabase
       .from("consultas")
@@ -186,6 +212,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status } : a))
     );
+    return { patientCreated: false };
   }
 
   async function deleteAppointment(id: string) {

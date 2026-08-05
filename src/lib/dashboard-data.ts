@@ -17,7 +17,14 @@ export type Patient = {
   };
   hasInsurance: boolean;
   insuranceName: string;
+  firstAppointmentDate: string; // yyyy-mm-dd (ou "" se não informado)
+  escolaridade: string;
+  comoConheceu: string;
+  observacoes: string;
   sessions: SessionNote[];
+  // Conta de login do cliente vinculada manualmente pelo psicólogo (ver
+  // vincular_paciente_cliente no schema.sql) — null se ainda não vinculado.
+  clienteUserId: string | null;
 };
 
 export type AppointmentStatus =

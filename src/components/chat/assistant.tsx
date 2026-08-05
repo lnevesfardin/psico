@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, X, Send, Loader2 } from "lucide-react";
+import type { Role } from "@/lib/auth/role";
 
 type ChatMessage = { role: "user" | "model"; text: string };
 
-export function ChatAssistant() {
+const GREETING: Record<Role, string> = {
+  psychologist:
+    "Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a plataforma — agenda, pacientes & prontuários, financeiro, link de agendamento e mais. Como posso ajudar?",
+  client:
+    "Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a plataforma — buscar psicólogo, seus agendamentos e seu perfil. Como posso ajudar?",
+};
+
+export function ChatAssistant({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -79,9 +87,7 @@ export function ChatAssistant() {
           >
             {messages.length === 0 && (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a
-                plataforma — agenda, pacientes, financeiro e mais. Como posso
-                ajudar?
+                {GREETING[role]}
               </p>
             )}
             {messages.map((m, i) => (

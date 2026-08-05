@@ -14,6 +14,11 @@ import {
   Lock,
   Clock,
   Trash2,
+  Pencil,
+  CalendarCheck,
+  GraduationCap,
+  HelpCircle,
+  StickyNote,
 } from "lucide-react";
 import type { Patient } from "@/lib/dashboard-data";
 import { createClient } from "@/lib/supabase/client";
@@ -21,7 +26,11 @@ import {
   addSessionNote,
   deletePatient,
   getPatientWithSessions,
+  patientToFormInput,
+  updatePatient,
 } from "@/lib/patients-client";
+import { PatientFormModal } from "@/components/patient-form-modal";
+import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
 
@@ -36,11 +45,12 @@ export default function PatientDetailPage({
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"dados" | "evolucao">("dados");
+  const [tab, setTab] = useState<"dados" | "evolucao" | "humor">("dados");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -121,15 +131,25 @@ export default function PatientDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Voltar para pacientes
         </Link>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
-        >
-          <Trash2 className="h-4 w-4" />
-          {deleting ? "Excluindo..." : "Excluir paciente"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <Pencil className="h-4 w-4" />
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
+          >
+            <Trash2 className="h-4 w-4" />
+            {deleting ? "Excluindo..." : "Excluir paciente"}
+          </button>
+        </div>
       </div>
 
       {deleteError && (
@@ -183,7 +203,7 @@ export default function PatientDetailPage({
       </div>
 
       <div className="mt-6 inline-flex rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        {(["dados", "evolucao"] as const).map((t) => (
+        {(["dados", "evolucao", "humor"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -194,7 +214,11 @@ export default function PatientDetailPage({
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
-            {t === "dados" ? "Dados Pessoais" : "Evolução / Prontuário"}
+            {t === "dados"
+              ? "Dados Pessoais"
+              : t === "evolucao"
+              ? "Evolução / Prontuário"
+              : "Humor"}
           </button>
         ))}
       </div>
@@ -210,14 +234,34 @@ export default function PatientDetailPage({
             value={patient.birthDate ? formatDateShort(patient.birthDate) : "—"}
           />
           <InfoCard
-            icon={HeartPulse}
-            label="Plano de saúde"
+            icon={CalendarCheck}
+            label="Data da primeira consulta"
             value={
-              patient.hasInsurance
-                ? patient.insuranceName || "Sim"
-                : "Não possui"
+              patient.firstAppointmentDate
+                ? formatDateShort(patient.firstAppointmentDate)
+                : "—"
             }
           />
+          <div className="rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
+                <HeartPulse className="h-4 w-4" />
+                Plano de saúde
+              </div>
+              <span
+                className={
+                  patient.hasInsurance
+                    ? "text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                    : "text-xs font-semibold text-rose-600 dark:text-rose-400"
+                }
+              >
+                {patient.hasInsurance ? "Sim" : "Não"}
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm font-medium text-zinc-900 dark:text-white">
+              {patient.hasInsurance ? patient.insuranceName || "—" : "—"}
+            </p>
+          </div>
           <div className="sm:col-span-2 rounded-xl border border-amber-100 bg-amber-50 p-4 dark:border-amber-950 dark:bg-amber-950/40">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
               <ShieldAlert className="h-4 w-4" />
@@ -226,6 +270,33 @@ export default function PatientDetailPage({
             <p className="mt-2 text-sm text-amber-900 dark:text-amber-200">
               {patient.emergencyContact.name || "—"} · {patient.emergencyContact.phone || "—"}
             </p>
+          </div>
+
+          <div className="sm:col-span-2">
+            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+              Dados Adicionais
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <InfoCard
+                icon={GraduationCap}
+                label="Escolaridade"
+                value={patient.escolaridade || "—"}
+              />
+              <InfoCard
+                icon={HelpCircle}
+                label="Por onde conheceu o profissional"
+                value={patient.comoConheceu || "—"}
+              />
+              <div className="sm:col-span-2 rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
+                  <StickyNote className="h-4 w-4" />
+                  Observações, medicamentos, tratamentos
+                </div>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm font-medium text-zinc-900 dark:text-white">
+                  {patient.observacoes || "—"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -291,6 +362,34 @@ export default function PatientDetailPage({
             </div>
           </div>
         </div>
+      )}
+
+      {tab === "humor" && (
+        <PatientMoodTab
+          patient={patient}
+          onLinked={(clienteUserId) =>
+            setPatient((prev) => (prev ? { ...prev, clienteUserId } : prev))
+          }
+          onUnlinked={() =>
+            setPatient((prev) => (prev ? { ...prev, clienteUserId: null } : prev))
+          }
+        />
+      )}
+
+      {editOpen && patient && (
+        <PatientFormModal
+          title="Editar Paciente"
+          submitLabel="Salvar Alterações"
+          initialValues={patientToFormInput(patient)}
+          onClose={() => setEditOpen(false)}
+          onSave={(input) => updatePatient(createClient(), patient.id, input)}
+          onSaved={(updated) => {
+            setPatient((prev) =>
+              prev ? { ...updated, sessions: prev.sessions } : updated
+            );
+            setEditOpen(false);
+          }}
+        />
       )}
     </div>
   );

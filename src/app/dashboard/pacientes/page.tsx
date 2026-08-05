@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, ChevronRight, FileText, Plus, X } from "lucide-react";
+import { Search, ChevronRight, FileText, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/context/auth-context";
 import { createPatient, listPatients } from "@/lib/patients-client";
+import { PatientFormModal } from "@/components/patient-form-modal";
 import type { Patient } from "@/lib/dashboard-data";
 
 export default function PacientesPage() {
@@ -106,211 +107,14 @@ export default function PacientesPage() {
       </div>
 
       {modalOpen && user && (
-        <NewPatientModal
-          psicologoId={user.id}
+        <PatientFormModal
+          title="Novo Paciente"
+          submitLabel="Salvar Paciente"
           onClose={() => setModalOpen(false)}
-          onCreated={handleCreated}
+          onSave={(input) => createPatient(createClient(), user.id, input)}
+          onSaved={handleCreated}
         />
       )}
-    </div>
-  );
-}
-
-function NewPatientModal({
-  psicologoId,
-  onClose,
-  onCreated,
-}: {
-  psicologoId: string;
-  onClose: () => void;
-  onCreated: (patient: Patient) => void;
-}) {
-  const [name, setName] = useState("");
-  const [cpf, setCpf] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [emergencyContactName, setEmergencyContactName] = useState("");
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
-  const [hasInsurance, setHasInsurance] = useState(false);
-  const [insuranceName, setInsuranceName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const supabase = createClient();
-      const patient = await createPatient(supabase, psicologoId, {
-        name,
-        cpf,
-        phone,
-        email,
-        birthDate,
-        emergencyContactName,
-        emergencyContactPhone,
-        hasInsurance,
-        insuranceName,
-      });
-      onCreated(patient);
-    } catch (err) {
-      setError(
-        err instanceof Error && err.message.includes("duplicate")
-          ? "Já existe um paciente com esse CPF."
-          : "Não foi possível salvar o paciente."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
-      <form
-        onSubmit={handleSubmit}
-        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-            Novo Paciente
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {error && (
-          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-4 space-y-4">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Nome completo
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-            />
-          </label>
-
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              CPF
-              <input
-                type="text"
-                placeholder="000.000.000-00"
-                value={cpf}
-                onChange={(e) => setCpf(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Telefone
-              <input
-                type="tel"
-                placeholder="(11) 99999-9999"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Email
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Nascimento
-              <input
-                type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Contato de emergência
-              <input
-                type="text"
-                placeholder="Nome (parentesco)"
-                value={emergencyContactName}
-                onChange={(e) => setEmergencyContactName(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Telefone de emergência
-              <input
-                type="tel"
-                value={emergencyContactPhone}
-                onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Possui plano de saúde?
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={hasInsurance}
-                onClick={() => setHasInsurance((v) => !v)}
-                className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  hasInsurance ? "bg-brand-600" : "bg-zinc-200 dark:bg-zinc-700"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    hasInsurance ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-            {hasInsurance && (
-              <input
-                type="text"
-                placeholder="Nome do convênio"
-                value={insuranceName}
-                onChange={(e) => setInsuranceName(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            )}
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="mt-6 w-full rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving ? "Salvando..." : "Salvar Paciente"}
-        </button>
-      </form>
     </div>
   );
 }

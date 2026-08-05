@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { CalendarClock, LogOut, Menu, Search, UserCog, X } from "lucide-react";
+import { CalendarClock, LogOut, Menu, Search, Smile, UserCog, X } from "lucide-react";
 import { useClientProfile } from "@/context/client-profile-context";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/agendamentos", label: "Meus Agendamentos", icon: CalendarClock },
+  { href: "/agendamentos/humor", label: "Humor", icon: Smile },
   { href: "/agendar", label: "Buscar Psicólogo", icon: Search },
   { href: "/agendamentos/perfil", label: "Meu Perfil", icon: UserCog },
 ];

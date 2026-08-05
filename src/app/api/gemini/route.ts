@@ -1,17 +1,42 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
+import { fetchUserRole, type Role } from "@/lib/auth/role";
 
-const SYSTEM_INSTRUCTION = `Você é o assistente virtual oficial do Psi Rob, uma plataforma de gestão para consultórios e clínicas de psicologia (agendamento de consultas, cadastro de pacientes, prontuário eletrônico e financeiro).
-
-Seu papel é ajudar a pessoa que está usando a plataforma — psicólogo(a) ou cliente/paciente — a entender e usar as funcionalidades do sistema: Agenda, Pacientes & Prontuários, Financeiro, Meu Perfil, Link de Agendamento (para psicólogos) e Meus Agendamentos / Buscar Psicólogo (para clientes).
-
-Regras importantes:
+const COMMON_RULES = `Regras importantes:
 - Responda sempre em português do Brasil, de forma breve, clara e cordial.
 - Você não é um profissional de saúde: nunca dê aconselhamento clínico, diagnóstico ou orientação terapêutica. Se a pessoa trouxer uma questão clínica ou de saúde mental, oriente-a a conversar diretamente com o psicólogo responsável.
 - Nunca peça, armazene ou repita de volta dados sensíveis de pacientes (CPF, conteúdo de prontuário, diagnósticos) durante a conversa.
 - Se não souber a resposta sobre uma funcionalidade específica da plataforma, seja honesto em vez de inventar.
 - Responda em texto simples, sem Markdown (sem **negrito**, sem #títulos, sem listas com * ou -) — a interface de chat exibe texto puro. Se precisar listar itens, separe por vírgula ou por linhas com números (1., 2., 3.).`;
+
+// Prompts segregados por papel: o assistente aparece tanto na área do
+// psicólogo (/dashboard) quanto na área do cliente (/agendamentos), mas cada
+// uma tem funcionalidades exclusivas (ex.: Prontuário e Financeiro só existem
+// pro psicólogo). Um prompt único que conhecia as duas listas deixava o
+// assistente responder sobre a área errada; aqui cada papel só recebe a
+// descrição do que existe na própria área.
+const SYSTEM_INSTRUCTION_PSYCHOLOGIST = `Você é o assistente virtual oficial do Psi Rob, uma plataforma de gestão para consultórios e clínicas de psicologia.
+
+Você está ajudando um(a) PSICÓLOGO(A) (profissional) na área de gestão do consultório. As funcionalidades disponíveis para ele(a) são: Agenda de Hoje, Pacientes & Prontuários, Financeiro / Recibos, Meu Link de Agendamento e Meu Perfil.
+
+Se a pergunta for sobre algo que só existe na área do cliente/paciente (buscar psicólogo, agendar consulta como paciente, etc.), explique que essa funcionalidade não faz parte da área do profissional e não tente respondê-la.
+
+${COMMON_RULES}`;
+
+const SYSTEM_INSTRUCTION_CLIENT = `Você é o assistente virtual oficial do Psi Rob, uma plataforma de gestão para consultórios e clínicas de psicologia.
+
+Você está ajudando um(a) CLIENTE/PACIENTE que usa a plataforma para agendar e acompanhar consultas. As funcionalidades disponíveis para ele(a) são: Meus Agendamentos, Buscar Psicólogo e Meu Perfil.
+
+Se a pergunta for sobre algo que só existe na área do psicólogo (prontuário, financeiro do consultório, agenda de atendimentos, link de agendamento, etc.), explique que essa funcionalidade não faz parte da área do cliente e não tente respondê-la.
+
+${COMMON_RULES}`;
+
+function systemInstructionForRole(role: Role | null): string {
+  return role === "client"
+    ? SYSTEM_INSTRUCTION_CLIENT
+    : SYSTEM_INSTRUCTION_PSYCHOLOGIST;
+}
 
 // "gemini-2.5-flash" (nome fixo) foi descontinuado para chaves novas da API
 // — usamos o alias "-latest", que a Google atualiza automaticamente pro
@@ -50,6 +75,8 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  const role = await fetchUserRole(supabase, user.id);
 
   let body: unknown;
   try {
@@ -93,7 +120,7 @@ export async function POST(request: Request) {
         { role: "user" as const, parts: [{ text: message.trim() }] },
       ],
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction: systemInstructionForRole(role),
       },
     });
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { brStates } from "@/lib/br-states";
+import { CidadeSelect } from "@/components/ui/cidade-select";
 import {
   especialidadesOptions,
   abordagensOptions,
@@ -116,7 +117,10 @@ export function FiltrosPsicologos({ initial }: { initial: FiltrosState }) {
         </select>
         <select
           value={form.uf}
-          onChange={(e) => set("uf", e.target.value)}
+          onChange={(e) => {
+            set("uf", e.target.value);
+            set("cidade", "");
+          }}
           className={fieldClass}
         >
           <option value="">UF</option>
@@ -126,11 +130,11 @@ export function FiltrosPsicologos({ initial }: { initial: FiltrosState }) {
             </option>
           ))}
         </select>
-        <input
-          type="text"
+        <CidadeSelect
+          uf={form.uf}
           value={form.cidade}
-          onChange={(e) => set("cidade", e.target.value)}
-          placeholder="Cidade"
+          onChange={(value) => set("cidade", value)}
+          placeholder="Todas as cidades"
           className={fieldClass}
         />
       </div>

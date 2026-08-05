@@ -18,6 +18,7 @@ import {
   Layers,
   ArrowRight,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { ProfileProvider, useProfile } from "@/context/profile-context";
 import {
@@ -222,7 +223,7 @@ function OnboardingContent() {
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 required
-                placeholder="Dr. Luiz Eduardo"
+                placeholder="Ex: Luiz Eduardo"
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               />
             </label>
@@ -258,7 +259,10 @@ function OnboardingContent() {
               UF
               <select
                 value={form.uf}
-                onChange={(e) => set("uf", e.target.value)}
+                onChange={(e) => {
+                  set("uf", e.target.value);
+                  set("cidade", "");
+                }}
                 required
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               >
@@ -277,12 +281,11 @@ function OnboardingContent() {
                 <MapPin className="h-4 w-4 text-zinc-400" />
                 Cidade
               </span>
-              <input
-                type="text"
+              <CidadeSelect
+                uf={form.uf}
                 value={form.cidade}
-                onChange={(e) => set("cidade", e.target.value)}
-                placeholder="São Paulo"
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                onChange={(value) => set("cidade", value)}
+                required
               />
             </label>
           </div>
@@ -509,15 +512,30 @@ function OnboardingContent() {
             )}
           </div>
 
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            <span className="flex items-center gap-1.5">
-              <Video className="h-4 w-4 text-zinc-400" />
-              Link da sala de videochamada{" "}
-              <span className="font-normal text-zinc-400">
-                (para atendimentos online)
-              </span>
-            </span>
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label
+                htmlFor="sala-online-url"
+                className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              >
+                <Video className="h-4 w-4 text-zinc-400" />
+                Link da sala de videochamada{" "}
+                <span className="font-normal text-zinc-400">
+                  (para atendimentos online)
+                </span>
+              </label>
+              <a
+                href="https://meet.google.com/new"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Criar sala no Meet
+              </a>
+            </div>
             <input
+              id="sala-online-url"
               type="url"
               value={form.salaOnlineUrl}
               onChange={(e) => set("salaOnlineUrl", e.target.value)}
@@ -527,9 +545,10 @@ function OnboardingContent() {
             <p className="mt-1.5 text-xs font-normal text-zinc-400">
               Sua sala fixa do Meet, Zoom ou similar. É enviada no lembrete de
               1 hora antes das consultas online e nunca aparece no seu perfil
-              público.
+              público. Clique em &ldquo;Criar sala no Meet&rdquo; para gerar
+              um link novo e cole aqui.
             </p>
-          </label>
+          </div>
         </div>
 
         <div className="mt-6 space-y-5 rounded-2xl border border-zinc-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
