@@ -77,7 +77,10 @@ type AppointmentsContextValue = {
   appointments: Appointment[];
   loading: boolean;
   addAppointment: (appointment: Omit<Appointment, "id">) => Promise<void>;
-  updateStatus: (id: string, status: AppointmentStatus) => Promise<void>;
+  updateStatus: (
+    id: string,
+    status: AppointmentStatus
+  ) => Promise<{ patientCreated: boolean }>;
   deleteAppointment: (id: string) => Promise<void>;
 };
 
@@ -172,8 +175,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     setAppointments((prev) => [...prev, rowToAppointment(data as ConsultaRow)]);
   }
 
-  async function updateStatus(id: string, status: AppointmentStatus) {
-    if (!user) return;
+  async function updateStatus(
+    id: string,
+    status: AppointmentStatus
+  ): Promise<{ patientCreated: boolean }> {
+    if (!user) return { patientCreated: false };
     const supabase = createClient();
 
     // Confirmar uma consulta pública de alguém que ainda não é paciente
@@ -187,13 +193,13 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         .rpc("confirmar_consulta_e_criar_paciente", { p_consulta_id: id })
         .single();
       if (error) throw new Error(error.message);
-      const row = data as { paciente_id: string | null };
+      const row = data as { paciente_id: string | null; criado: boolean };
       setAppointments((prev) =>
         prev.map((a) =>
           a.id === id ? { ...a, status, patientId: row.paciente_id } : a
         )
       );
-      return;
+      return { patientCreated: row.criado };
     }
 
     const { error } = await supabase
@@ -206,6 +212,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status } : a))
     );
+    return { patientCreated: false };
   }
 
   async function deleteAppointment(id: string) {

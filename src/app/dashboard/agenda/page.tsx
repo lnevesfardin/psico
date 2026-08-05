@@ -15,6 +15,7 @@ import {
   MapPin,
   Video,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
 import { formatDateLabel, formatDateShort, nextDays, todayIso, toWhatsappLink } from "@/lib/format";
@@ -61,6 +62,9 @@ export default function AgendaPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [patientCreatedToast, setPatientCreatedToast] = useState<string | null>(
+    null
+  );
   const seenPendingIds = useRef<Set<string> | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
@@ -92,6 +96,12 @@ export default function AgendaPage() {
       Notification.requestPermission();
     }
   }, []);
+
+  useEffect(() => {
+    if (!patientCreatedToast) return;
+    const timeout = setTimeout(() => setPatientCreatedToast(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [patientCreatedToast]);
 
   useEffect(() => {
     if (typeof Notification === "undefined") return;
@@ -157,8 +167,19 @@ export default function AgendaPage() {
     setModalOpen(false);
   }
 
-  function handleConfirmViaWhatsapp(item: Appointment) {
-    updateStatus(item.id, "confirmada");
+  // Ponto único pra mudança de status a partir da UI (select e botão do
+  // WhatsApp passam por aqui): mostra o toast de "paciente cadastrado"
+  // sempre que a confirmação criar um paciente novo, não só no caminho do
+  // WhatsApp — o psicólogo pode confirmar por qualquer um dos dois.
+  async function handleStatusChange(item: Appointment, status: AppointmentStatus) {
+    const result = await updateStatus(item.id, status);
+    if (result.patientCreated) {
+      setPatientCreatedToast(item.patientName);
+    }
+  }
+
+  async function handleConfirmViaWhatsapp(item: Appointment) {
+    await handleStatusChange(item, "confirmada");
     const phone = getPhone(item);
     if (!phone) return;
     const message = `Olá ${item.patientName}! Aqui é ${profile.name}. Sua consulta no dia ${formatDateShort(item.date)} às ${item.time} está confirmada. Até lá!`;
@@ -359,8 +380,8 @@ export default function AgendaPage() {
                           value={item.status}
                           onClick={(e) => e.preventDefault()}
                           onChange={(e) =>
-                            updateStatus(
-                              item.id,
+                            handleStatusChange(
+                              item,
                               e.target.value as AppointmentStatus
                             )
                           }
@@ -448,6 +469,16 @@ export default function AgendaPage() {
           onClose={() => setModalOpen(false)}
           onCreate={handleCreate}
         />
+      )}
+
+      {patientCreatedToast && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg dark:bg-white dark:text-zinc-900">
+          <UserPlus className="h-4 w-4 shrink-0" />
+          <span>
+            <strong className="font-semibold">{patientCreatedToast}</strong>{" "}
+            foi adicionado em Pacientes &amp; Prontuários.
+          </span>
+        </div>
       )}
     </div>
   );

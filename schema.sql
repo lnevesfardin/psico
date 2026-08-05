@@ -957,8 +957,13 @@ grant execute on function meu_psicologo_contato() to authenticated;
 -- a operação atômica (status + criação/vínculo do paciente numa única
 -- chamada) — a autorização real é o "psicologo_id = auth.uid()" abaixo.
 -- =========================================================
+-- drop antes do create or replace: muda o tipo de retorno em relação à
+-- primeira versão desta função (ganhou a coluna "criado"), e o Postgres
+-- recusa "create or replace" quando o retorno muda de shape.
+drop function if exists confirmar_consulta_e_criar_paciente(uuid);
+
 create or replace function confirmar_consulta_e_criar_paciente(p_consulta_id uuid)
-returns table (paciente_id uuid)
+returns table (paciente_id uuid, criado boolean)
 language plpgsql
 security definer
 set search_path = public
@@ -967,6 +972,7 @@ declare
   v consultas%rowtype;
   v_paciente_id uuid;
   v_observacoes text;
+  v_criado boolean := false;
 begin
   select * into v from consultas
   where id = p_consulta_id and psicologo_id = auth.uid();
@@ -979,7 +985,7 @@ begin
   -- Bloqueios de agenda (tipo='bloqueio') e consultas que já têm um
   -- paciente vinculado não geram/alteram cadastro nenhum.
   if v.tipo <> 'consulta' or v.paciente_id is not null then
-    return query select v.paciente_id;
+    return query select v.paciente_id, false;
     return;
   end if;
 
@@ -1019,11 +1025,12 @@ begin
       v.cliente_id, v.data, v_observacoes
     )
     returning id into v_paciente_id;
+    v_criado := true;
   end if;
 
   update consultas set paciente_id = v_paciente_id where id = p_consulta_id;
 
-  return query select v_paciente_id;
+  return query select v_paciente_id, v_criado;
 end;
 $$;
 
