@@ -412,6 +412,14 @@ create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
   );
+drop policy if exists "psicologo_apaga_proprias_sessoes" on sessoes_prontuario;
+create policy "psicologo_apaga_proprias_sessoes" on sessoes_prontuario
+  for delete using (
+    exists (
+      select 1 from pacientes p
+      where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
 
 drop policy if exists "psicologo_ve_proprias_consultas" on consultas;
 create policy "psicologo_ve_proprias_consultas" on consultas

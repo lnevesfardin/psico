@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   addSessionNote,
   deletePatient,
+  deleteSessionNote,
   getPatientWithSessions,
   patientToFormInput,
   updatePatient,
@@ -54,6 +55,9 @@ export default function PatientDetailPage({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [transcribeOpen, setTranscribeOpen] = useState(false);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const supabase = createClient();
@@ -117,6 +121,29 @@ export default function PatientDetailPage({
     } catch {
       setDeleteError("Não foi possível excluir o paciente.");
       setDeleting(false);
+    }
+  }
+
+  async function handleDeleteSession(sessionId: string) {
+    const confirmed = window.confirm(
+      "Apagar esta anotação do histórico de sessão? Não pode ser desfeito."
+    );
+    if (!confirmed) return;
+    setDeletingSessionId(sessionId);
+    try {
+      const supabase = createClient();
+      await deleteSessionNote(supabase, sessionId);
+      setPatient((prev) =>
+        prev
+          ? { ...prev, sessions: prev.sessions.filter((s) => s.id !== sessionId) }
+          : prev
+      );
+    } catch (err) {
+      window.alert(
+        err instanceof Error ? err.message : "Não foi possível apagar a anotação."
+      );
+    } finally {
+      setDeletingSessionId(null);
     }
   }
 
@@ -369,18 +396,29 @@ export default function PatientDetailPage({
                   key={session.id}
                   className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
                 >
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-600">
-                    <Clock className="h-3.5 w-3.5" />
-                    {formatDateTime(session.dateTime)}
-                    <span className="ml-1 inline-flex" title="Anotação sigilosa">
-                      <Lock className="h-3.5 w-3.5" />
-                    </span>
-                    {session.origem === "transcricao" && (
-                      <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-                        <Mic className="h-3 w-3" />
-                        Transcrição da sessão
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-600">
+                      <Clock className="h-3.5 w-3.5" />
+                      {formatDateTime(session.dateTime)}
+                      <span className="ml-1 inline-flex" title="Anotação sigilosa">
+                        <Lock className="h-3.5 w-3.5" />
                       </span>
-                    )}
+                      {session.origem === "transcricao" && (
+                        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                          <Mic className="h-3 w-3" />
+                          Transcrição da sessão
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSession(session.id)}
+                      disabled={deletingSessionId === session.id}
+                      aria-label="Apagar anotação"
+                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700 dark:text-zinc-300">
                     {session.content}

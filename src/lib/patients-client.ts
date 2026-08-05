@@ -252,3 +252,25 @@ export async function addSessionNote(
     origem: (data.origem as SessionNote["origem"]) ?? "manual",
   };
 }
+
+export async function deleteSessionNote(
+  supabase: SupabaseClient,
+  sessionId: string
+): Promise<void> {
+  // .select() depois do delete força o Postgres a devolver as linhas
+  // realmente apagadas — sem isso, um delete bloqueado pela RLS (ex.: schema
+  // ainda não atualizado no Supabase) retorna sucesso com zero linhas
+  // afetadas, e a UI achava que tinha apagado sem ter apagado (mesmo padrão
+  // de deleteAppointment em appointments-context.tsx).
+  const { data, error } = await supabase
+    .from("sessoes_prontuario")
+    .delete()
+    .eq("id", sessionId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error(
+      "A anotação não foi apagada no banco de dados. Confirme se o schema.sql mais recente foi executado no SQL Editor do Supabase."
+    );
+  }
+}
