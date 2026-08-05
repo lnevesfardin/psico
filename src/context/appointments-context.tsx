@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -30,6 +31,7 @@ type ConsultaRow = {
   estado_civil: string | null;
   escolaridade: string | null;
   motivo: string | null;
+  motivo_cancelamento: string | null;
 };
 
 function rowToAppointment(row: ConsultaRow): Appointment {
@@ -67,11 +69,21 @@ function rowToAppointment(row: ConsultaRow): Appointment {
           motivo: row.motivo ?? "",
         }
       : undefined,
+    motivoCancelamento: row.motivo_cancelamento ?? undefined,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil, escolaridade, motivo";
+  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil, escolaridade, motivo, motivo_cancelamento";
+
+export type CancellationAlert = {
+  key: string;
+  appointmentId: string;
+  patientName: string;
+  date: string;
+  time: string;
+  motivo: string;
+};
 
 type AppointmentsContextValue = {
   appointments: Appointment[];
@@ -82,6 +94,12 @@ type AppointmentsContextValue = {
     status: AppointmentStatus
   ) => Promise<{ patientCreated: boolean }>;
   deleteAppointment: (id: string) => Promise<void>;
+  // Consultas que o próprio cliente cancelou, pra Agenda de Hoje avisar o
+  // psicólogo com o motivo — populado só via o evento em tempo real abaixo
+  // (não sobrevive a um refresh: sem tabela de notificações persistente,
+  // só avisa quem já estava com a Agenda aberta no momento do cancelamento).
+  cancellationAlerts: CancellationAlert[];
+  dismissCancellationAlert: (key: string) => void;
 };
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(
@@ -92,6 +110,17 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancellationAlerts, setCancellationAlerts] = useState<
+    CancellationAlert[]
+  >([]);
+  // Espelha motivoCancelamento por id fora do React state: decidir "isso é
+  // uma transição nova" a partir do array `appointments` dentro do updater
+  // do setAppointments seria uma função impura (setState de outro estado
+  // como efeito colateral) — o StrictMode do React chama updaters duas vezes
+  // em dev pra flagrar exatamente isso, e duplicaria o alerta.
+  const knownCancelReasons = useRef<Map<string, string | undefined>>(
+    new Map()
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -103,7 +132,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       .eq("psicologo_id", user.id)
       .then(({ data }) => {
         if (data) {
-          setAppointments((data as ConsultaRow[]).map(rowToAppointment));
+          const mapped = (data as ConsultaRow[]).map(rowToAppointment);
+          knownCancelReasons.current = new Map(
+            mapped.map((a) => [a.id, a.motivoCancelamento])
+          );
+          setAppointments(mapped);
         }
         setLoading(false);
       });
@@ -127,6 +160,33 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             return;
           }
           const appointment = rowToAppointment(payload.new as ConsultaRow);
+
+          // motivoCancelamento só existe quando é o CLIENTE cancelando (ver
+          // cancelar_consulta_cliente) — o psicólogo mudando o status pela
+          // própria Agenda nunca preenche essa coluna, então checar a
+          // transição por ela (em vez de só status === "desmarcada") evita
+          // alertar o psicólogo sobre a própria ação.
+          const motivoCancelamento = appointment.motivoCancelamento;
+          const previousMotivo = knownCancelReasons.current.get(appointment.id);
+          knownCancelReasons.current.set(appointment.id, motivoCancelamento);
+          if (
+            appointment.status === "desmarcada" &&
+            motivoCancelamento &&
+            previousMotivo !== motivoCancelamento
+          ) {
+            setCancellationAlerts((alerts) => [
+              ...alerts,
+              {
+                key: `${appointment.id}-${motivoCancelamento}`,
+                appointmentId: appointment.id,
+                patientName: appointment.patientName,
+                date: appointment.date,
+                time: appointment.time,
+                motivo: motivoCancelamento,
+              },
+            ]);
+          }
+
           setAppointments((prev) => {
             const exists = prev.some((a) => a.id === appointment.id);
             return exists
@@ -239,6 +299,10 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     setAppointments((prev) => prev.filter((a) => a.id !== id));
   }
 
+  function dismissCancellationAlert(key: string) {
+    setCancellationAlerts((alerts) => alerts.filter((a) => a.key !== key));
+  }
+
   return (
     <AppointmentsContext.Provider
       value={{
@@ -247,6 +311,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         addAppointment,
         updateStatus,
         deleteAppointment,
+        cancellationAlerts,
+        dismissCancellationAlert,
       }}
     >
       {children}

@@ -60,5 +60,9 @@ export type Appointment = {
   origem?: "publico" | "manual";
   modalidade?: ModalidadeAtendimento;
   detalhes?: PublicBookingDetails;
+  // Preenchido só quando o próprio cliente cancela (ver
+  // cancelar_consulta_cliente no schema.sql) — nunca em mudanças de status
+  // feitas pelo psicólogo.
+  motivoCancelamento?: string;
 };
 

@@ -28,3 +28,14 @@ export type LembretePayload = {
 export type ResultadoEnvio =
   | { ok: true }
   | { ok: false; erro: string };
+
+/** E-mail avisando o psicólogo que o cliente cancelou uma consulta. */
+export type CancelamentoPayload = {
+  psicologoNome: string;
+  pacienteNome: string;
+  /** yyyy-mm-dd */
+  data: string;
+  /** HH:mm */
+  horario: string;
+  motivo: string;
+};

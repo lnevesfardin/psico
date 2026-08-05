@@ -11,6 +11,7 @@ export type ClientAppointment = {
   psicologoNome: string;
   psicologoTitulo: string;
   psicologoFotoUrl: string | null;
+  motivoCancelamento: string | null;
 };
 
 type ConsultaRow = {
@@ -20,6 +21,7 @@ type ConsultaRow = {
   horario: string;
   status: AppointmentStatus;
   modalidade: ModalidadeAtendimento | null;
+  motivo_cancelamento: string | null;
 };
 
 type PerfilPublicoRow = {
@@ -29,7 +31,8 @@ type PerfilPublicoRow = {
   foto_url: string | null;
 };
 
-const CONSULTA_COLUMNS = "id, psicologo_id, data, horario, status, modalidade";
+const CONSULTA_COLUMNS =
+  "id, psicologo_id, data, horario, status, modalidade, motivo_cancelamento";
 
 export async function listClientAppointments(
   supabase: SupabaseClient,
@@ -69,6 +72,33 @@ export async function listClientAppointments(
       psicologoNome: perfil?.nome ?? "Psicólogo",
       psicologoTitulo: perfil?.titulo ?? "",
       psicologoFotoUrl: perfil?.foto_url ?? null,
+      motivoCancelamento: row.motivo_cancelamento,
     };
   });
+}
+
+/**
+ * Cancela um agendamento próprio (pendente ou confirmado) via RPC — cliente
+ * não tem policy de UPDATE em "consultas" de propósito, ver
+ * cancelar_consulta_cliente no schema.sql. O motivo é obrigatório: a função
+ * rejeita string vazia.
+ */
+export async function cancelAppointment(
+  supabase: SupabaseClient,
+  consultaId: string,
+  motivo: string
+): Promise<void> {
+  const { error } = await supabase.rpc("cancelar_consulta_cliente", {
+    p_consulta_id: consultaId,
+    p_motivo: motivo,
+  });
+  if (error) throw new Error(error.message);
+
+  // Best-effort: avisa o psicólogo por e-mail. Não bloqueia nem falha o
+  // cancelamento (que já está salvo no banco) se o envio der errado.
+  fetch("/api/notificacoes/cancelamento", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ consultaId }),
+  }).catch(() => {});
 }

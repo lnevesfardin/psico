@@ -206,6 +206,11 @@ create table if not exists consultas (
   estado_civil text,
   escolaridade text,
   motivo text,
+  -- Preenchido só quando o cliente cancela pela própria conta (função
+  -- cancelar_consulta_cliente abaixo) — nunca quando o psicólogo muda o
+  -- status manualmente, o que permite ao psicólogo distinguir as duas
+  -- situações na agenda.
+  motivo_cancelamento text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -214,6 +219,7 @@ create table if not exists consultas (
 -- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
 alter table consultas add column if not exists email text;
 alter table consultas add column if not exists cliente_id uuid references auth.users(id) on delete set null;
+alter table consultas add column if not exists motivo_cancelamento text;
 
 create index if not exists consultas_cliente_id_idx
   on consultas (cliente_id, data desc);
@@ -1035,3 +1041,60 @@ end;
 $$;
 
 grant execute on function confirmar_consulta_e_criar_paciente(uuid) to authenticated;
+
+-- =========================================================
+-- cancelar_consulta_cliente — cliente cancela um agendamento próprio
+-- (pendente ou confirmado) e é obrigado a registrar o motivo. Cliente nunca
+-- teve policy de UPDATE em "consultas" (só SELECT, ver
+-- cliente_ve_proprios_agendamentos acima) de propósito — em vez de abrir uma
+-- policy genérica, esta função valida a dona (cliente_id = auth.uid()) e a
+-- transição de status permitida, e é a única porta de entrada pra esse caso.
+-- Devolve o e-mail/nome do psicólogo pra quem chamou notificá-lo por e-mail
+-- logo em seguida (rota /api/notificacoes/cancelamento), sem precisar de uma
+-- segunda função só pra isso.
+-- =========================================================
+create or replace function cancelar_consulta_cliente(
+  p_consulta_id uuid,
+  p_motivo text
+)
+returns table (
+  psicologo_email text,
+  psicologo_nome text,
+  paciente_nome text,
+  data date,
+  horario time
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v consultas%rowtype;
+  v_motivo text := nullif(trim(p_motivo), '');
+begin
+  if v_motivo is null then
+    raise exception 'Informe o motivo do cancelamento.';
+  end if;
+
+  select * into v from consultas
+  where id = p_consulta_id and cliente_id = auth.uid();
+  if not found then
+    raise exception 'Agendamento não encontrado.';
+  end if;
+
+  if v.status not in ('pendente', 'confirmada') then
+    raise exception 'Este agendamento não pode mais ser cancelado.';
+  end if;
+
+  update consultas
+  set status = 'desmarcada', motivo_cancelamento = v_motivo
+  where id = p_consulta_id;
+
+  return query
+  select pr.email, pr.name, v.paciente_nome, v.data, v.horario
+  from profiles pr
+  where pr.id = v.psicologo_id;
+end;
+$$;
+
+grant execute on function cancelar_consulta_cliente(uuid, text) to authenticated;

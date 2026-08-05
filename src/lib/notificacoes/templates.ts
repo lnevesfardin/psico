@@ -1,5 +1,5 @@
 import { formatDateLabel } from "@/lib/format";
-import type { LembretePayload } from "./types";
+import type { CancelamentoPayload, LembretePayload } from "./types";
 
 function escapeHtml(value: string): string {
   return value
@@ -87,6 +87,42 @@ export function montarLembrete(payload: LembretePayload): Mensagem {
           )
           .join("")}
       </table>
+      <p style="margin:28px 0 0;font-size:13px;color:#a1a1aa;">
+        Você recebeu este e-mail porque tem uma consulta agendada no Psi Rob.
+      </p>
+    </div>
+  </body>
+</html>`;
+
+  return { assunto, html, texto };
+}
+
+export function montarCancelamento(payload: CancelamentoPayload): Mensagem {
+  const quandoLegivel = `${formatDateLabel(payload.data)} às ${payload.horario}`;
+  const assunto = `${payload.pacienteNome} cancelou a consulta de ${quandoLegivel}`;
+
+  const texto = [
+    `Olá, ${payload.psicologoNome}!`,
+    "",
+    `${payload.pacienteNome} cancelou a consulta marcada para ${quandoLegivel}.`,
+    "",
+    `Motivo informado: ${payload.motivo}`,
+    "",
+    "— Psi Rob",
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html lang="pt-BR">
+  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;">
+      <p style="margin:0 0 16px;font-size:16px;font-weight:600;">Olá, ${escapeHtml(payload.psicologoNome)}!</p>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3f3f46;">
+        <strong>${escapeHtml(payload.pacienteNome)}</strong> cancelou a consulta marcada para <strong>${escapeHtml(quandoLegivel)}</strong>.
+      </p>
+      <div style="border-radius:12px;background:#fef2f2;padding:16px 20px;">
+        <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;color:#b91c1c;">Motivo informado</p>
+        <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">${escapeHtml(payload.motivo)}</p>
+      </div>
       <p style="margin:28px 0 0;font-size:13px;color:#a1a1aa;">
         Você recebeu este e-mail porque tem uma consulta agendada no Psi Rob.
       </p>

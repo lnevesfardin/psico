@@ -16,6 +16,7 @@ import {
   Video,
   Trash2,
   UserPlus,
+  CalendarX,
 } from "lucide-react";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
 import { formatDateLabel, formatDateShort, nextDays, todayIso, toWhatsappLink } from "@/lib/format";
@@ -55,8 +56,14 @@ const statusStyles: Record<AppointmentStatus, string> = {
 
 export default function AgendaPage() {
   const { user } = useAuth();
-  const { appointments, addAppointment, updateStatus, deleteAppointment } =
-    useAppointments();
+  const {
+    appointments,
+    addAppointment,
+    updateStatus,
+    deleteAppointment,
+    cancellationAlerts,
+    dismissCancellationAlert,
+  } = useAppointments();
   const { profile } = useProfile();
   const [view, setView] = useState<"hoje" | "semana" | "mes">("hoje");
   const [modalOpen, setModalOpen] = useState(false);
@@ -234,6 +241,37 @@ export default function AgendaPage() {
           <BellRing className="h-4 w-4 shrink-0" />
           Você tem {pendingAppointments.length} agendamento(s) pendente(s) de
           confirmação, feito(s) pelo site.
+        </div>
+      )}
+
+      {cancellationAlerts.length > 0 && (
+        <div className="mt-6 space-y-2">
+          {cancellationAlerts.map((alert) => (
+            <div
+              key={alert.key}
+              className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+            >
+              <CalendarX className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p>
+                  <strong className="font-semibold">{alert.patientName}</strong>{" "}
+                  cancelou a consulta de {formatDateLabel(alert.date)} às{" "}
+                  {alert.time}.
+                </p>
+                <p className="mt-0.5 text-rose-700/90 dark:text-rose-300/80">
+                  Motivo: {alert.motivo}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => dismissCancellationAlert(alert.key)}
+                aria-label="Dispensar aviso"
+                className="shrink-0 rounded-full p-1 text-rose-500 hover:bg-rose-100 dark:text-rose-400 dark:hover:bg-rose-900/60"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -431,6 +469,12 @@ export default function AgendaPage() {
                             Motivo: {item.detalhes.motivo}
                           </span>
                         )}
+                      </div>
+                    )}
+
+                    {item.status === "desmarcada" && item.motivoCancelamento && (
+                      <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                        Cancelado pelo paciente — motivo: {item.motivoCancelamento}
                       </div>
                     )}
 
