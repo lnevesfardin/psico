@@ -176,6 +176,26 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const supabase = createClient();
 
+    // Confirmar uma consulta pública de alguém que ainda não é paciente
+    // cadastrado (patientId null) cria o cadastro automaticamente a partir
+    // dos dados já preenchidos no agendamento — via RPC pra manter status +
+    // criação do paciente atômicos (ver confirmar_consulta_e_criar_paciente
+    // no schema.sql). Demais transições de status seguem update direto.
+    const current = appointments.find((a) => a.id === id);
+    if (status === "confirmada" && current && !current.patientId) {
+      const { data, error } = await supabase
+        .rpc("confirmar_consulta_e_criar_paciente", { p_consulta_id: id })
+        .single();
+      if (error) throw new Error(error.message);
+      const row = data as { paciente_id: string | null };
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, status, patientId: row.paciente_id } : a
+        )
+      );
+      return;
+    }
+
     const { error } = await supabase
       .from("consultas")
       .update({ status })

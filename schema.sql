@@ -946,3 +946,85 @@ as $$
 $$;
 
 grant execute on function meu_psicologo_contato() to authenticated;
+
+-- =========================================================
+-- confirmar_consulta_e_criar_paciente — ao confirmar uma consulta vinda do
+-- agendamento público (origem='publico') de alguém que ainda não é
+-- paciente cadastrado (paciente_id null), cria automaticamente o cadastro
+-- em "pacientes" usando os dados que a própria pessoa já preencheu no
+-- agendamento (nome, telefone, email, escolaridade) em vez do psicólogo
+-- ter que digitar tudo de novo manualmente. security definer só pra manter
+-- a operação atômica (status + criação/vínculo do paciente numa única
+-- chamada) — a autorização real é o "psicologo_id = auth.uid()" abaixo.
+-- =========================================================
+create or replace function confirmar_consulta_e_criar_paciente(p_consulta_id uuid)
+returns table (paciente_id uuid)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v consultas%rowtype;
+  v_paciente_id uuid;
+  v_observacoes text;
+begin
+  select * into v from consultas
+  where id = p_consulta_id and psicologo_id = auth.uid();
+  if not found then
+    raise exception 'Consulta não encontrada';
+  end if;
+
+  update consultas set status = 'confirmada' where id = p_consulta_id;
+
+  -- Bloqueios de agenda (tipo='bloqueio') e consultas que já têm um
+  -- paciente vinculado não geram/alteram cadastro nenhum.
+  if v.tipo <> 'consulta' or v.paciente_id is not null then
+    return query select v.paciente_id;
+    return;
+  end if;
+
+  -- A pessoa pode já ter um paciente vinculado à própria conta de cliente
+  -- (ex.: segundo agendamento dela, ou vínculo manual feito antes pelo
+  -- psicólogo) — reaproveita em vez de duplicar o cadastro.
+  if v.cliente_id is not null then
+    select id into v_paciente_id
+    from pacientes
+    where psicologo_id = v.psicologo_id and cliente_user_id = v.cliente_id
+    limit 1;
+  end if;
+
+  if v_paciente_id is null then
+    -- Nem todo dado coletado no agendamento público tem coluna própria em
+    -- "pacientes" (idade, sexo, profissão, estado civil, endereço) — em vez
+    -- de descartar, junta como texto livre em "observacoes" pra não perder
+    -- a informação que a pessoa já forneceu.
+    v_observacoes := nullif(concat_ws(', ',
+      case when v.idade is not null then v.idade || ' anos' end,
+      v.sexo,
+      v.profissao,
+      v.estado_civil
+    ), '');
+    if v.endereco is not null then
+      v_observacoes := concat_ws(E'\n', v_observacoes, v.endereco);
+    end if;
+    if v.motivo is not null then
+      v_observacoes := concat_ws(E'\n', v_observacoes, 'Motivo do agendamento: ' || v.motivo);
+    end if;
+
+    insert into pacientes (
+      psicologo_id, nome, telefone, email, escolaridade,
+      cliente_user_id, data_primeira_consulta, observacoes
+    ) values (
+      v.psicologo_id, v.paciente_nome, v.telefone, v.email, v.escolaridade,
+      v.cliente_id, v.data, v_observacoes
+    )
+    returning id into v_paciente_id;
+  end if;
+
+  update consultas set paciente_id = v_paciente_id where id = p_consulta_id;
+
+  return query select v_paciente_id;
+end;
+$$;
+
+grant execute on function confirmar_consulta_e_criar_paciente(uuid) to authenticated;
