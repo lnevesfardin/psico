@@ -41,13 +41,13 @@ export function ClientAreaHeader() {
             Sair
           </button>
         </div>
-        <div className="flex items-center justify-between gap-4 overflow-hidden">
-          {/* overflow-x-auto (em vez de deixar os links encolherem): com 4
-              itens o menu não cabe em telas estreitas — sem isso o texto
-              quebrava linha dentro do botão ("Meus" numa linha,
-              "Agendamentos" na outra). Aqui ele rola horizontalmente em vez
-              de espremer. */}
-          <nav className="flex items-center gap-1 overflow-x-auto rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between gap-4">
+          {/* flex-wrap (em vez de deixar os links encolherem): com 4 itens o
+              menu não cabe numa linha só em telas estreitas — sem isso o
+              texto quebrava dentro do botão ("Meus" numa linha,
+              "Agendamentos" na outra). Aqui o item que não coube desce pra
+              uma segunda linha inteiro, em vez de cortar o texto. */}
+          <nav className="flex flex-wrap items-center gap-1 rounded-2xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
               return (
