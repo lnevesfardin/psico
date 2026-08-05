@@ -41,21 +41,26 @@ export function ClientAreaHeader() {
             Sair
           </button>
         </div>
-        <div className="flex items-center justify-between gap-4">
-          <nav className="flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between gap-4 overflow-hidden">
+          {/* overflow-x-auto (em vez de deixar os links encolherem): com 4
+              itens o menu não cabe em telas estreitas — sem isso o texto
+              quebrava linha dentro do botão ("Meus" numa linha,
+              "Agendamentos" na outra). Aqui ele rola horizontalmente em vez
+              de espremer. */}
+          <nav className="flex items-center gap-1 overflow-x-auto rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
                     active
                       ? "bg-brand-600 text-white"
                       : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4 shrink-0" />
                   {label}
                 </Link>
               );
