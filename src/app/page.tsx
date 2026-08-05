@@ -25,6 +25,8 @@ import {
   MonitorSmartphone,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
+import { SmokyText } from "@/components/motion/smoky-text";
+import { SnowFall } from "@/components/motion/snow-fall";
 
 /** Superfície padrão dos cards: sutil no claro, translúcida no escuro. */
 const cardBase =
@@ -312,6 +314,7 @@ export default function Home() {
       <section className="relative overflow-hidden px-6 py-20 sm:py-28 lg:py-32">
         <Glow className="left-1/2 top-[-8rem] h-[34rem] w-[34rem] -translate-x-1/2 bg-brand-300/40 dark:bg-brand-500/15" />
         <Glow className="right-[-6rem] top-[10rem] h-[22rem] w-[22rem] bg-sky-200/30 dark:bg-sky-500/10" />
+        <SnowFall className="text-brand-400/45 dark:text-white/20" />
 
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2 lg:gap-12">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
@@ -325,14 +328,12 @@ export default function Home() {
               A plataforma simples para psicólogos focarem no que importa: pessoas.
             </motion.span>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-6xl dark:text-white"
-            >
-              Gestão de consultório de psicologia sem complicação
-            </motion.h1>
+            <h1 className="text-4xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-6xl dark:text-white">
+              <SmokyText
+                text="Gestão de consultório de psicologia sem complicação"
+                delay={0.1}
+              />
+            </h1>
 
             <motion.p
               initial={{ opacity: 0, y: 20 }}

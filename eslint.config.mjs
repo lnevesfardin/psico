@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Plugin de terceiro (Vellum/Originkit) baixado solto na raiz: não é
+    // código da aplicação e não segue as regras daqui.
+    "originkit-main/**",
   ]),
 ]);
 

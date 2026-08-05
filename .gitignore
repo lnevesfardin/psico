@@ -43,3 +43,7 @@ next-env.d.ts
 
 # claude code local settings
 .claude/settings.local.json
+
+# plugin de terceiro baixado solto na raiz — não faz parte da aplicação e
+# seu config.json guarda a API key da Originkit (cmp_live_...)
+/originkit-main
