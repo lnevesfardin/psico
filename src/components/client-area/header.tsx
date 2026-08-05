@@ -24,8 +24,11 @@ export function ClientAreaHeader() {
   }
 
   return (
-    <header className="border-b border-zinc-100 bg-white px-6 py-4 dark:border-zinc-900 dark:bg-zinc-950">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    // sticky + translúcido + backdrop-blur: mesmo tratamento "glass" do
+    // header da landing page (src/app/page.tsx) — o conteúdo passa por
+    // baixo desfocado ao rolar, em vez de um header opaco chapado.
+    <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/70 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/70">
+      <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -47,17 +50,17 @@ export function ClientAreaHeader() {
               texto quebrava dentro do botão ("Meus" numa linha,
               "Agendamentos" na outra). Aqui o item que não coube desce pra
               uma segunda linha inteiro, em vez de cortar o texto. */}
-          <nav className="flex flex-wrap items-center gap-1 rounded-2xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+          <nav className="flex flex-wrap items-center gap-1 rounded-2xl border border-zinc-200/70 bg-white/60 p-1 shadow-sm backdrop-blur-sm dark:border-zinc-800/70 dark:bg-white/[0.04]">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200 ${
                     active
-                      ? "bg-brand-600 text-white"
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                      ? "bg-brand-600 text-white shadow-md shadow-brand-600/25"
+                      : "text-zinc-600 hover:bg-white hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white"
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -69,7 +72,7 @@ export function ClientAreaHeader() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="hidden items-center gap-2 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white sm:flex"
+            className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-zinc-500 transition-colors hover:bg-white/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white sm:flex"
           >
             <LogOut className="h-4 w-4" />
             Sair
