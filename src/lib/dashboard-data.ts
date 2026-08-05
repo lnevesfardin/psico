@@ -2,6 +2,9 @@ export type SessionNote = {
   id: string;
   dateTime: string; // ISO string
   content: string;
+  // "transcricao" = texto vindo da transcrição automática do áudio da sessão,
+  // revisado pelo psicólogo antes de salvar; "manual" = digitado por ele.
+  origem: "manual" | "transcricao";
 };
 
 export type Patient = {

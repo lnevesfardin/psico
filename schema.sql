@@ -169,8 +169,35 @@ create table if not exists sessoes_prontuario (
   paciente_id uuid not null references pacientes(id) on delete cascade,
   conteudo text not null,
   data_hora timestamptz not null default now(),
+  -- 'transcricao' = texto gerado pela transcrição automática do áudio da
+  -- sessão (revisado e salvo pelo psicólogo); 'manual' = digitado por ele.
+  -- Distinguir importa: texto de IA pode conter erro de transcrição e não
+  -- deve ser lido como se fosse a redação do profissional.
+  origem text not null default 'manual'
+    check (origem in ('manual', 'transcricao')),
+  -- Momento em que o psicólogo declarou ter o consentimento do paciente para
+  -- gravar (LGPD art. 11 — dado sensível de saúde exige consentimento
+  -- específico). Só preenchido em origem='transcricao'; é a trilha de
+  -- auditoria de que houve autorização antes de gravar.
+  consentimento_em timestamptz,
+  duracao_segundos int,
   created_at timestamptz not null default now()
 );
+
+-- alter table (não só create) para bancos provisionados antes desta mudança.
+alter table sessoes_prontuario add column if not exists origem text not null default 'manual';
+alter table sessoes_prontuario add column if not exists consentimento_em timestamptz;
+alter table sessoes_prontuario add column if not exists duracao_segundos int;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'sessoes_prontuario_origem_check'
+  ) then
+    alter table sessoes_prontuario add constraint sessoes_prontuario_origem_check
+      check (origem in ('manual', 'transcricao'));
+  end if;
+end $$;
 
 create index if not exists sessoes_prontuario_paciente_id_idx
   on sessoes_prontuario (paciente_id, data_hora desc);

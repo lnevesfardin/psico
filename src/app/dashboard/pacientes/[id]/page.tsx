@@ -19,6 +19,7 @@ import {
   GraduationCap,
   HelpCircle,
   StickyNote,
+  Mic,
 } from "lucide-react";
 import type { Patient } from "@/lib/dashboard-data";
 import { createClient } from "@/lib/supabase/client";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/patients-client";
 import { PatientFormModal } from "@/components/patient-form-modal";
 import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
+import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
 
@@ -51,6 +53,7 @@ export default function PatientDetailPage({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [transcribeOpen, setTranscribeOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -303,9 +306,28 @@ export default function PatientDetailPage({
 
       {tab === "evolucao" && (
         <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setTranscribeOpen(true)}
+            className="flex w-full items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 text-left transition-colors hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-950/40 dark:hover:bg-brand-950/70"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
+              <Mic className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-brand-900 dark:text-brand-200">
+                Transcrever sessão
+              </span>
+              <span className="block text-xs text-brand-700/80 dark:text-brand-300/70">
+                Grave o atendimento e gere a anotação automaticamente. O áudio
+                não é armazenado.
+              </span>
+            </span>
+          </button>
+
           <form
             onSubmit={handleAddNote}
-            className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+            className="mt-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
           >
             <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
               <Lock className="h-4 w-4 text-zinc-400" />
@@ -347,14 +369,20 @@ export default function PatientDetailPage({
                   key={session.id}
                   className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
                 >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-600">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-600">
                     <Clock className="h-3.5 w-3.5" />
                     {formatDateTime(session.dateTime)}
                     <span className="ml-1 inline-flex" title="Anotação sigilosa">
                       <Lock className="h-3.5 w-3.5" />
                     </span>
+                    {session.origem === "transcricao" && (
+                      <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                        <Mic className="h-3 w-3" />
+                        Transcrição da sessão
+                      </span>
+                    )}
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700 dark:text-zinc-300">
                     {session.content}
                   </p>
                 </div>
@@ -373,6 +401,25 @@ export default function PatientDetailPage({
           onUnlinked={() =>
             setPatient((prev) => (prev ? { ...prev, clienteUserId: null } : prev))
           }
+        />
+      )}
+
+      {transcribeOpen && patient && (
+        <SessionTranscriptionModal
+          patientName={patient.name}
+          onClose={() => setTranscribeOpen(false)}
+          onSave={async ({ texto, duracaoSegundos, consentimentoEm }) => {
+            const supabase = createClient();
+            const newNote = await addSessionNote(supabase, patient.id, texto, {
+              origem: "transcricao",
+              consentimentoEm,
+              duracaoSegundos,
+            });
+            setPatient((prev) =>
+              prev ? { ...prev, sessions: [newNote, ...prev.sessions] } : prev
+            );
+            setTranscribeOpen(false);
+          }}
         />
       )}
 

@@ -71,7 +71,7 @@ export async function getPatientWithSessions(
 
   const { data: sessoes } = await supabase
     .from("sessoes_prontuario")
-    .select("id, conteudo, data_hora")
+    .select("id, conteudo, data_hora, origem")
     .eq("paciente_id", patientId)
     .order("data_hora", { ascending: false });
 
@@ -79,6 +79,7 @@ export async function getPatientWithSessions(
     id: s.id as string,
     content: s.conteudo as string,
     dateTime: s.data_hora as string,
+    origem: (s.origem as SessionNote["origem"]) ?? "manual",
   }));
 
   return rowToPatient(paciente as PacienteRow, sessions);
@@ -211,20 +212,43 @@ export async function unlinkPatientFromClient(
   if (error) throw new Error(error.message);
 }
 
+export type SessionNoteOrigin =
+  | { origem: "manual" }
+  // consentimentoEm é a trilha de auditoria exigida para gravar áudio de
+  // sessão (dado sensível de saúde, LGPD art. 11) — ver o modal de
+  // transcrição, que só libera a gravação depois da confirmação.
+  | {
+      origem: "transcricao";
+      consentimentoEm: string;
+      duracaoSegundos: number;
+    };
+
 export async function addSessionNote(
   supabase: SupabaseClient,
   patientId: string,
-  content: string
+  content: string,
+  origin: SessionNoteOrigin = { origem: "manual" }
 ): Promise<SessionNote> {
   const { data, error } = await supabase
     .from("sessoes_prontuario")
-    .insert({ paciente_id: patientId, conteudo: content })
-    .select("id, conteudo, data_hora")
+    .insert({
+      paciente_id: patientId,
+      conteudo: content,
+      origem: origin.origem,
+      ...(origin.origem === "transcricao"
+        ? {
+            consentimento_em: origin.consentimentoEm,
+            duracao_segundos: origin.duracaoSegundos,
+          }
+        : {}),
+    })
+    .select("id, conteudo, data_hora, origem")
     .single();
   if (error) throw new Error(error.message);
   return {
     id: data.id as string,
     content: data.conteudo as string,
     dateTime: data.data_hora as string,
+    origem: (data.origem as SessionNote["origem"]) ?? "manual",
   };
 }
