@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CheckCircle2, Loader2, User, MessageCircle } from "lucide-react";
 import {
   ClientProfileProvider,
@@ -21,7 +21,6 @@ export function OnboardingCliente() {
 }
 
 function OnboardingClienteContent() {
-  const router = useRouter();
   const { profile, loading } = useClientProfile();
 
   if (loading) {
@@ -73,13 +72,12 @@ function OnboardingClienteContent() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => router.push("/agendamentos")}
+          <Link
+            href="/agendamentos"
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
           >
             Ir para agendamentos
-          </button>
+          </Link>
         </div>
       </div>
     </div>
