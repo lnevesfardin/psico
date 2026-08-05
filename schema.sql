@@ -942,10 +942,13 @@ begin
     raise exception 'Não encontramos uma conta de cliente com esse e-mail. Peça para a pessoa criar uma conta em /cadastro (como cliente) antes de vincular.';
   end if;
 
+  -- "cliente_user_id" precisa vir qualificado (pacientes.cliente_user_id):
+  -- sem o prefixo é ambíguo com a coluna de mesmo nome no "returns table"
+  -- desta função, que o PL/pgSQL expõe como variável dentro do corpo.
   if exists (
     select 1 from pacientes
     where psicologo_id = auth.uid()
-      and cliente_user_id = v_cliente_id
+      and pacientes.cliente_user_id = v_cliente_id
       and id <> p_paciente_id
   ) then
     raise exception 'Esta conta de cliente já está vinculada a outro paciente da sua lista.';
