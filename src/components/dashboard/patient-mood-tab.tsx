@@ -47,11 +47,12 @@ export function PatientMoodTab({
       onLinked(result.clienteUserId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      setLinkError(
-        msg.includes("Não encontramos") || msg.includes("já está vinculada")
-          ? msg
-          : "Não foi possível vincular. Tente novamente."
-      );
+      // Mensagens conhecidas da função vincular_paciente_cliente já vêm
+      // prontas pro psicólogo ler; qualquer outra (função ainda não existe
+      // no banco, erro de rede, etc.) mostra a mensagem crua em vez de um
+      // "tente novamente" genérico — sem isso não dava pra diagnosticar o
+      // problema pela tela.
+      setLinkError(msg || "Não foi possível vincular. Tente novamente.");
     } finally {
       setLinking(false);
     }
