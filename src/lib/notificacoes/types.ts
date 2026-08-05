@@ -39,3 +39,9 @@ export type CancelamentoPayload = {
   horario: string;
   motivo: string;
 };
+
+/** E-mail avisando o psicólogo que o cliente parou de compartilhar o humor. */
+export type CompartilhamentoHumorPayload = {
+  psicologoNome: string;
+  pacienteNome: string;
+};

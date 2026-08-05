@@ -963,6 +963,66 @@ $$;
 grant execute on function vincular_paciente_cliente(uuid, text) to authenticated;
 
 -- =========================================================
+-- meus_compartilhamentos_humor / parar_compartilhar_humor — o vínculo
+-- pacientes.cliente_user_id (ver vincular_paciente_cliente acima) é o que
+-- decide quem enxerga o check-in de humor do cliente, mas até aqui só o
+-- psicólogo via/desfazia esse vínculo — o cliente não tinha como saber com
+-- quem seu humor estava sendo compartilhado, nem como parar sozinho.
+-- security definer pelo mesmo motivo de sempre: cliente não tem (e não deve
+-- ter) policy de SELECT em "pacientes" — a tabela carrega anotações do
+-- psicólogo (observacoes) que não são pra o paciente ler; estas funções só
+-- devolvem os campos estritamente necessários pra essa tela.
+-- =========================================================
+create or replace function meus_compartilhamentos_humor()
+returns table (paciente_id uuid, psicologo_id uuid, psicologo_nome text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select p.id, p.psicologo_id, pf.nome
+  from pacientes p
+  join perfis pf on pf.id = p.psicologo_id
+  where p.cliente_user_id = auth.uid()
+  order by pf.nome;
+$$;
+
+grant execute on function meus_compartilhamentos_humor() to authenticated;
+
+-- Devolve e-mail/nome do psicólogo pra quem chamou notificá-lo em seguida
+-- (rota /api/mood-sharing/parar), no mesmo espírito de
+-- cancelar_consulta_cliente — evita uma segunda função só pra isso.
+create or replace function parar_compartilhar_humor(p_paciente_id uuid)
+returns table (psicologo_email text, psicologo_nome text, paciente_nome text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_psicologo_id uuid;
+  v_paciente_nome text;
+begin
+  select psicologo_id, nome into v_psicologo_id, v_paciente_nome
+  from pacientes
+  where id = p_paciente_id and cliente_user_id = auth.uid();
+
+  if v_psicologo_id is null then
+    raise exception 'Vínculo não encontrado.';
+  end if;
+
+  update pacientes set cliente_user_id = null where id = p_paciente_id;
+
+  return query
+  select pr.email, pf.nome, v_paciente_nome
+  from profiles pr
+  join perfis pf on pf.id = pr.id
+  where pr.id = v_psicologo_id;
+end;
+$$;
+
+grant execute on function parar_compartilhar_humor(uuid) to authenticated;
+
+-- =========================================================
 -- meu_psicologo_contato — telefone/nome do psicólogo da consulta mais
 -- recente do cliente logado, usado só pelo botão de emergência do check-in
 -- de humor (abrir WhatsApp). security definer pelo mesmo motivo de sempre:

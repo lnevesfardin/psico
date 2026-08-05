@@ -1,5 +1,9 @@
 import { formatDateLabel } from "@/lib/format";
-import type { CancelamentoPayload, LembretePayload } from "./types";
+import type {
+  CancelamentoPayload,
+  CompartilhamentoHumorPayload,
+  LembretePayload,
+} from "./types";
 
 function escapeHtml(value: string): string {
   return value
@@ -125,6 +129,37 @@ export function montarCancelamento(payload: CancelamentoPayload): Mensagem {
       </div>
       <p style="margin:28px 0 0;font-size:13px;color:#a1a1aa;">
         Você recebeu este e-mail porque tem uma consulta agendada no Psi Rob.
+      </p>
+    </div>
+  </body>
+</html>`;
+
+  return { assunto, html, texto };
+}
+
+export function montarParouCompartilharHumor(
+  payload: CompartilhamentoHumorPayload
+): Mensagem {
+  const assunto = `${payload.pacienteNome} parou de compartilhar o check-in de humor`;
+
+  const texto = [
+    `Olá, ${payload.psicologoNome}!`,
+    "",
+    `${payload.pacienteNome} decidiu parar de compartilhar o check-in de humor com você. A partir de agora você não vai mais ver os registros de humor dele(a) na ficha do paciente.`,
+    "",
+    "— Psi Rob",
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html lang="pt-BR">
+  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;">
+      <p style="margin:0 0 16px;font-size:16px;font-weight:600;">Olá, ${escapeHtml(payload.psicologoNome)}!</p>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">
+        <strong>${escapeHtml(payload.pacienteNome)}</strong> decidiu parar de compartilhar o check-in de humor com você. A partir de agora você não vai mais ver os registros de humor dele(a) na ficha do paciente.
+      </p>
+      <p style="margin:28px 0 0;font-size:13px;color:#a1a1aa;">
+        Você recebeu este e-mail porque é o psicólogo responsável por este paciente no Psi Rob.
       </p>
     </div>
   </body>
