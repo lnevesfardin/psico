@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 
 const navItems = [
   { href: "/dashboard/agenda", label: "Agenda de Hoje", icon: CalendarDays },
@@ -38,10 +39,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-6 py-6 text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-        Psi Rob
+      <div className="flex items-center justify-between px-6 py-6">
+        <div className="flex items-center gap-2 text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
+          Psi Rob
+        </div>
+        <NotificationBell />
       </div>
       <nav className="flex-1 space-y-1 px-3">
         {navItems.map(({ href, label, icon: Icon }) => {
@@ -128,14 +132,17 @@ export default function Sidebar() {
           <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
           {activeItem?.label ?? "Psi Rob"}
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Abrir menu"
-          className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-        >
-          <Menu className="h-6 w-6" />
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Abrir menu"
+            className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}

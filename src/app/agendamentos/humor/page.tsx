@@ -59,13 +59,14 @@ export default function HumorPage() {
 
   async function handleStopSharing(item: MoodSharing) {
     const confirmed = window.confirm(
-      `Parar de compartilhar seu check-in de humor com ${item.psicologoNome}? Ele(a) será avisado(a) por e-mail e deixará de ver seus registros de humor.`
+      `Parar de compartilhar seu check-in de humor com ${item.psicologoNome}? Ele(a) será avisado(a) e deixará de ver seus registros de humor.`
     );
     if (!confirmed) return;
     setStoppingId(item.pacienteId);
     setShareError(null);
     try {
-      await stopSharingMood(item.pacienteId);
+      const supabase = createClient();
+      await stopSharingMood(supabase, item.pacienteId);
       setSharing((prev) => prev.filter((s) => s.pacienteId !== item.pacienteId));
     } catch (err) {
       setShareError(

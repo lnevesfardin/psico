@@ -963,6 +963,36 @@ $$;
 grant execute on function vincular_paciente_cliente(uuid, text) to authenticated;
 
 -- =========================================================
+-- avisos_psicologo — inbox simples de avisos in-app pro psicólogo (ex.:
+-- cliente parou de compartilhar o humor). In-app em vez de e-mail: o
+-- psicólogo só fica sabendo ao abrir o painel, sem expor o assunto pra
+-- caixa de entrada de terceiros. Só parar_compartilhar_humor insere
+-- (security definer, ver abaixo) — de propósito não há policy de INSERT
+-- pra "authenticated", senão qualquer psicólogo autenticado poderia forjar
+-- um aviso pra outro.
+-- =========================================================
+create table if not exists avisos_psicologo (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  mensagem text not null,
+  lido boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists avisos_psicologo_psicologo_id_idx
+  on avisos_psicologo (psicologo_id, created_at desc);
+
+alter table avisos_psicologo enable row level security;
+
+drop policy if exists "psicologo_ve_proprios_avisos" on avisos_psicologo;
+create policy "psicologo_ve_proprios_avisos" on avisos_psicologo
+  for select using (auth.uid() = psicologo_id);
+
+drop policy if exists "psicologo_marca_proprios_avisos" on avisos_psicologo;
+create policy "psicologo_marca_proprios_avisos" on avisos_psicologo
+  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+
+-- =========================================================
 -- meus_compartilhamentos_humor / parar_compartilhar_humor — o vínculo
 -- pacientes.cliente_user_id (ver vincular_paciente_cliente acima) é o que
 -- decide quem enxerga o check-in de humor do cliente, mas até aqui só o
@@ -989,11 +1019,11 @@ $$;
 
 grant execute on function meus_compartilhamentos_humor() to authenticated;
 
--- Devolve e-mail/nome do psicólogo pra quem chamou notificá-lo em seguida
--- (rota /api/mood-sharing/parar), no mesmo espírito de
--- cancelar_consulta_cliente — evita uma segunda função só pra isso.
+-- Desfaz o vínculo e registra um aviso in-app pro psicólogo (ver
+-- avisos_psicologo acima) — chamada direto do cliente, sem rota
+-- intermediária, porque não depende mais de segredo de e-mail nenhum.
 create or replace function parar_compartilhar_humor(p_paciente_id uuid)
-returns table (psicologo_email text, psicologo_nome text, paciente_nome text)
+returns void
 language plpgsql
 security definer
 set search_path = public
@@ -1012,11 +1042,11 @@ begin
 
   update pacientes set cliente_user_id = null where id = p_paciente_id;
 
-  return query
-  select pr.email, pf.nome, v_paciente_nome
-  from profiles pr
-  join perfis pf on pf.id = pr.id
-  where pr.id = v_psicologo_id;
+  insert into avisos_psicologo (psicologo_id, mensagem)
+  values (
+    v_psicologo_id,
+    v_paciente_nome || ' parou de compartilhar o check-in de humor com você.'
+  );
 end;
 $$;
 

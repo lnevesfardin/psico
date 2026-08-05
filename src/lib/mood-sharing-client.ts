@@ -31,18 +31,17 @@ export async function listMoodSharing(
 }
 
 /**
- * A mutação (RPC + e-mail pro psicólogo) roda inteira em
- * /api/mood-sharing/parar — ver o comentário na rota sobre por que não é
- * uma chamada de RPC direta daqui.
+ * Desfaz o vínculo e registra um aviso in-app pro psicólogo (ver
+ * avisos_psicologo/parar_compartilhar_humor no schema.sql) — a função já
+ * confere que o vínculo pertence a auth.uid(), então dá pra chamar direto
+ * daqui, sem rota intermediária.
  */
-export async function stopSharingMood(pacienteId: string): Promise<void> {
-  const res = await fetch("/api/mood-sharing/parar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pacienteId }),
+export async function stopSharingMood(
+  supabase: SupabaseClient,
+  pacienteId: string
+): Promise<void> {
+  const { error } = await supabase.rpc("parar_compartilhar_humor", {
+    p_paciente_id: pacienteId,
   });
-  if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(data?.error ?? "Não foi possível parar de compartilhar.");
-  }
+  if (error) throw new Error(error.message);
 }
