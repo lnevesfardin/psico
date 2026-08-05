@@ -1022,6 +1022,9 @@ grant execute on function meus_compartilhamentos_humor() to authenticated;
 -- Desfaz o vínculo e registra um aviso in-app pro psicólogo (ver
 -- avisos_psicologo acima) — chamada direto do cliente, sem rota
 -- intermediária, porque não depende mais de segredo de e-mail nenhum.
+-- drop explícito: a versão anterior devolvia table(...), e "create or
+-- replace" não deixa mudar o tipo de retorno de uma função existente.
+drop function if exists parar_compartilhar_humor(uuid);
 create or replace function parar_compartilhar_humor(p_paciente_id uuid)
 returns void
 language plpgsql
