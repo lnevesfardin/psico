@@ -259,7 +259,10 @@ function OnboardingContent() {
               UF
               <select
                 value={form.uf}
-                onChange={(e) => set("uf", e.target.value)}
+                onChange={(e) => {
+                  set("uf", e.target.value);
+                  set("cidade", "");
+                }}
                 required
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               >
@@ -278,12 +281,11 @@ function OnboardingContent() {
                 <MapPin className="h-4 w-4 text-zinc-400" />
                 Cidade
               </span>
-              <input
-                type="text"
+              <CidadeSelect
+                uf={form.uf}
                 value={form.cidade}
-                onChange={(e) => set("cidade", e.target.value)}
-                placeholder="São Paulo"
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                onChange={(value) => set("cidade", value)}
+                required
               />
             </label>
           </div>
