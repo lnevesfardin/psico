@@ -166,15 +166,9 @@ const howItWorks: Record<
   paciente: [
     {
       icon: Search,
-      title: "Encontre um profissional",
+      title: "Receba o link do seu psicólogo",
       description:
-        "Acesse a página de agendamento — ou o link direto de um psicólogo — sem precisar criar conta.",
-    },
-    {
-      icon: ShieldCheck,
-      title: "Confira o perfil completo",
-      description:
-        "Compare especialidade, abordagem, faixa etária atendida, região e valor da consulta.",
+        "O agendamento acontece pelo link que o próprio profissional envia — você não precisa criar conta pra marcar.",
     },
     {
       icon: CalendarCheck,
@@ -186,7 +180,13 @@ const howItWorks: Record<
       icon: BellRing,
       title: "Receba a confirmação",
       description:
-        "Acompanhe tudo em “Meus Agendamentos” e receba a confirmação do psicólogo.",
+        "O psicólogo confirma o agendamento e você recebe um lembrete por e-mail 1 hora antes da sessão.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Acompanhe pela sua conta",
+      description:
+        "Se o seu psicólogo enviar o convite de acesso, você acompanha suas consultas e registra como está se sentindo.",
     },
   ],
   psicologo: [
@@ -218,13 +218,13 @@ const howItWorks: Record<
 };
 
 // Passo a passo real do fluxo de agendamento do paciente (ver
-// booking-wizard.tsx): busca por filtro, escolha de horário realmente
-// disponível na agenda do psicólogo, dados de contato para confirmação
-// via WhatsApp e sessão presencial ou online.
+// booking-wizard.tsx): o psicólogo envia o link, a pessoa escolhe um horário
+// realmente disponível na agenda dele, informa os dados para confirmação via
+// WhatsApp e faz a sessão presencial ou online.
 const quickSteps = [
   {
     icon: Search,
-    title: "Procure um psicólogo de acordo com sua demanda",
+    title: "Receba o link de agendamento do seu psicólogo",
   },
   {
     icon: CalendarClock,
@@ -572,19 +572,22 @@ export default function Home() {
           </motion.div>
 
           <Reveal delay={0.2} className="mt-10 flex justify-center">
-            <Link
-              href={
-                fluxo === "psicologo"
-                  ? "/cadastro?perfil=psicologo"
-                  : "/cadastro?perfil=cliente"
-              }
-              className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] hover:bg-brand-500 active:scale-95"
-            >
-              {fluxo === "psicologo"
-                ? "Criar minha conta grátis"
-                : "Encontrar um psicólogo"}
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-            </Link>
+            {fluxo === "psicologo" ? (
+              <Link
+                href="/cadastro"
+                className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] hover:bg-brand-500 active:scale-95"
+              >
+                Criar minha conta grátis
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </Link>
+            ) : (
+              // Paciente não tem onde se cadastrar: a conta dele só existe
+              // por convite do psicólogo (ver /convite/[token]).
+              <p className="max-w-md text-center text-sm text-zinc-600 dark:text-zinc-400">
+                Peça ao seu psicólogo o link de agendamento. Se ele já usa o Psi
+                Rob, é por lá que você marca a consulta.
+              </p>
+            )}
           </Reveal>
         </div>
       </section>

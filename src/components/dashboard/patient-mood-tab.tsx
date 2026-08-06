@@ -1,29 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Link2, Unlink } from "lucide-react";
+import { AlertTriangle, Check, Copy, Link2, Unlink } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { linkPatientToClient, unlinkPatientFromClient } from "@/lib/patients-client";
+import { unlinkPatientFromClient } from "@/lib/patients-client";
+import { gerarConvitePaciente } from "@/lib/convites-client";
 import { listMoodCheckins, type MoodCheckin } from "@/lib/mood-client";
 import { detectLowMoodStreak } from "@/lib/mood-insights";
 import { MoodChart } from "@/components/mood/mood-chart";
 import { MoodInsightsPanel } from "@/components/mood/mood-insights-panel";
+import { PatientHabitsSection } from "@/components/dashboard/patient-habits-section";
+import { PatientDiarySection } from "@/components/dashboard/patient-diary-section";
 import { formatDateShort } from "@/lib/format";
 import type { Patient } from "@/lib/dashboard-data";
 
 export function PatientMoodTab({
   patient,
-  onLinked,
   onUnlinked,
 }: {
   patient: Patient;
-  onLinked: (clienteUserId: string) => void;
   onUnlinked: () => void;
 }) {
-  const [email, setEmail] = useState(patient.email);
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
-  const [clienteNome, setClienteNome] = useState<string | null>(null);
+  const [conviteUrl, setConviteUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [checkins, setCheckins] = useState<MoodCheckin[]>([]);
   const [loading, setLoading] = useState(true);
   const [unlinking, setUnlinking] = useState(false);
@@ -36,25 +37,32 @@ export function PatientMoodTab({
       .finally(() => setLoading(false));
   }, [patient.clienteUserId]);
 
-  async function handleLink(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleGerarConvite() {
     setLinking(true);
     setLinkError(null);
     try {
       const supabase = createClient();
-      const result = await linkPatientToClient(supabase, patient.id, email);
-      setClienteNome(result.clienteNome);
-      onLinked(result.clienteUserId);
+      const token = await gerarConvitePaciente(supabase, patient.id);
+      setConviteUrl(`${window.location.origin}/convite/${token}`);
     } catch (err) {
+      // Mensagem crua quando não for uma das conhecidas da RPC: sem isso não
+      // dá pra diagnosticar pela tela (ex.: schema.sql ainda não reexecutado
+      // no Supabase, então a função nem existe).
       const msg = err instanceof Error ? err.message : "";
-      // Mensagens conhecidas da função vincular_paciente_cliente já vêm
-      // prontas pro psicólogo ler; qualquer outra (função ainda não existe
-      // no banco, erro de rede, etc.) mostra a mensagem crua em vez de um
-      // "tente novamente" genérico — sem isso não dava pra diagnosticar o
-      // problema pela tela.
-      setLinkError(msg || "Não foi possível vincular. Tente novamente.");
+      setLinkError(msg || "Não foi possível gerar o link. Tente novamente.");
     } finally {
       setLinking(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!conviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(conviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
     }
   }
 
@@ -68,7 +76,6 @@ export function PatientMoodTab({
       const supabase = createClient();
       await unlinkPatientFromClient(supabase, patient.id);
       setCheckins([]);
-      setClienteNome(null);
       onUnlinked();
     } finally {
       setUnlinking(false);
@@ -77,37 +84,70 @@ export function PatientMoodTab({
 
   if (!patient.clienteUserId) {
     return (
-      <div className="mt-6 rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mt-6 space-y-4">
+      <div className="rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
           <Link2 className="h-4 w-4" />
-          Vincular conta do cliente
+          Convidar {patient.name.split(" ")[0]} a criar uma conta
         </div>
         <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-          Vincule este paciente à conta que ele usa pra fazer login no site
-          pra acompanhar o check-in de humor dele aqui.
+          Envie este link para o paciente criar a conta dele. Com ela, ele
+          acompanha os próprios agendamentos e registra como está se sentindo —
+          e o check-in de humor aparece aqui pra você.
         </p>
-        <form onSubmit={handleLink} className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="email@exemplo.com"
-            className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-          />
+
+        {conviteUrl ? (
+          <div className="mt-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                readOnly
+                value={conviteUrl}
+                className="w-full flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+              />
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copiar
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+              O link vale para uma única conta e deixa de funcionar assim que o
+              paciente terminar o cadastro.
+            </p>
+          </div>
+        ) : (
           <button
-            type="submit"
+            type="button"
+            onClick={handleGerarConvite}
             disabled={linking}
-            className="shrink-0 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {linking ? "Vinculando..." : "Vincular conta"}
+            {linking ? "Gerando..." : "Gerar link de convite"}
           </button>
-        </form>
+        )}
+
         {linkError && (
           <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
             {linkError}
           </div>
         )}
+      </div>
+
+      {/* Configurável antes de o paciente ter conta: assim, quando ele
+          entrar pelo convite, já encontra a rotina montada. */}
+      <PatientHabitsSection pacienteId={patient.id} clienteUserId={null} />
       </div>
     );
   }
@@ -118,10 +158,9 @@ export function PatientMoodTab({
     <div className="mt-6 space-y-4">
       <div className="flex items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900/60">
         <span className="text-zinc-600 dark:text-zinc-400">
-          Vinculado a{" "}
-          <strong className="text-zinc-900 dark:text-white">
-            {clienteNome ?? "uma conta de cliente"}
-          </strong>
+          Este paciente já tem{" "}
+          <strong className="text-zinc-900 dark:text-white">conta própria</strong>{" "}
+          e está compartilhando o humor
         </span>
         <button
           type="button"
@@ -153,6 +192,12 @@ export function PatientMoodTab({
           <MoodInsightsPanel checkins={checkins} />
         </>
       )}
+
+      <PatientHabitsSection
+        pacienteId={patient.id}
+        clienteUserId={patient.clienteUserId}
+      />
+      <PatientDiarySection clienteUserId={patient.clienteUserId} />
     </div>
   );
 }

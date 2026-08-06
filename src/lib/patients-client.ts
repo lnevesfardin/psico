@@ -185,22 +185,6 @@ export async function deletePatient(
   if (error) throw new Error(error.message);
 }
 
-export async function linkPatientToClient(
-  supabase: SupabaseClient,
-  patientId: string,
-  email: string
-): Promise<{ clienteUserId: string; clienteNome: string }> {
-  const { data, error } = await supabase
-    .rpc("vincular_paciente_cliente", {
-      p_paciente_id: patientId,
-      p_email: email.trim(),
-    })
-    .single();
-  if (error) throw new Error(error.message);
-  const row = data as { cliente_user_id: string; cliente_nome: string };
-  return { clienteUserId: row.cliente_user_id, clienteNome: row.cliente_nome };
-}
-
 export async function unlinkPatientFromClient(
   supabase: SupabaseClient,
   patientId: string

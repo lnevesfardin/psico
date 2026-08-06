@@ -23,6 +23,7 @@ import { PositiveReflectionCard } from "@/components/mood/positive-reflection-ca
 import { TagEnergyPicker } from "@/components/mood/tag-energy-picker";
 import { MoodChart } from "@/components/mood/mood-chart";
 import { MoodInsightsPanel } from "@/components/mood/mood-insights-panel";
+import { RotinaDoDia } from "@/components/mood/rotina-do-dia";
 
 export default function HumorPage() {
   const { user } = useAuth();
@@ -160,6 +161,12 @@ export default function HumorPage() {
           </div>
         )}
       </div>
+
+      {user && (
+        <div className="mt-4">
+          <RotinaDoDia clienteId={user.id} />
+        </div>
+      )}
 
       <div className="mt-6">
         <MoodSelector value={mood} onChange={setMood} />

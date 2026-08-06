@@ -38,10 +38,23 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}${next}`);
       }
       const role = await fetchUserRole(supabase, data.user.id);
-      // null só acontece no primeiro login via Google (não passou pelo
-      // seletor "Sou Cliente / Sou Psicólogo" do formulário de cadastro).
+      // null só acontece no primeiro login via Google. Não existe mais
+      // escolha de papel: conta criada por aqui é sempre de psicólogo —
+      // paciente não se cadastra sozinho, só por convite (/convite/[token]),
+      // que usa e-mail e senha e já grava role='client'.
       if (!role) {
-        return NextResponse.redirect(`${origin}/auth/escolher-perfil`);
+        const displayName =
+          (data.user.user_metadata?.full_name as string | undefined) ||
+          (data.user.user_metadata?.name as string | undefined) ||
+          "";
+        await supabase
+          .from("profiles")
+          .update({ role: "psychologist", ...(displayName ? { name: displayName } : {}) })
+          .eq("id", data.user.id);
+        await supabase
+          .from("perfis")
+          .upsert({ id: data.user.id, ...(displayName ? { nome: displayName } : {}) });
+        return NextResponse.redirect(`${origin}/onboarding`);
       }
       return NextResponse.redirect(`${origin}${dashboardPathForRole(role)}`);
     }

@@ -14,9 +14,9 @@ type SharingRow = {
 
 /**
  * Com quem o cliente logado está compartilhando o check-in de humor —
- * espelha pacientes.cliente_user_id (ver vincular_paciente_cliente no
- * schema.sql), que só o psicólogo cria/desfaz, mas é o humor do cliente que
- * está em jogo, então ele precisa ver e poder controlar esse vínculo.
+ * espelha pacientes.cliente_user_id (preenchido quando o paciente aceita o
+ * convite do psicólogo, ver convites_paciente no schema.sql) — é o humor do
+ * cliente que está em jogo, então ele precisa ver e poder cortar o vínculo.
  */
 export async function listMoodSharing(
   supabase: SupabaseClient
