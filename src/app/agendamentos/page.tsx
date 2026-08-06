@@ -107,8 +107,8 @@ export default function AgendamentosPage() {
             Seus agendamentos aparecerão aqui em breve.
           </p>
           <p className="mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
-            Use o link de agendamento do seu psicólogo, ou busque um pela aba
-            &quot;Buscar Psicólogo&quot;, para marcar uma consulta.
+            Use o link de agendamento que seu psicólogo enviou para marcar uma
+            consulta.
           </p>
         </div>
       )}

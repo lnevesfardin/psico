@@ -114,13 +114,28 @@ export function BookingWizard({
   psicologoId,
   perfil,
   disponibilidades,
+  modalidadeFixa,
 }: {
   psicologoId: string;
   perfil: PerfilPublico;
   disponibilidades: DisponibilidadePublica[];
+  /** Vem de ?modalidade= no link que o psicólogo compartilha: trava a
+   *  modalidade e já abre direto na escolha de horário. */
+  modalidadeFixa?: ModalidadeAtendimento;
 }) {
-  const [step, setStep] = useState<Step>("tipo");
-  const [modalidade, setModalidade] = useState<ModalidadeAtendimento | null>(null);
+  // Só respeita a trava se o psicólogo realmente atende naquela modalidade —
+  // um link antigo (ou editado na mão) não pode levar a pessoa a uma etapa
+  // de horário sem nenhum dia disponível.
+  const travada =
+    modalidadeFixa &&
+    disponibilidades.some((d) => d.modalidade === modalidadeFixa)
+      ? modalidadeFixa
+      : undefined;
+
+  const [step, setStep] = useState<Step>(travada ? "horario" : "tipo");
+  const [modalidade, setModalidade] = useState<ModalidadeAtendimento | null>(
+    travada ?? null
+  );
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -171,10 +186,12 @@ export function BookingWizard({
   // nenhum dia/horário na etapa seguinte.
   const modalidadesOfertadas = useMemo(
     () =>
-      (["presencial", "online"] as const).filter((m) =>
-        disponibilidades.some((d) => d.modalidade === m)
+      (["presencial", "online"] as const).filter(
+        (m) =>
+          (!travada || m === travada) &&
+          disponibilidades.some((d) => d.modalidade === m)
       ),
-    [disponibilidades]
+    [disponibilidades, travada]
   );
 
   const blocosDaModalidade = useMemo(
@@ -305,7 +322,7 @@ export function BookingWizard({
             Psi Rob
           </Link>
           <Link
-            href="/agendar"
+            href="/"
             className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />

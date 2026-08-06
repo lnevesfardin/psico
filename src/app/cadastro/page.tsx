@@ -5,15 +5,9 @@ import { AuthForm } from "@/components/auth/auth-form";
 export default async function CadastroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; perfil?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const { error, perfil } = await searchParams;
-  const initialRole =
-    perfil === "cliente"
-      ? ("client" as const)
-      : perfil === "psicologo"
-        ? ("psychologist" as const)
-        : undefined;
+  const { error } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-zinc-950">
@@ -35,18 +29,14 @@ export default async function CadastroPage({
         </Link>
         <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
           <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
-            Crie sua conta
+            Crie sua conta de psicólogo
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Psicólogos organizam agenda e pacientes; clientes acompanham seus
-            agendamentos.
+            Organize sua agenda, seus pacientes e o prontuário em um só lugar.
+            Se você é paciente, peça o link de acesso ao seu psicólogo.
           </p>
           <div className="mt-6">
-            <AuthForm
-              mode="cadastro"
-              initialError={error}
-              initialRole={initialRole}
-            />
+            <AuthForm mode="cadastro" initialError={error} />
           </div>
         </div>
       </div>

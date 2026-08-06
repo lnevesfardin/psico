@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { ModalidadeAtendimento } from "@/lib/dashboard-data";
 import {
   BookingWizard,
   type PerfilPublico,
@@ -8,10 +9,17 @@ import {
 
 export default async function AgendarPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ psicologoId: string }>;
+  searchParams: Promise<{ modalidade?: string }>;
 }) {
   const { psicologoId } = await params;
+  const { modalidade } = await searchParams;
+  const modalidadeFixa: ModalidadeAtendimento | undefined =
+    modalidade === "online" || modalidade === "presencial"
+      ? modalidade
+      : undefined;
   const supabase = await createClient();
 
   const [{ data: perfil }, { data: disponibilidades }] = await Promise.all([
@@ -36,6 +44,7 @@ export default async function AgendarPage({
       psicologoId={psicologoId}
       perfil={perfil}
       disponibilidades={disponibilidades ?? []}
+      modalidadeFixa={modalidadeFixa}
     />
   );
 }

@@ -145,7 +145,8 @@ alter table pacientes add column if not exists observacoes text;
 -- arquivo) na ficha do paciente. "pacientes" (cadastro feito pelo
 -- psicólogo) e a conta de cliente que agenda em /agendamentos são registros
 -- independentes por padrão — este vínculo é feito manualmente pelo
--- psicólogo via e-mail (RPC vincular_paciente_cliente), nunca automático.
+-- psicólogo (ele gera um convite na ficha do paciente e envia o link; ver
+-- convites_paciente mais abaixo), nunca automático.
 alter table pacientes add column if not exists cliente_user_id uuid references auth.users(id) on delete set null;
 
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
@@ -907,60 +908,160 @@ create policy "psicologo_ve_humor_pacientes_vinculados" on checkins_humor
   );
 
 -- =========================================================
--- vincular_paciente_cliente — liga um cadastro de paciente (feito pelo
--- psicólogo) à conta de login do cliente, por e-mail. security definer
--- porque precisa ler "profiles" por e-mail de outra pessoa, o que a RLS
--- normal bloqueia (usuario_ve_proprio_profile só permite auth.uid() = id).
--- Ao contrário de criar_agendamento_publico/email_existe, NÃO dá grant pra
--- anon: só um psicólogo autenticado, dono do paciente, pode chamar.
+-- convites_paciente — conta de cliente deixou de ser auto-serviço: ninguém
+-- se cadastra como paciente sozinho (o /cadastro é só de psicólogo). O
+-- psicólogo gera um convite por paciente na ficha dele e envia o link; só
+-- quem tem o token vira cliente, e a conta já nasce amarrada àquela ficha.
+--
+-- O token é aleatório (não o id do paciente) porque a página do convite é
+-- pública: com o id na URL daria pra enumerar pacientes, e "fulano é
+-- paciente do psicólogo X" é dado sensível de saúde (LGPD).
 -- =========================================================
-create or replace function vincular_paciente_cliente(
-  p_paciente_id uuid,
-  p_email text
-)
-returns table (cliente_user_id uuid, cliente_nome text)
+create table if not exists convites_paciente (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  token text not null unique,
+  criado_em timestamptz not null default now(),
+  aceito_em timestamptz,
+  aceito_por uuid references auth.users(id) on delete set null
+);
+
+create index if not exists convites_paciente_paciente_idx
+  on convites_paciente (paciente_id);
+
+alter table convites_paciente enable row level security;
+
+-- Só o dono do paciente enxerga/gera convites. O acesso público ao token
+-- não passa por policy: vai pelas funções security definer abaixo, que
+-- devolvem só o mínimo necessário para montar a tela do convite.
+drop policy if exists "psicologo_ve_proprios_convites" on convites_paciente;
+create policy "psicologo_ve_proprios_convites" on convites_paciente
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = convites_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- =========================================================
+-- gerar_convite_paciente — cria (ou reaproveita) o convite pendente de um
+-- paciente e devolve o token. Reaproveitar evita encher a tabela de tokens
+-- válidos toda vez que o psicólogo reabre a tela pra copiar o link.
+-- =========================================================
+create or replace function gerar_convite_paciente(p_paciente_id uuid)
+returns text
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_cliente_id uuid;
-  v_cliente_nome text;
+  v_token text;
 begin
   if not exists (
-    select 1 from pacientes where id = p_paciente_id and psicologo_id = auth.uid()
+    select 1 from pacientes
+    where id = p_paciente_id and psicologo_id = auth.uid()
   ) then
     raise exception 'Paciente não encontrado';
   end if;
 
-  select id, name into v_cliente_id, v_cliente_nome
-  from profiles
-  where lower(email) = lower(p_email) and role = 'client'
-  limit 1;
-
-  if v_cliente_id is null then
-    raise exception 'Não encontramos uma conta de cliente com esse e-mail. Peça para a pessoa criar uma conta em /cadastro (como cliente) antes de vincular.';
-  end if;
-
-  -- "cliente_user_id" precisa vir qualificado (pacientes.cliente_user_id):
-  -- sem o prefixo é ambíguo com a coluna de mesmo nome no "returns table"
-  -- desta função, que o PL/pgSQL expõe como variável dentro do corpo.
   if exists (
     select 1 from pacientes
-    where psicologo_id = auth.uid()
-      and pacientes.cliente_user_id = v_cliente_id
-      and id <> p_paciente_id
+    where id = p_paciente_id and cliente_user_id is not null
   ) then
-    raise exception 'Esta conta de cliente já está vinculada a outro paciente da sua lista.';
+    raise exception 'Este paciente já tem uma conta vinculada.';
   end if;
 
-  update pacientes set cliente_user_id = v_cliente_id where id = p_paciente_id;
+  select token into v_token
+  from convites_paciente
+  where paciente_id = p_paciente_id and aceito_em is null
+  limit 1;
 
-  return query select v_cliente_id, v_cliente_nome;
+  if v_token is null then
+    v_token := encode(gen_random_bytes(24), 'hex');
+    insert into convites_paciente (paciente_id, token)
+    values (p_paciente_id, v_token);
+  end if;
+
+  return v_token;
 end;
 $$;
 
-grant execute on function vincular_paciente_cliente(uuid, text) to authenticated;
+grant execute on function gerar_convite_paciente(uuid) to authenticated;
+
+-- =========================================================
+-- convite_info — dados mínimos pra montar a página pública do convite.
+-- Devolve só o primeiro nome do paciente: se o link vazar, "Maria" expõe
+-- muito menos do que o nome completo + o vínculo com o psicólogo.
+-- =========================================================
+create or replace function convite_info(p_token text)
+returns table (paciente_primeiro_nome text, psicologo_nome text, ja_aceito boolean)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    split_part(p.nome, ' ', 1),
+    pf.nome,
+    c.aceito_em is not null
+  from convites_paciente c
+  join pacientes p on p.id = c.paciente_id
+  join perfis pf on pf.id = p.psicologo_id
+  where c.token = p_token;
+$$;
+
+-- anon (quem abre o link sem estar logado) precisa ler para a página existir.
+grant execute on function convite_info(text) to anon, authenticated;
+
+-- =========================================================
+-- aceitar_convite_paciente — chamado depois que a conta do cliente já
+-- existe e está logada: amarra a conta à ficha e traz o histórico de
+-- consultas que a pessoa marcou antes de ter conta (cliente_id ficava nulo
+-- nesses agendamentos, feitos pelo link público sem login) — sem isso
+-- "Meus Agendamentos" nasceria vazio pra quem já era paciente.
+-- =========================================================
+create or replace function aceitar_convite_paciente(p_token text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_paciente_id uuid;
+begin
+  select paciente_id into v_paciente_id
+  from convites_paciente
+  where token = p_token and aceito_em is null;
+
+  if v_paciente_id is null then
+    raise exception 'Convite inválido ou já utilizado.';
+  end if;
+
+  update pacientes
+  set cliente_user_id = auth.uid()
+  where id = v_paciente_id;
+
+  update consultas
+  set cliente_id = auth.uid()
+  where paciente_id = v_paciente_id and cliente_id is null;
+
+  update convites_paciente
+  set aceito_em = now(), aceito_por = auth.uid()
+  where token = p_token;
+end;
+$$;
+
+grant execute on function aceitar_convite_paciente(text) to authenticated;
+
+-- =========================================================
+-- vincular_paciente_cliente REMOVIDA: vincular por e-mail pressupunha que o
+-- paciente já tivesse conta, e conta de cliente agora só nasce por convite
+-- (ver convites_paciente acima), que já faz o vínculo no mesmo passo.
+-- Manter a função viva deixaria um caminho security definer capaz de amarrar
+-- QUALQUER conta de cliente a um paciente sabendo só o e-mail. O drop remove
+-- a função dos bancos que rodaram uma versão anterior deste arquivo.
+-- =========================================================
+drop function if exists vincular_paciente_cliente(uuid, text);
 
 -- =========================================================
 -- avisos_psicologo — inbox simples de avisos in-app pro psicólogo (ex.:
@@ -994,7 +1095,7 @@ create policy "psicologo_marca_proprios_avisos" on avisos_psicologo
 
 -- =========================================================
 -- meus_compartilhamentos_humor / parar_compartilhar_humor — o vínculo
--- pacientes.cliente_user_id (ver vincular_paciente_cliente acima) é o que
+-- pacientes.cliente_user_id (preenchido ao aceitar o convite) é o que
 -- decide quem enxerga o check-in de humor do cliente, mas até aqui só o
 -- psicólogo via/desfazia esse vínculo — o cliente não tinha como saber com
 -- quem seu humor estava sendo compartilhado, nem como parar sozinho.

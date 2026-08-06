@@ -433,9 +433,6 @@ export default function PatientDetailPage({
       {tab === "humor" && (
         <PatientMoodTab
           patient={patient}
-          onLinked={(clienteUserId) =>
-            setPatient((prev) => (prev ? { ...prev, clienteUserId } : prev))
-          }
           onUnlinked={() =>
             setPatient((prev) => (prev ? { ...prev, clienteUserId: null } : prev))
           }

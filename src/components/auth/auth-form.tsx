@@ -3,19 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, User, Stethoscope } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { dashboardPathForRole, fetchUserRole, type Role } from "@/lib/auth/role";
+import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
 import { brStates } from "@/lib/br-states";
 import { StepIndicator } from "@/components/auth/step-indicator";
 import { PasswordStrength } from "@/components/ui/password-strength";
 
 type Mode = "login" | "cadastro";
-
-const roleOptions: { value: Role; label: string; icon: typeof User }[] = [
-  { value: "client", label: "Sou Cliente", icon: User },
-  { value: "psychologist", label: "Sou Psicólogo", icon: Stethoscope },
-];
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -84,17 +79,11 @@ async function resolveLoginError(
 export function AuthForm({
   mode,
   initialError,
-  initialRole,
 }: {
   mode: Mode;
   initialError?: string;
-  /** Pré-seleciona cliente/psicólogo quando o cadastro é aberto por um
-   *  atalho que já sabe o papel (ex.: "Encontrar um psicólogo" na landing).
-   *  A pessoa ainda pode trocar antes de enviar. */
-  initialRole?: Role;
 }) {
   const router = useRouter();
-  const [role, setRole] = useState<Role | null>(initialRole ?? null);
   const [name, setName] = useState("");
   const [telefone, setTelefone] = useState("");
   const [crp, setCrp] = useState("");
@@ -129,22 +118,13 @@ export function AuthForm({
       return;
     }
 
-    if (!role) {
-      setLoading(false);
-      setError("Escolha se você é cliente ou psicólogo.");
-      return;
-    }
-
+    // Cadastro aberto é só de psicólogo: paciente não cria conta sozinho,
+    // só por convite do psicólogo (ver /convite/[token]).
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          name,
-          role,
-          telefone,
-          ...(role === "psychologist" ? { crp, uf } : {}),
-        },
+        data: { name, role: "psychologist", telefone, crp, uf },
         // Rota própria (não /auth/callback) — só usada se o template de
         // e-mail do projeto ainda incluir o link de confirmação; o fluxo
         // principal agora é o código de 6 dígitos verificado abaixo, sem
@@ -280,39 +260,6 @@ export function AuthForm({
       )}
 
       {mode === "cadastro" && (
-        <div>
-          <span className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Como você vai usar o Psi Rob?
-          </span>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            {roleOptions.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setRole(value)}
-                className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors ${
-                  role === value
-                    ? "border-brand-600 bg-brand-50 dark:bg-brand-950/40"
-                    : "border-zinc-200 bg-white hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800"
-                }`}
-              >
-                <Icon
-                  className={`h-5 w-5 ${
-                    role === value
-                      ? "text-brand-600 dark:text-brand-400"
-                      : "text-zinc-400"
-                  }`}
-                />
-                <span className="text-sm font-medium text-zinc-900 dark:text-white">
-                  {label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {mode === "cadastro" && (
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Nome completo
           <input
@@ -340,7 +287,7 @@ export function AuthForm({
         </label>
       )}
 
-      {mode === "cadastro" && role === "psychologist" && (
+      {mode === "cadastro" && (
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Número do CRP
@@ -422,7 +369,7 @@ export function AuthForm({
 
       <button
         type="submit"
-        disabled={loading || (mode === "cadastro" && !role)}
+        disabled={loading}
         className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
