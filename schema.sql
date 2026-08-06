@@ -1228,4 +1228,92 @@ begin
 end;
 $$;
 
+-- =========================================================
+-- modelos_documentos — modelos de documentos (atestado, laudo, declaração
+-- etc.) que o psicólogo customiza e reutiliza para gerar documentos prontos
+-- para pacientes. "conteudo" guarda texto com placeholders (ex.:
+-- {{paciente_nome}}, ver PLACEHOLDER_TOKENS em src/lib/document-templates.ts)
+-- substituídos na hora de gerar — nunca dado de paciente, só o texto-modelo.
+-- =========================================================
+create table if not exists modelos_documentos (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  tipo text not null,
+  nome text not null,
+  conteudo text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists modelos_documentos_psicologo_id_idx
+  on modelos_documentos (psicologo_id);
+
+create or replace trigger modelos_documentos_set_updated_at
+  before update on modelos_documentos
+  for each row execute function set_updated_at();
+
+alter table modelos_documentos enable row level security;
+
+drop policy if exists "psicologo_ve_proprios_modelos" on modelos_documentos;
+create policy "psicologo_ve_proprios_modelos" on modelos_documentos
+  for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_cria_proprios_modelos" on modelos_documentos;
+create policy "psicologo_cria_proprios_modelos" on modelos_documentos
+  for insert with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_edita_proprios_modelos" on modelos_documentos;
+create policy "psicologo_edita_proprios_modelos" on modelos_documentos
+  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprios_modelos" on modelos_documentos;
+create policy "psicologo_apaga_proprios_modelos" on modelos_documentos
+  for delete using (auth.uid() = psicologo_id);
+
+-- =========================================================
+-- documentos_emitidos — histórico dos documentos gerados (atestado, laudo
+-- etc.) para um paciente a partir de um modelo. "conteudo" é o texto FINAL
+-- já com os placeholders substituídos, congelado no momento da emissão — de
+-- propósito NÃO referencia modelos_documentos: editar/apagar o modelo depois
+-- não pode alterar o que já foi emitido, é documento clínico e precisa
+-- continuar íntegro. Mesmo tratamento de dado sensível de
+-- "sessoes_prontuario": nunca logado, RLS restringe ao psicólogo dono do
+-- paciente.
+-- =========================================================
+create table if not exists documentos_emitidos (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  tipo text not null,
+  modelo_nome text not null,
+  conteudo text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists documentos_emitidos_paciente_id_idx
+  on documentos_emitidos (paciente_id, created_at desc);
+
+alter table documentos_emitidos enable row level security;
+
+drop policy if exists "psicologo_ve_documentos_emitidos" on documentos_emitidos;
+create policy "psicologo_ve_documentos_emitidos" on documentos_emitidos
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = documentos_emitidos.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_cria_documentos_emitidos" on documentos_emitidos;
+create policy "psicologo_cria_documentos_emitidos" on documentos_emitidos
+  for insert with check (
+    exists (
+      select 1 from pacientes p
+      where p.id = documentos_emitidos.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_apaga_documentos_emitidos" on documentos_emitidos;
+create policy "psicologo_apaga_documentos_emitidos" on documentos_emitidos
+  for delete using (
+    exists (
+      select 1 from pacientes p
+      where p.id = documentos_emitidos.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
 grant execute on function cancelar_consulta_cliente(uuid, text) to authenticated;

@@ -24,6 +24,15 @@ export function formatDateTime(iso: string): string {
   return `${datePart} às ${timePart}`;
 }
 
+/** "6 de agosto de 2026" — usado no fecho de documentos gerados (atestado, declaração etc.). */
+export function formatDateExtenso(date: Date): string {
+  return date.toLocaleDateString("pt-BR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",

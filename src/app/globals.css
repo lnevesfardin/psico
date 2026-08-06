@@ -47,6 +47,27 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Impressão de documento gerado (ver patient-documents-tab.tsx): esconde a
+   sidebar, header e resto da página, deixando só o conteúdo do documento —
+   sem isso o "imprimir" da aba sairia com o layout inteiro do dashboard
+   junto. #documento-para-impressao só existe no DOM enquanto há um
+   documento ativo pra imprimir. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #documento-para-impressao,
+  #documento-para-impressao * {
+    visibility: visible;
+  }
+  #documento-para-impressao {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -33,6 +33,7 @@ import {
 } from "@/lib/patients-client";
 import { PatientFormModal } from "@/components/patient-form-modal";
 import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
+import { PatientDocumentsTab } from "@/components/dashboard/patient-documents-tab";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
@@ -48,7 +49,9 @@ export default function PatientDetailPage({
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"dados" | "evolucao" | "humor">("dados");
+  const [tab, setTab] = useState<"dados" | "evolucao" | "humor" | "documentos">(
+    "dados"
+  );
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -232,8 +235,8 @@ export default function PatientDetailPage({
         </div>
       </div>
 
-      <div className="mt-6 inline-flex rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        {(["dados", "evolucao", "humor"] as const).map((t) => (
+      <div className="mt-6 inline-flex flex-wrap rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
+        {(["dados", "evolucao", "humor", "documentos"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -248,7 +251,9 @@ export default function PatientDetailPage({
               ? "Dados Pessoais"
               : t === "evolucao"
               ? "Evolução / Prontuário"
-              : "Humor"}
+              : t === "humor"
+              ? "Humor"
+              : "Documentos"}
           </button>
         ))}
       </div>
@@ -441,6 +446,8 @@ export default function PatientDetailPage({
           }
         />
       )}
+
+      {tab === "documentos" && <PatientDocumentsTab patient={patient} />}
 
       {transcribeOpen && patient && (
         <SessionTranscriptionModal
