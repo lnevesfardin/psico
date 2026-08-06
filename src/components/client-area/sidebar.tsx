@@ -3,13 +3,24 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { CalendarClock, LogOut, Menu, Smile, UserCog, X } from "lucide-react";
+import {
+  BookLock,
+  CalendarClock,
+  FileText,
+  LogOut,
+  Menu,
+  Smile,
+  UserCog,
+  X,
+} from "lucide-react";
 import { useClientProfile } from "@/context/client-profile-context";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/agendamentos", label: "Meus Agendamentos", icon: CalendarClock },
   { href: "/agendamentos/humor", label: "Humor", icon: Smile },
+  { href: "/agendamentos/diario", label: "Meu Diário", icon: BookLock },
+  { href: "/agendamentos/materiais", label: "Materiais", icon: FileText },
   { href: "/agendamentos/perfil", label: "Meu Perfil", icon: UserCog },
 ];
 

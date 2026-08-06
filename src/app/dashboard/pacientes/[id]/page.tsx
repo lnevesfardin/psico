@@ -33,6 +33,7 @@ import {
 } from "@/lib/patients-client";
 import { PatientFormModal } from "@/components/patient-form-modal";
 import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
+import { PatientMaterialsTab } from "@/components/dashboard/patient-materials-tab";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
@@ -48,7 +49,9 @@ export default function PatientDetailPage({
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"dados" | "evolucao" | "humor">("dados");
+  const [tab, setTab] = useState<
+    "dados" | "evolucao" | "humor" | "materiais"
+  >("dados");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -232,8 +235,8 @@ export default function PatientDetailPage({
         </div>
       </div>
 
-      <div className="mt-6 inline-flex rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        {(["dados", "evolucao", "humor"] as const).map((t) => (
+      <div className="mt-6 inline-flex flex-wrap rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
+        {(["dados", "evolucao", "humor", "materiais"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -247,8 +250,10 @@ export default function PatientDetailPage({
             {t === "dados"
               ? "Dados Pessoais"
               : t === "evolucao"
-              ? "Evolução / Prontuário"
-              : "Humor"}
+                ? "Evolução / Prontuário"
+                : t === "humor"
+                  ? "Acompanhamento"
+                  : "Materiais"}
           </button>
         ))}
       </div>
@@ -436,6 +441,13 @@ export default function PatientDetailPage({
           onUnlinked={() =>
             setPatient((prev) => (prev ? { ...prev, clienteUserId: null } : prev))
           }
+        />
+      )}
+
+      {tab === "materiais" && (
+        <PatientMaterialsTab
+          pacienteId={patient.id}
+          temConta={Boolean(patient.clienteUserId)}
         />
       )}
 

@@ -9,6 +9,8 @@ import { listMoodCheckins, type MoodCheckin } from "@/lib/mood-client";
 import { detectLowMoodStreak } from "@/lib/mood-insights";
 import { MoodChart } from "@/components/mood/mood-chart";
 import { MoodInsightsPanel } from "@/components/mood/mood-insights-panel";
+import { PatientHabitsSection } from "@/components/dashboard/patient-habits-section";
+import { PatientDiarySection } from "@/components/dashboard/patient-diary-section";
 import { formatDateShort } from "@/lib/format";
 import type { Patient } from "@/lib/dashboard-data";
 
@@ -82,7 +84,8 @@ export function PatientMoodTab({
 
   if (!patient.clienteUserId) {
     return (
-      <div className="mt-6 rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mt-6 space-y-4">
+      <div className="rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
           <Link2 className="h-4 w-4" />
           Convidar {patient.name.split(" ")[0]} a criar uma conta
@@ -141,6 +144,11 @@ export function PatientMoodTab({
           </div>
         )}
       </div>
+
+      {/* Configurável antes de o paciente ter conta: assim, quando ele
+          entrar pelo convite, já encontra a rotina montada. */}
+      <PatientHabitsSection pacienteId={patient.id} clienteUserId={null} />
+      </div>
     );
   }
 
@@ -184,6 +192,12 @@ export function PatientMoodTab({
           <MoodInsightsPanel checkins={checkins} />
         </>
       )}
+
+      <PatientHabitsSection
+        pacienteId={patient.id}
+        clienteUserId={patient.clienteUserId}
+      />
+      <PatientDiarySection clienteUserId={patient.clienteUserId} />
     </div>
   );
 }

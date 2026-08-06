@@ -1330,3 +1330,221 @@ end;
 $$;
 
 grant execute on function cancelar_consulta_cliente(uuid, text) to authenticated;
+
+-- =========================================================
+-- materiais_paciente — biblioteca pessoal: PDFs, áudios de meditação,
+-- formulários e leituras que o psicólogo envia para UM paciente
+-- específico. O arquivo em si vai para o bucket privado abaixo; esta
+-- tabela guarda só os metadados e o caminho.
+-- =========================================================
+create table if not exists materiais_paciente (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  titulo text not null,
+  descricao text,
+  -- Caminho dentro do bucket, sempre no formato {paciente_id}/{arquivo}.
+  -- As policies de storage.objects abaixo dependem desse formato: a primeira
+  -- pasta do caminho é o que amarra o arquivo ao paciente.
+  storage_path text not null unique,
+  nome_arquivo text not null,
+  tipo_mime text,
+  tamanho_bytes bigint,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists materiais_paciente_paciente_idx
+  on materiais_paciente (paciente_id, created_at desc);
+
+alter table materiais_paciente enable row level security;
+
+drop policy if exists "psicologo_gerencia_materiais" on materiais_paciente;
+create policy "psicologo_gerencia_materiais" on materiais_paciente
+  for all using (
+    exists (
+      select 1 from pacientes p
+      where p.id = materiais_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from pacientes p
+      where p.id = materiais_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- Paciente só lê o que foi enviado para a ficha dele (e só se tiver conta
+-- vinculada, ver convites_paciente).
+drop policy if exists "cliente_le_proprios_materiais" on materiais_paciente;
+create policy "cliente_le_proprios_materiais" on materiais_paciente
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = materiais_paciente.paciente_id and p.cliente_user_id = auth.uid()
+    )
+  );
+
+-- Bucket PRIVADO: material clínico nunca pode ficar em URL pública
+-- adivinhável. A leitura acontece por URL assinada, que expira.
+insert into storage.buckets (id, name, public)
+values ('materiais-paciente', 'materiais-paciente', false)
+on conflict (id) do nothing;
+
+-- Policies do storage: a primeira pasta do caminho é o paciente_id, então
+-- dá pra decidir acesso sem consultar materiais_paciente. Compara como texto
+-- (p.id::text) de propósito — cast do nome da pasta para uuid explodiria em
+-- qualquer arquivo solto com nome fora do padrão.
+drop policy if exists "psicologo_gerencia_materiais_storage" on storage.objects;
+create policy "psicologo_gerencia_materiais_storage" on storage.objects
+  for all to authenticated
+  using (
+    bucket_id = 'materiais-paciente'
+    and exists (
+      select 1 from pacientes p
+      where p.id::text = (storage.foldername(name))[1]
+        and p.psicologo_id = auth.uid()
+    )
+  )
+  with check (
+    bucket_id = 'materiais-paciente'
+    and exists (
+      select 1 from pacientes p
+      where p.id::text = (storage.foldername(name))[1]
+        and p.psicologo_id = auth.uid()
+    )
+  );
+
+drop policy if exists "cliente_le_materiais_storage" on storage.objects;
+create policy "cliente_le_materiais_storage" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'materiais-paciente'
+    and exists (
+      select 1 from pacientes p
+      where p.id::text = (storage.foldername(name))[1]
+        and p.cliente_user_id = auth.uid()
+    )
+  );
+
+-- =========================================================
+-- habitos_paciente — quais hábitos ESTE paciente acompanha. É o psicólogo
+-- que liga/desliga: marcar "tomou a medicação" para quem não usa medicação
+-- vira ruído e falso não-aderiu no gráfico dele.
+-- =========================================================
+create table if not exists habitos_paciente (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  chave text not null check (chave in (
+    'sono', 'medicacao', 'exercicio', 'alimentacao',
+    'agua', 'meditacao', 'social', 'sem_alcool'
+  )),
+  created_at timestamptz not null default now(),
+  unique (paciente_id, chave)
+);
+
+alter table habitos_paciente enable row level security;
+
+drop policy if exists "psicologo_gerencia_habitos" on habitos_paciente;
+create policy "psicologo_gerencia_habitos" on habitos_paciente
+  for all using (
+    exists (
+      select 1 from pacientes p
+      where p.id = habitos_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from pacientes p
+      where p.id = habitos_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- Paciente precisa ler para saber quais caixinhas aparecem pra ele.
+drop policy if exists "cliente_le_proprios_habitos" on habitos_paciente;
+create policy "cliente_le_proprios_habitos" on habitos_paciente
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = habitos_paciente.paciente_id and p.cliente_user_id = auth.uid()
+    )
+  );
+
+-- =========================================================
+-- registros_habito — o tique diário do paciente. Tabela própria (e não
+-- colunas em checkins_humor) porque checkins_humor.humor é NOT NULL: marcar
+-- só a rotina, sem registrar humor no dia, não caberia lá.
+-- =========================================================
+create table if not exists registros_habito (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references auth.users(id) on delete cascade,
+  -- Mesma regra de checkins_humor.data: calculada no cliente (Brasília),
+  -- nunca current_date do servidor (UTC).
+  data date not null,
+  chave text not null,
+  feito boolean not null default false,
+  updated_at timestamptz not null default now(),
+  unique (cliente_id, data, chave)
+);
+
+create index if not exists registros_habito_cliente_data_idx
+  on registros_habito (cliente_id, data desc);
+
+create or replace trigger registros_habito_set_updated_at
+  before update on registros_habito
+  for each row execute function set_updated_at();
+
+alter table registros_habito enable row level security;
+
+drop policy if exists "cliente_gerencia_proprios_habitos" on registros_habito;
+create policy "cliente_gerencia_proprios_habitos" on registros_habito
+  for all using (auth.uid() = cliente_id) with check (auth.uid() = cliente_id);
+
+-- Psicólogo só lê (nunca marca no lugar do paciente), e só de paciente
+-- vinculado — mesmo padrão de psicologo_ve_humor_pacientes_vinculados.
+drop policy if exists "psicologo_ve_habitos_pacientes" on registros_habito;
+create policy "psicologo_ve_habitos_pacientes" on registros_habito
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.cliente_user_id = registros_habito.cliente_id
+        and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- =========================================================
+-- diario_paciente — anotações livres do paciente. Cada entrada nasce
+-- PRIVADA e só aparece para o psicólogo se a pessoa marcar como
+-- compartilhada; a policy de leitura do psicólogo exige
+-- visibilidade = compartilhada, então entrada privada é invisível para ele
+-- no banco, não só na tela.
+-- =========================================================
+create table if not exists diario_paciente (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references auth.users(id) on delete cascade,
+  conteudo text not null,
+  visibilidade text not null default 'privada'
+    check (visibilidade in ('privada', 'compartilhada')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists diario_paciente_cliente_idx
+  on diario_paciente (cliente_id, created_at desc);
+
+create or replace trigger diario_paciente_set_updated_at
+  before update on diario_paciente
+  for each row execute function set_updated_at();
+
+alter table diario_paciente enable row level security;
+
+drop policy if exists "cliente_gerencia_proprio_diario" on diario_paciente;
+create policy "cliente_gerencia_proprio_diario" on diario_paciente
+  for all using (auth.uid() = cliente_id) with check (auth.uid() = cliente_id);
+
+drop policy if exists "psicologo_le_diario_compartilhado" on diario_paciente;
+create policy "psicologo_le_diario_compartilhado" on diario_paciente
+  for select using (
+    visibilidade = 'compartilhada'
+    and exists (
+      select 1 from pacientes p
+      where p.cliente_user_id = diario_paciente.cliente_id
+        and p.psicologo_id = auth.uid()
+    )
+  );
