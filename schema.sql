@@ -182,13 +182,18 @@ create table if not exists sessoes_prontuario (
   -- auditoria de que houve autorização antes de gravar.
   consentimento_em timestamptz,
   duracao_segundos int,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 -- alter table (não só create) para bancos provisionados antes desta mudança.
 alter table sessoes_prontuario add column if not exists origem text not null default 'manual';
 alter table sessoes_prontuario add column if not exists consentimento_em timestamptz;
 alter table sessoes_prontuario add column if not exists duracao_segundos int;
+-- Marca quando uma anotação foi editada depois de criada (comparado a
+-- data_hora na UI) — editar o texto não deve mexer em data_hora, que é
+-- quando a sessão de fato aconteceu.
+alter table sessoes_prontuario add column if not exists updated_at timestamptz not null default now();
 
 do $$
 begin
@@ -202,6 +207,10 @@ end $$;
 
 create index if not exists sessoes_prontuario_paciente_id_idx
   on sessoes_prontuario (paciente_id, data_hora desc);
+
+create or replace trigger sessoes_prontuario_set_updated_at
+  before update on sessoes_prontuario
+  for each row execute function set_updated_at();
 
 -- =========================================================
 -- consultas (agenda + agendamentos públicos)
@@ -416,6 +425,19 @@ create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
 drop policy if exists "psicologo_apaga_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_apaga_proprias_sessoes" on sessoes_prontuario
   for delete using (
+    exists (
+      select 1 from pacientes p
+      where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_edita_proprias_sessoes" on sessoes_prontuario;
+create policy "psicologo_edita_proprias_sessoes" on sessoes_prontuario
+  for update using (
+    exists (
+      select 1 from pacientes p
+      where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
+    )
+  ) with check (
     exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()

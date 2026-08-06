@@ -30,6 +30,7 @@ import {
   getPatientWithSessions,
   patientToFormInput,
   updatePatient,
+  updateSessionNote,
 } from "@/lib/patients-client";
 import { PatientFormModal } from "@/components/patient-form-modal";
 import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
@@ -62,6 +63,9 @@ export default function PatientDetailPage({
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
     null
   );
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -148,6 +152,43 @@ export default function PatientDetailPage({
       );
     } finally {
       setDeletingSessionId(null);
+    }
+  }
+
+  function handleStartEditSession(sessionId: string, content: string) {
+    setEditingSessionId(sessionId);
+    setEditContent(content);
+  }
+
+  function handleCancelEditSession() {
+    setEditingSessionId(null);
+    setEditContent("");
+  }
+
+  async function handleSaveEditSession() {
+    if (!editingSessionId) return;
+    const content = editContent.trim();
+    if (!content) return;
+    setSavingEdit(true);
+    try {
+      const supabase = createClient();
+      const updated = await updateSessionNote(supabase, editingSessionId, content);
+      setPatient((prev) =>
+        prev
+          ? {
+              ...prev,
+              sessions: prev.sessions.map((s) => (s.id === updated.id ? updated : s)),
+            }
+          : prev
+      );
+      setEditingSessionId(null);
+      setEditContent("");
+    } catch (err) {
+      window.alert(
+        err instanceof Error ? err.message : "Não foi possível salvar a edição."
+      );
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -419,20 +460,71 @@ export default function PatientDetailPage({
                           Transcrição da sessão
                         </span>
                       )}
+                      {session.updatedAt !== session.dateTime && (
+                        <span
+                          className="ml-1"
+                          title={`Editado em ${formatDateTime(session.updatedAt)}`}
+                        >
+                          (editado)
+                        </span>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSession(session.id)}
-                      disabled={deletingSessionId === session.id}
-                      aria-label="Apagar anotação"
-                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {editingSessionId !== session.id && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleStartEditSession(session.id, session.content)
+                          }
+                          aria-label="Editar anotação"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSession(session.id)}
+                          disabled={deletingSessionId === session.id}
+                          aria-label="Apagar anotação"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700 dark:text-zinc-300">
-                    {session.content}
-                  </p>
+                  {editingSessionId === session.id ? (
+                    <div className="mt-2">
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={4}
+                        autoFocus
+                        className="w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                      />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCancelEditSession}
+                          className="rounded-full border border-zinc-200 px-3.5 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveEditSession}
+                          disabled={savingEdit || !editContent.trim()}
+                          className="rounded-full bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {savingEdit ? "Salvando..." : "Salvar"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+                      {session.content}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

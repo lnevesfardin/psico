@@ -71,7 +71,7 @@ export async function getPatientWithSessions(
 
   const { data: sessoes } = await supabase
     .from("sessoes_prontuario")
-    .select("id, conteudo, data_hora, origem")
+    .select("id, conteudo, data_hora, origem, updated_at")
     .eq("paciente_id", patientId)
     .order("data_hora", { ascending: false });
 
@@ -80,6 +80,7 @@ export async function getPatientWithSessions(
     content: s.conteudo as string,
     dateTime: s.data_hora as string,
     origem: (s.origem as SessionNote["origem"]) ?? "manual",
+    updatedAt: (s.updated_at as string) ?? (s.data_hora as string),
   }));
 
   return rowToPatient(paciente as PacienteRow, sessions);
@@ -226,7 +227,7 @@ export async function addSessionNote(
           }
         : {}),
     })
-    .select("id, conteudo, data_hora, origem")
+    .select("id, conteudo, data_hora, origem, updated_at")
     .single();
   if (error) throw new Error(error.message);
   return {
@@ -234,6 +235,37 @@ export async function addSessionNote(
     content: data.conteudo as string,
     dateTime: data.data_hora as string,
     origem: (data.origem as SessionNote["origem"]) ?? "manual",
+    updatedAt: (data.updated_at as string) ?? (data.data_hora as string),
+  };
+}
+
+export async function updateSessionNote(
+  supabase: SupabaseClient,
+  sessionId: string,
+  content: string
+): Promise<SessionNote> {
+  // .select() depois do update, mesmo motivo de deleteSessionNote: sem isso
+  // um update bloqueado pela RLS (schema ainda não atualizado, ou tentativa
+  // de editar anotação de paciente de outro psicólogo) retornaria sucesso
+  // com zero linhas afetadas, e a UI acharia que salvou sem ter salvo.
+  const { data, error } = await supabase
+    .from("sessoes_prontuario")
+    .update({ conteudo: content })
+    .eq("id", sessionId)
+    .select("id, conteudo, data_hora, origem, updated_at");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error(
+      "A anotação não foi salva no banco de dados. Confirme se o schema.sql mais recente foi executado no SQL Editor do Supabase."
+    );
+  }
+  const row = data[0];
+  return {
+    id: row.id as string,
+    content: row.conteudo as string,
+    dateTime: row.data_hora as string,
+    origem: (row.origem as SessionNote["origem"]) ?? "manual",
+    updatedAt: row.updated_at as string,
   };
 }
 
