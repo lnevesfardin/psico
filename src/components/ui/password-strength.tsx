@@ -48,7 +48,7 @@ export type PasswordStrengthState = {
 };
 
 export const defaultPasswordRules: readonly PasswordRule[] = [
-  { id: "length", label: "12 caracteres ou mais", test: (v) => v.length >= 12 },
+  { id: "length", label: "8 caracteres ou mais", test: (v) => v.length >= 8 },
   {
     id: "case",
     label: "Letra maiúscula e minúscula",
