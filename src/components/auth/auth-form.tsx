@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole, type Role } from "@/lib/auth/role";
 import { brStates } from "@/lib/br-states";
 import { StepIndicator } from "@/components/auth/step-indicator";
+import { PasswordStrength } from "@/components/ui/password-strength";
 
 type Mode = "login" | "cadastro";
 
@@ -405,6 +406,10 @@ export function AuthForm({
           </button>
         </div>
       </label>
+
+      {mode === "cadastro" && (
+        <PasswordStrength value={password} showRules={password.length > 0} />
+      )}
 
       {mode === "login" && (
         <Link
