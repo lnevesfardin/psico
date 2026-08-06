@@ -156,34 +156,47 @@ export function PatientHabitsSection({
               criar a conta pelo convite.
             </p>
           )}
-          {clienteUserId &&
-            adesao.map(({ chave, feitos, dias, pct }) => (
-              <div key={chave}>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-700 dark:text-zinc-300">
-                    <span aria-hidden className="mr-1.5">
-                      {habitoEmoji(chave)}
-                    </span>
-                    {habitoLabel(chave)}
-                  </span>
-                  <span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">
-                    {dias === 0 ? "sem registros" : `${pct}% · ${feitos}/${dias} dias`}
-                  </span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                  <div
-                    className={`h-full rounded-full ${
-                      pct >= 70
-                        ? "bg-emerald-500"
-                        : pct >= 40
-                          ? "bg-amber-500"
-                          : "bg-rose-500"
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+          {clienteUserId && (
+            <>
+              {adesao
+                .filter(({ dias }) => dias > 0)
+                .map(({ chave, feitos, dias, pct }) => (
+                  <div key={chave}>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-700 dark:text-zinc-300">
+                        <span aria-hidden className="mr-1.5">
+                          {habitoEmoji(chave)}
+                        </span>
+                        {habitoLabel(chave)}
+                      </span>
+                      <span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">
+                        {pct}% · {feitos}/{dias} dias
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                      <div
+                        className={`h-full rounded-full ${
+                          pct >= 70
+                            ? "bg-emerald-500"
+                            : pct >= 40
+                              ? "bg-amber-500"
+                              : "bg-rose-500"
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              {/* Nenhum hábito com registro ainda: uma barra em 0% pra cada
+                  um pareceria "o paciente não fez nada" quando na verdade
+                  ele só ainda não teve chance de marcar. */}
+              {adesao.every(({ dias }) => dias === 0) && (
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                  Aguardando os primeiros registros do paciente.
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

@@ -1371,16 +1371,40 @@ create policy "psicologo_gerencia_materiais" on materiais_paciente
     )
   );
 
+-- eh_meu_paciente — "este paciente_id pertence ao cliente logado?", sem
+-- expor a linha de "pacientes" pra ele. Existe porque uma policy comum
+-- (exists (select ... from pacientes where cliente_user_id = auth.uid()))
+-- roda a subquery COM as permissões de quem chamou: o cliente nunca teve (e
+-- não pode ter) SELECT em "pacientes" — a tabela carrega anotação clínica
+-- (observacoes) que não é pra ele ler — então essa subquery sempre voltava
+-- vazia mesmo pro próprio registro dele, e toda policy "cliente_le_*" que
+-- dependia disso falhava silenciosamente. security definer contorna isso:
+-- a função enxerga a linha (dono da função tem acesso), mas só devolve
+-- true/false, nunca os dados.
+-- Parâmetro é text (não uuid) de propósito: recebe direto o pedaço de
+-- caminho do storage (storage.foldername), que não pode ser convertido pra
+-- uuid sem risco de explodir em qualquer arquivo solto com nome fora do
+-- padrão. Compara como texto, igual às policies de storage do psicólogo.
+create or replace function eh_meu_paciente(p_paciente_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from pacientes
+    where id::text = p_paciente_id and cliente_user_id = auth.uid()
+  );
+$$;
+
+grant execute on function eh_meu_paciente(text) to authenticated;
+
 -- Paciente só lê o que foi enviado para a ficha dele (e só se tiver conta
 -- vinculada, ver convites_paciente).
 drop policy if exists "cliente_le_proprios_materiais" on materiais_paciente;
 create policy "cliente_le_proprios_materiais" on materiais_paciente
-  for select using (
-    exists (
-      select 1 from pacientes p
-      where p.id = materiais_paciente.paciente_id and p.cliente_user_id = auth.uid()
-    )
-  );
+  for select using (eh_meu_paciente(materiais_paciente.paciente_id::text));
 
 -- Bucket PRIVADO: material clínico nunca pode ficar em URL pública
 -- adivinhável. A leitura acontece por URL assinada, que expira.
@@ -1417,11 +1441,10 @@ create policy "cliente_le_materiais_storage" on storage.objects
   for select to authenticated
   using (
     bucket_id = 'materiais-paciente'
-    and exists (
-      select 1 from pacientes p
-      where p.id::text = (storage.foldername(name))[1]
-        and p.cliente_user_id = auth.uid()
-    )
+    -- Mesmo motivo de eh_meu_paciente acima: o cliente não tem SELECT em
+    -- "pacientes", então a checagem tem que passar pela função em vez de
+    -- uma subquery direta na tabela.
+    and eh_meu_paciente((storage.foldername(name))[1])
   );
 
 -- =========================================================
@@ -1456,15 +1479,13 @@ create policy "psicologo_gerencia_habitos" on habitos_paciente
     )
   );
 
--- Paciente precisa ler para saber quais caixinhas aparecem pra ele.
+-- Paciente precisa ler para saber quais caixinhas aparecem pra ele. Mesmo
+-- motivo de eh_meu_paciente (ver materiais_paciente acima): uma subquery
+-- direta em "pacientes" aqui sempre voltaria vazia, porque o cliente não
+-- tem SELECT nessa tabela.
 drop policy if exists "cliente_le_proprios_habitos" on habitos_paciente;
 create policy "cliente_le_proprios_habitos" on habitos_paciente
-  for select using (
-    exists (
-      select 1 from pacientes p
-      where p.id = habitos_paciente.paciente_id and p.cliente_user_id = auth.uid()
-    )
-  );
+  for select using (eh_meu_paciente(habitos_paciente.paciente_id::text));
 
 -- =========================================================
 -- registros_habito — o tique diário do paciente. Tabela própria (e não
