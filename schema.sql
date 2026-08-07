@@ -1679,3 +1679,84 @@ create policy "psicologo_le_diario_compartilhado" on diario_paciente
         and p.psicologo_id = auth.uid()
     )
   );
+
+-- =========================================================
+-- respostas_escala — respostas de escalas de rastreio (PHQ-9, GAD-7,
+-- SNAP-IV, C-SSRS) enviadas pelo link público de escala (ver
+-- src/lib/escalas.ts para os itens/opções e src/app/escala/[psicologoId]/
+-- [slug] para a página pública). Guarda só as respostas brutas por item
+-- ("respostas" jsonb, chave = id do item) — a pontuação/classificação é
+-- calculada no dashboard a partir das mesmas funções que geram o
+-- formulário (fonte única, evita a pontuação salva divergir da lógica
+-- atual caso os pontos de corte mudem depois).
+-- =========================================================
+create table if not exists respostas_escala (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  escala text not null check (escala in ('cssrs', 'phq9', 'gad7', 'snap-iv')),
+  -- Digitado livremente por quem respondeu, sem validação — o formulário
+  -- público não exige login nem conta (ver "não necessita de dados" no
+  -- pedido original), então isto é a única forma opcional de saber quem
+  -- respondeu.
+  paciente_nome text,
+  respostas jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists respostas_escala_psicologo_id_idx
+  on respostas_escala (psicologo_id, created_at desc);
+
+alter table respostas_escala enable row level security;
+
+drop policy if exists "psicologo_ve_proprias_respostas_escala" on respostas_escala;
+create policy "psicologo_ve_proprias_respostas_escala" on respostas_escala
+  for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprias_respostas_escala" on respostas_escala;
+create policy "psicologo_apaga_proprias_respostas_escala" on respostas_escala
+  for delete using (auth.uid() = psicologo_id);
+-- Sem policy de INSERT para "anon"/"authenticated" de propósito, mesmo
+-- motivo de "consultas": quem responde a escala é sempre um visitante sem
+-- vínculo verificável com o psicólogo, então a escrita passa pela função
+-- responder_escala_publico() (security definer) abaixo, nunca por insert
+-- cru na tabela.
+
+-- =========================================================
+-- responder_escala_publico — único caminho de escrita para o link público
+-- de escala. security definer para o visitante anônimo (sem policy de
+-- INSERT em respostas_escala, ver acima) conseguir gravar; valida só que o
+-- psicólogo existe e que a escala é uma das implementadas — a validação de
+-- formato/obrigatoriedade de cada item é feita no cliente (src/lib/
+-- escalas.ts), então "respostas" chega aqui como jsonb livre.
+-- =========================================================
+create or replace function responder_escala_publico(
+  p_psicologo_id uuid,
+  p_escala text,
+  p_paciente_nome text,
+  p_respostas jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  if not exists (select 1 from perfis where id = p_psicologo_id) then
+    raise exception 'Psicólogo não encontrado';
+  end if;
+
+  if p_escala not in ('cssrs', 'phq9', 'gad7', 'snap-iv') then
+    raise exception 'Escala inválida';
+  end if;
+
+  insert into respostas_escala (psicologo_id, escala, paciente_nome, respostas)
+  values (p_psicologo_id, p_escala, nullif(trim(p_paciente_nome), ''), p_respostas)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function responder_escala_publico(uuid, text, text, jsonb)
+  to anon, authenticated;
