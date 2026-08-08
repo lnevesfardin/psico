@@ -69,7 +69,25 @@ export default function PatientDetailPage({
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<
     "resumo" | "evolucao" | "agenda" | "financeiro" | "humor" | "materiais"
-  >("resumo");
+  >(() => {
+    // Link "Escrever evolução" da Agenda (após marcar uma consulta como
+    // realizada) chega com ?tab=evolucao — lido direto de window.location
+    // no initializer pra não exigir Suspense boundary (useSearchParams)
+    // nem disparar setState num efeito.
+    if (typeof window === "undefined") return "resumo";
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (
+      requested === "resumo" ||
+      requested === "evolucao" ||
+      requested === "agenda" ||
+      requested === "financeiro" ||
+      requested === "humor" ||
+      requested === "materiais"
+    ) {
+      return requested;
+    }
+    return "resumo";
+  });
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);

@@ -19,6 +19,7 @@ const statusLabel: Record<AppointmentStatus, string> = {
   pendente: "Pendente de confirmação",
   confirmada: "Confirmada",
   realizada: "Realizada",
+  falta: "Falta",
   desmarcada: "Desmarcada",
 };
 
@@ -29,6 +30,7 @@ const statusStyles: Record<AppointmentStatus, string> = {
     "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300",
   realizada:
     "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  falta: "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
   desmarcada:
     "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };

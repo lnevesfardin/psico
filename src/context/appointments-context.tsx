@@ -32,6 +32,7 @@ type ConsultaRow = {
   escolaridade: string | null;
   motivo: string | null;
   motivo_cancelamento: string | null;
+  recorrencia_id: string | null;
 };
 
 function rowToAppointment(row: ConsultaRow): Appointment {
@@ -70,11 +71,12 @@ function rowToAppointment(row: ConsultaRow): Appointment {
         }
       : undefined,
     motivoCancelamento: row.motivo_cancelamento ?? undefined,
+    recorrenciaId: row.recorrencia_id,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil, escolaridade, motivo, motivo_cancelamento";
+  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil, escolaridade, motivo, motivo_cancelamento, recorrencia_id";
 
 export type CancellationAlert = {
   key: string;
@@ -93,6 +95,7 @@ type AppointmentsContextValue = {
     id: string,
     status: AppointmentStatus
   ) => Promise<{ patientCreated: boolean }>;
+  rescheduleAppointment: (id: string, date: string, time: string) => Promise<void>;
   deleteAppointment: (id: string) => Promise<void>;
   // Consultas que o próprio cliente cancelou, pra Agenda de Hoje avisar o
   // psicólogo com o motivo — populado só via o evento em tempo real abaixo
@@ -275,6 +278,26 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     return { patientCreated: false };
   }
 
+  // "Arrastar para remarcar" do spec virou um modal (não há biblioteca de
+  // drag-and-drop no projeto e a interação livre teria muito mais superfície
+  // pra bug do que valor pra quem só quer trocar dia/horário) — o efeito
+  // final (remarcar com confirmação) é o mesmo.
+  async function rescheduleAppointment(id: string, date: string, time: string) {
+    if (!user) return;
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("consultas")
+      .update({ data: date, horario: time })
+      .eq("id", id)
+      .eq("psicologo_id", user.id);
+
+    if (error) throw new Error(error.message);
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, date, time } : a))
+    );
+  }
+
   async function deleteAppointment(id: string) {
     if (!user) return;
     const supabase = createClient();
@@ -310,6 +333,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         loading,
         addAppointment,
         updateStatus,
+        rescheduleAppointment,
         deleteAppointment,
         cancellationAlerts,
         dismissCancellationAlert,

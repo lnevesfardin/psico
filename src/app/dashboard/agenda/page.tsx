@@ -17,15 +17,25 @@ import {
   Trash2,
   UserPlus,
   CalendarX,
+  Repeat,
+  CalendarClock,
+  ClipboardEdit,
 } from "lucide-react";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
-import { formatDateLabel, formatDateShort, nextDays, todayIso, toWhatsappLink } from "@/lib/format";
+import {
+  formatDateLabel,
+  formatDateShort,
+  todayIso,
+  toWhatsappLink,
+  weekRangeIso,
+} from "@/lib/format";
 import { weekdayShort } from "@/lib/disponibilidade-data";
 import { useAppointments } from "@/context/appointments-context";
 import { useProfile } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { listPatients } from "@/lib/patients-client";
+import { createRecorrenciaComOcorrencias, deactivateRecorrencia } from "@/lib/recorrencias-client";
 import { TimeSelect } from "@/components/ui/time-select";
 
 type MonthCell = { iso: string; day: number; inMonth: boolean };
@@ -50,6 +60,7 @@ const statusStyles: Record<AppointmentStatus, string> = {
     "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300",
   realizada:
     "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  falta: "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
   desmarcada:
     "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
@@ -60,6 +71,7 @@ export default function AgendaPage() {
     appointments,
     addAppointment,
     updateStatus,
+    rescheduleAppointment,
     deleteAppointment,
     cancellationAlerts,
     dismissCancellationAlert,
@@ -72,12 +84,22 @@ export default function AgendaPage() {
   const [patientCreatedToast, setPatientCreatedToast] = useState<string | null>(
     null
   );
+  const [evolucaoPrompt, setEvolucaoPrompt] = useState<{
+    patientId: string;
+    patientName: string;
+  } | null>(null);
+  const [reschedulingItem, setReschedulingItem] = useState<Appointment | null>(
+    null
+  );
   const seenPendingIds = useRef<Set<string> | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState(todayIso());
+  // Semana de calendário (seg-dom) — começa na semana de hoje, navega com os
+  // mesmos botões prev/next da visão de mês.
+  const [weekCursor, setWeekCursor] = useState(todayIso());
 
   useEffect(() => {
     if (!user) return;
@@ -90,7 +112,24 @@ export default function AgendaPage() {
   }
 
   const today = todayIso();
-  const weekDays = useMemo(() => nextDays(7), []);
+  const weekDays = useMemo(() => weekRangeIso(weekCursor), [weekCursor]);
+  const weekLabel = `${formatDateShort(weekDays[0])} – ${formatDateShort(weekDays[6])}`;
+
+  function goToPrevWeek() {
+    setWeekCursor((prev) => {
+      const [y, m, d] = weekRangeIso(prev)[0].split("-").map(Number);
+      const date = new Date(y, m - 1, d - 7);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    });
+  }
+
+  function goToNextWeek() {
+    setWeekCursor((prev) => {
+      const [y, m, d] = weekRangeIso(prev)[0].split("-").map(Number);
+      const date = new Date(y, m - 1, d + 7);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    });
+  }
 
   const pendingAppointments = useMemo(
     () => appointments.filter((a) => a.status === "pendente"),
@@ -174,6 +213,30 @@ export default function AgendaPage() {
     setModalOpen(false);
   }
 
+  async function handleCreateRecorrente(input: {
+    patientId: string;
+    patientName: string;
+    diaSemana: number;
+    horario: string;
+    intervaloSemanas: 1 | 2;
+    inicio: string;
+    fim: string | null;
+  }) {
+    if (!user) return;
+    const supabase = createClient();
+    const { criadas, conflitos } = await createRecorrenciaComOcorrencias(
+      supabase,
+      user.id,
+      { ...input, modalidade: null, maxOcorrenciasIniciais: 12 }
+    );
+    setModalOpen(false);
+    if (conflitos > 0) {
+      window.alert(
+        `Série criada: ${criadas} consulta(s) agendada(s). ${conflitos} data(s) já tinham outro horário marcado e foram puladas.`
+      );
+    }
+  }
+
   // Ponto único pra mudança de status a partir da UI (select e botão do
   // WhatsApp passam por aqui): mostra o toast de "paciente cadastrado"
   // sempre que a confirmação criar um paciente novo, não só no caminho do
@@ -183,6 +246,17 @@ export default function AgendaPage() {
     if (result.patientCreated) {
       setPatientCreatedToast(item.patientName);
     }
+    // Atalho pro spec: "ao marcar 'realizado', oferecer atalho pra escrever
+    // a evolução" — só faz sentido se já tiver um paciente vinculado.
+    if (status === "realizada" && item.patientId) {
+      setEvolucaoPrompt({ patientId: item.patientId, patientName: item.patientName });
+    }
+  }
+
+  async function handleReschedule(date: string, time: string) {
+    if (!reschedulingItem) return;
+    await rescheduleAppointment(reschedulingItem.id, date, time);
+    setReschedulingItem(null);
   }
 
   async function handleConfirmViaWhatsapp(item: Appointment) {
@@ -199,9 +273,30 @@ export default function AgendaPage() {
       `Tem certeza que deseja apagar ${label} (${item.patientName}, ${formatDateShort(item.date)} às ${item.time})?`
     );
     if (!confirmed) return;
+
+    // Faz parte de uma série? Pergunta se é só esta ocorrência ou a série
+    // inteira (cancela a recorrência e apaga as próximas ocorrências já
+    // geradas — a que está sendo apagada agora fica de fora da varredura).
+    const cancelarSerie =
+      item.recorrenciaId &&
+      window.confirm(
+        "Esta consulta faz parte de uma série recorrente. Cancelar também as próximas ocorrências dessa série?"
+      );
+
     setDeletingIds((prev) => new Set(prev).add(item.id));
     try {
       await deleteAppointment(item.id);
+      if (cancelarSerie && item.recorrenciaId) {
+        const recorrenciaId = item.recorrenciaId;
+        const futuras = appointments.filter(
+          (a) => a.recorrenciaId === recorrenciaId && a.id !== item.id && a.date >= today
+        );
+        for (const futura of futuras) {
+          await deleteAppointment(futura.id);
+        }
+        const supabase = createClient();
+        await deactivateRecorrencia(supabase, recorrenciaId);
+      }
     } catch (err) {
       window.alert(
         err instanceof Error ? err.message : "Não foi possível apagar."
@@ -291,6 +386,30 @@ export default function AgendaPage() {
           </button>
         ))}
       </div>
+
+      {view === "semana" && (
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={goToPrevWeek}
+            aria-label="Semana anterior"
+            className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
+            {weekLabel}
+          </h2>
+          <button
+            type="button"
+            onClick={goToNextWeek}
+            aria-label="Próxima semana"
+            className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      )}
 
       {view === "mes" && (
         <div className="mt-6 rounded-2xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
@@ -394,6 +513,15 @@ export default function AgendaPage() {
                           >
                             {isBlock && <Ban className="mr-1.5 inline h-4 w-4" />}
                             {item.patientName}
+                            {item.recorrenciaId && (
+                              <span
+                                className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                                title="Faz parte de uma série recorrente"
+                              >
+                                <Repeat className="h-3 w-3" />
+                                Série
+                              </span>
+                            )}
                             {isPublic && (
                               <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                                 <Globe className="h-3 w-3" />
@@ -428,9 +556,22 @@ export default function AgendaPage() {
                           <option value="pendente">Pendente</option>
                           <option value="confirmada">Confirmada</option>
                           <option value="realizada">Realizada</option>
+                          <option value="falta">Falta</option>
                           <option value="desmarcada">Desmarcada</option>
                         </select>
                         <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setReschedulingItem(item);
+                            }}
+                            aria-label="Remarcar"
+                            title="Remarcar"
+                            className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950 dark:hover:text-brand-400"
+                          >
+                            <CalendarClock className="h-4 w-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -512,6 +653,15 @@ export default function AgendaPage() {
           patients={patients}
           onClose={() => setModalOpen(false)}
           onCreate={handleCreate}
+          onCreateRecorrente={handleCreateRecorrente}
+        />
+      )}
+
+      {reschedulingItem && (
+        <RescheduleModal
+          item={reschedulingItem}
+          onClose={() => setReschedulingItem(null)}
+          onConfirm={handleReschedule}
         />
       )}
 
@@ -524,6 +674,102 @@ export default function AgendaPage() {
           </span>
         </div>
       )}
+
+      {evolucaoPrompt && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-zinc-900 py-2.5 pl-4 pr-2 text-sm font-medium text-white shadow-lg dark:bg-white dark:text-zinc-900">
+          <ClipboardEdit className="h-4 w-4 shrink-0" />
+          <span>
+            Consulta com <strong className="font-semibold">{evolucaoPrompt.patientName}</strong> marcada como realizada.
+          </span>
+          <Link
+            href={`/dashboard/pacientes/${evolucaoPrompt.patientId}?tab=evolucao`}
+            onClick={() => setEvolucaoPrompt(null)}
+            className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold transition-colors hover:bg-white/20 dark:bg-zinc-900/10 dark:hover:bg-zinc-900/20"
+          >
+            Escrever evolução
+          </Link>
+          <button
+            type="button"
+            onClick={() => setEvolucaoPrompt(null)}
+            aria-label="Dispensar"
+            className="shrink-0 rounded-full p-1 hover:bg-white/10 dark:hover:bg-zinc-900/10"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RescheduleModal({
+  item,
+  onClose,
+  onConfirm,
+}: {
+  item: Appointment;
+  onClose: () => void;
+  onConfirm: (date: string, time: string) => Promise<void>;
+}) {
+  const [date, setDate] = useState(item.date);
+  const [time, setTime] = useState(item.time);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onConfirm(date, time);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <form
+        onSubmit={handleSubmit}
+        className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+            Remarcar {item.patientName}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Nova data
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Novo horário
+            <TimeSelect value={time} onChange={setTime} required />
+          </label>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="mt-6 w-full rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Remarcando..." : "Confirmar remarcação"}
+        </button>
+      </form>
     </div>
   );
 }
@@ -532,15 +778,30 @@ function NewAppointmentModal({
   patients,
   onClose,
   onCreate,
+  onCreateRecorrente,
 }: {
   patients: Patient[];
   onClose: () => void;
   onCreate: (appointment: Omit<Appointment, "id">) => Promise<void>;
+  onCreateRecorrente: (input: {
+    patientId: string;
+    patientName: string;
+    diaSemana: number;
+    horario: string;
+    intervaloSemanas: 1 | 2;
+    inicio: string;
+    fim: string | null;
+  }) => Promise<void>;
 }) {
   const [kind, setKind] = useState<"consulta" | "bloqueio">("consulta");
   const [patientId, setPatientId] = useState(patients[0]?.id ?? "");
   const [date, setDate] = useState(todayIso());
   const [time, setTime] = useState("09:00");
+  const [repetir, setRepetir] = useState(false);
+  const [intervaloSemanas, setIntervaloSemanas] = useState<1 | 2>(1);
+  const [repetirAte, setRepetirAte] = useState("");
+  const [bloquearVariosDias, setBloquearVariosDias] = useState(false);
+  const [dataFimBloqueio, setDataFimBloqueio] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -548,6 +809,36 @@ function NewAppointmentModal({
     setSaving(true);
     const patient = patients.find((p) => p.id === patientId);
     try {
+      if (kind === "consulta" && repetir) {
+        const [y, m, d] = date.split("-").map(Number);
+        const diaSemana = new Date(y, m - 1, d).getDay();
+        await onCreateRecorrente({
+          patientId,
+          patientName: patient?.name ?? "Paciente",
+          diaSemana,
+          horario: time,
+          intervaloSemanas,
+          inicio: date,
+          fim: repetirAte || null,
+        });
+        return;
+      }
+
+      if (kind === "bloqueio" && bloquearVariosDias && dataFimBloqueio) {
+        for (const d of dateRange(date, dataFimBloqueio)) {
+          await onCreate({
+            patientId: null,
+            patientName: "Horário reservado",
+            date: d,
+            time,
+            status: "confirmada",
+            kind: "bloqueio",
+            origem: "manual",
+          });
+        }
+        return;
+      }
+
       await onCreate({
         patientId: kind === "consulta" ? patientId : null,
         patientName:
@@ -568,7 +859,7 @@ function NewAppointmentModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
       >
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
@@ -620,7 +911,7 @@ function NewAppointmentModal({
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Data
+            {kind === "bloqueio" && bloquearVariosDias ? "Data inicial" : "Data"}
             <input
               type="date"
               value={date}
@@ -635,6 +926,97 @@ function NewAppointmentModal({
           </label>
         </div>
 
+        {kind === "consulta" && (
+          <div className="mt-4 rounded-xl border border-zinc-100 p-3 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <Repeat className="h-4 w-4 text-zinc-400" />
+                Repetir semanalmente
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={repetir}
+                onClick={() => setRepetir((v) => !v)}
+                className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  repetir ? "bg-brand-600" : "bg-zinc-200 dark:bg-zinc-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    repetir ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            {repetir && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  Frequência
+                  <select
+                    value={intervaloSemanas}
+                    onChange={(e) => setIntervaloSemanas(Number(e.target.value) as 1 | 2)}
+                    className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                  >
+                    <option value={1}>Semanal</option>
+                    <option value={2}>Quinzenal</option>
+                  </select>
+                </label>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  Repetir até (opcional)
+                  <input
+                    type="date"
+                    value={repetirAte}
+                    onChange={(e) => setRepetirAte(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                  />
+                </label>
+                <p className="col-span-2 text-xs text-zinc-400 dark:text-zinc-600">
+                  Cria de imediato as próximas ocorrências (até 12). O que
+                  vier depois disso é gerado conforme a data se aproxima.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {kind === "bloqueio" && (
+          <div className="mt-4 rounded-xl border border-zinc-100 p-3 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Bloquear vários dias (férias, recesso...)
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={bloquearVariosDias}
+                onClick={() => setBloquearVariosDias((v) => !v)}
+                className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  bloquearVariosDias ? "bg-brand-600" : "bg-zinc-200 dark:bg-zinc-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    bloquearVariosDias ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            {bloquearVariosDias && (
+              <label className="mt-3 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                Data final
+                <input
+                  type="date"
+                  value={dataFimBloqueio}
+                  onChange={(e) => setDataFimBloqueio(e.target.value)}
+                  required={bloquearVariosDias}
+                  className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+            )}
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={saving}
@@ -645,4 +1027,19 @@ function NewAppointmentModal({
       </form>
     </div>
   );
+}
+
+function dateRange(startIso: string, endIso: string): string[] {
+  const [sy, sm, sd] = startIso.split("-").map(Number);
+  const [ey, em, ed] = endIso.split("-").map(Number);
+  const cursor = new Date(sy, sm - 1, sd);
+  const end = new Date(ey, em - 1, ed);
+  const dates: string[] = [];
+  while (cursor <= end) {
+    dates.push(
+      `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`
+    );
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
 }

@@ -56,6 +56,29 @@ export function nextDays(count: number): string[] {
   return days;
 }
 
+function addDaysIso(iso: string, days: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const d = new Date(year, month - 1, day);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Segunda-feira da semana que contém `iso` — a Agenda usa semana de
+// calendário (seg-dom), diferente de nextDays() (7 dias corridos a partir
+// de hoje, usado só na visão "Hoje").
+export function startOfWeekIso(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const weekday = new Date(year, month - 1, day).getDay(); // 0=domingo
+  const diasDesdeSegunda = weekday === 0 ? 6 : weekday - 1;
+  return addDaysIso(iso, -diasDesdeSegunda);
+}
+
+// As 7 datas (seg a dom) da semana que contém `iso`.
+export function weekRangeIso(iso: string): string[] {
+  const monday = startOfWeekIso(iso);
+  return Array.from({ length: 7 }, (_, i) => addDaysIso(monday, i));
+}
+
 export function maskCpf(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11);
   return digits

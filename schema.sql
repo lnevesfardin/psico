@@ -474,10 +474,38 @@ create index if not exists sessoes_prontuario_paciente_id_idx
 -- =========================================================
 -- consultas (agenda + agendamentos públicos)
 -- =========================================================
+-- recorrencias (Fase 1 Entrega B) — a "regra" de uma consulta que se repete
+-- toda semana ou a cada duas semanas. As ocorrências em si continuam sendo
+-- linhas normais em "consultas" (geradas em lote na criação e sob demanda
+-- depois, ver gerar_ocorrencias_recorrencia abaixo) — a recorrência nunca é
+-- lida diretamente pela agenda, só serve pra saber "essas consultas vêm
+-- daqui" (consultas.recorrencia_id) e pra gerar as próximas ocorrências.
+-- =========================================================
+create table if not exists recorrencias (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  dia_semana int not null check (dia_semana between 0 and 6),
+  horario time not null,
+  modalidade text check (modalidade in ('presencial', 'online')),
+  -- 1 = semanal, 2 = quinzenal. Restrito a esses dois porque é só o que a
+  -- tela oferece (mesmo padrão de frequencia_padrao em pacientes).
+  intervalo_semanas int not null default 1 check (intervalo_semanas in (1, 2)),
+  inicio date not null,
+  fim date,
+  ativa boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists recorrencias_psicologo_id_idx on recorrencias (psicologo_id);
+
+-- =========================================================
 create table if not exists consultas (
   id uuid primary key default gen_random_uuid(),
   psicologo_id uuid not null references auth.users(id) on delete cascade,
   paciente_id uuid references pacientes(id) on delete set null,
+  recorrencia_id uuid references recorrencias(id) on delete set null,
   -- preenchido automaticamente (auth.uid() dentro do RPC abaixo) quando quem
   -- agenda pelo link público está logado como cliente — permite listar o
   -- agendamento em "Meus Agendamentos" sem exigir login pra agendar.
@@ -517,6 +545,13 @@ alter table consultas add column if not exists email text;
 alter table consultas add column if not exists cliente_id uuid references auth.users(id) on delete set null;
 alter table consultas add column if not exists motivo_cancelamento text;
 alter table consultas add column if not exists org_id uuid references organizations(id);
+alter table consultas add column if not exists recorrencia_id uuid references recorrencias(id) on delete set null;
+
+-- "falta" (não compareceu) — Entrega B do spec; até aqui só existia
+-- pendente/confirmada/realizada/desmarcada.
+alter table consultas drop constraint if exists consultas_status_check;
+alter table consultas add constraint consultas_status_check
+  check (status in ('pendente', 'confirmada', 'realizada', 'falta', 'desmarcada'));
 
 create index if not exists consultas_cliente_id_idx
   on consultas (cliente_id, data desc);
@@ -681,6 +716,7 @@ alter table notificacoes alter column org_id set not null;
 -- =========================================================
 alter table perfis enable row level security;
 alter table disponibilidades enable row level security;
+alter table recorrencias enable row level security;
 alter table pacientes enable row level security;
 alter table sessoes_prontuario enable row level security;
 alter table consultas enable row level security;
@@ -716,6 +752,19 @@ create policy "psicologo_edita_proprias_disponibilidades" on disponibilidades
   for update using (org_id = auth_org_id() and auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_apaga_proprias_disponibilidades" on disponibilidades;
 create policy "psicologo_apaga_proprias_disponibilidades" on disponibilidades
+  for delete using (org_id = auth_org_id() and auth.uid() = psicologo_id);
+
+drop policy if exists "psicologo_ve_proprias_recorrencias" on recorrencias;
+create policy "psicologo_ve_proprias_recorrencias" on recorrencias
+  for select using (org_id = auth_org_id() and auth.uid() = psicologo_id);
+drop policy if exists "psicologo_cria_proprias_recorrencias" on recorrencias;
+create policy "psicologo_cria_proprias_recorrencias" on recorrencias
+  for insert with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_edita_proprias_recorrencias" on recorrencias;
+create policy "psicologo_edita_proprias_recorrencias" on recorrencias
+  for update using (org_id = auth_org_id() and auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprias_recorrencias" on recorrencias;
+create policy "psicologo_apaga_proprias_recorrencias" on recorrencias
   for delete using (org_id = auth_org_id() and auth.uid() = psicologo_id);
 
 -- "pacientes": secretaria/admin_clinica veem/gerenciam todos os pacientes da
@@ -2013,6 +2062,9 @@ create policy "psicologo_le_diario_compartilhado" on diario_paciente
 -- =========================================================
 create or replace trigger disponibilidades_set_org_id
   before insert on disponibilidades
+  for each row execute function set_org_id_from_caller();
+create or replace trigger recorrencias_set_org_id
+  before insert on recorrencias
   for each row execute function set_org_id_from_caller();
 create or replace trigger pacientes_set_org_id
   before insert on pacientes
