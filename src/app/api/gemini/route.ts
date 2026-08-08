@@ -35,7 +35,7 @@ Se a pergunta for sobre algo que só existe na área do psicólogo (prontuário,
 ${COMMON_RULES}`;
 
 function systemInstructionForRole(role: Role | null): string {
-  return role === "client"
+  return role === "paciente"
     ? SYSTEM_INSTRUCTION_CLIENT
     : SYSTEM_INSTRUCTION_PSYCHOLOGIST;
 }

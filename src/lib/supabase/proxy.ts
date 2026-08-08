@@ -63,13 +63,13 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (isPsychologistArea && role === "client") {
+    if (isPsychologistArea && role === "paciente") {
       const url = request.nextUrl.clone();
       url.pathname = "/agendamentos";
       return NextResponse.redirect(url);
     }
 
-    if (isClientArea && role === "psychologist") {
+    if (isClientArea && (role === "psicologo" || role === "secretaria" || role === "admin_clinica")) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard/agenda";
       return NextResponse.redirect(url);

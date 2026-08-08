@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   // Só psicólogo transcreve: o áudio é de atendimento, e a área do cliente
   // não tem (nem deve ter) qualquer acesso a este recurso.
   const role = await fetchUserRole(supabase, user.id);
-  if (role === "client") {
+  if (role === "paciente") {
     return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
   }
 

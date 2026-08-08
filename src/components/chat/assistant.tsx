@@ -6,10 +6,16 @@ import type { Role } from "@/lib/auth/role";
 
 type ChatMessage = { role: "user" | "model"; text: string };
 
+const GREETING_PSICOLOGO =
+  "Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a plataforma — agenda, pacientes & prontuários, financeiro, link de agendamento e mais. Como posso ajudar?";
+
 const GREETING: Record<Role, string> = {
-  psychologist:
-    "Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a plataforma — agenda, pacientes & prontuários, financeiro, link de agendamento e mais. Como posso ajudar?",
-  client:
+  psicologo: GREETING_PSICOLOGO,
+  // secretaria/admin_clinica ainda não têm tela própria (Fase 0 só prepara
+  // o schema/RLS pra esses papéis) — reaproveita o texto de psicólogo.
+  secretaria: GREETING_PSICOLOGO,
+  admin_clinica: GREETING_PSICOLOGO,
+  paciente:
     "Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a plataforma — buscar psicólogo, seus agendamentos e seu perfil. Como posso ajudar?",
 };
 

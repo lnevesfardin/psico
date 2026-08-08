@@ -24,7 +24,7 @@ export default async function OnboardingLayout({
 
   // Cliente não tem "conclusão" a verificar aqui: o passo 3 dele é só uma
   // tela de confirmação (ver onboarding-cliente.tsx), sempre pode revê-la.
-  if (role === "client") {
+  if (role === "paciente") {
     return children;
   }
 

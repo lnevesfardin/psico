@@ -14,6 +14,235 @@ end;
 $$ language plpgsql;
 
 -- =========================================================
+-- organizations — unidade que assina o plano (consultório/clínica). Um
+-- psicólogo autônomo é uma org com 1 usuário; uma clínica é uma org com N
+-- psicólogos + secretária/admin. Toda tabela operacional carrega org_id
+-- (ver seção de RLS mais abaixo) — sem isso, abrir a plataforma pra mais de
+-- um psicólogo por clínica exigiria reescrever o schema inteiro depois.
+-- =========================================================
+create table if not exists organizations (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null default '',
+  created_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- profiles — identidade genérica de QUALQUER usuário (psicólogo, secretária,
+-- admin de clínica ou paciente). Separada de "perfis", que continua sendo só
+-- o perfil de negócio do psicólogo (bio, CRP, valor, disponibilidade etc.) —
+-- só quem tem role='psicologo' ganha linha em "perfis".
+-- =========================================================
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  -- nullable de propósito: deixa espaço para um futuro seletor de papel
+  -- pós-OAuth sem precisar de nova migração (ver comentário no trigger).
+  role text check (role in ('psicologo', 'secretaria', 'admin_clinica', 'paciente') or role is null),
+  name text not null default '',
+  -- campos do perfil de cliente (nunca usados por psicólogos, que têm
+  -- perfil de negócio próprio em "perfis")
+  cpf text,
+  bio text,
+  whatsapp text,
+  created_at timestamptz not null default now()
+);
+
+-- alter table (não só create) para que bancos já provisionados antes desta
+-- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
+alter table profiles add column if not exists cpf text;
+alter table profiles add column if not exists bio text;
+alter table profiles add column if not exists whatsapp text;
+-- org_id fica nullable no profile: pra paciente, só se resolve depois do
+-- signup (ao aceitar o convite, ver aceitar_convite_paciente mais abaixo) —
+-- não dá pra saber a org de quem ainda não tem paciente vinculado.
+alter table profiles add column if not exists org_id uuid references organizations(id);
+
+-- Renomeia os papéis do modelo antigo (2 valores) pro novo (4 valores) antes
+-- de trocar a constraint — idempotente: some a segunda vez que este arquivo
+-- rodar, porque não sobra linha com o valor antigo.
+drop policy if exists "usuario_ve_proprio_profile" on profiles;
+drop policy if exists "usuario_edita_proprio_profile" on profiles;
+alter table profiles drop constraint if exists profiles_role_check;
+update profiles set role = 'psicologo' where role = 'psychologist';
+update profiles set role = 'paciente' where role = 'client';
+alter table profiles add constraint profiles_role_check
+  check (role in ('psicologo', 'secretaria', 'admin_clinica', 'paciente') or role is null);
+
+alter table profiles enable row level security;
+
+create policy "usuario_ve_proprio_profile" on profiles
+  for select using (auth.uid() = id);
+create policy "usuario_edita_proprio_profile" on profiles
+  for update using (auth.uid() = id) with check (auth.uid() = id);
+
+-- A policy de update acima permite ao próprio usuário editar seu profile,
+-- mas "role" decide se ele acessa /dashboard ou /agendamentos — sem este
+-- trigger, um cliente autenticado poderia chamar
+-- supabase.from('profiles').update({ role: 'psicologo' }) direto pelo
+-- client e burlar o controle de acesso. Uma vez definido, role é travado.
+create or replace function block_role_change()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.role is not null and new.role is distinct from old.role then
+    raise exception 'role não pode ser alterado depois de definido';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace trigger profiles_block_role_change
+  before update on profiles
+  for each row execute function block_role_change();
+
+-- =========================================================
+-- auth_org_id() / auth_role() — helpers security definer usados por TODAS
+-- as policies de isolamento por organização abaixo. security definer aqui é
+-- só pra ler a própria linha de "profiles" sem depender da policy de select
+-- (que já é auth.uid() = id, então não haveria ciclo, mas mantém o mesmo
+-- padrão usado em todas as outras funções deste arquivo que "espiam" outra
+-- tabela: nunca devolvem mais que o mínimo necessário).
+-- =========================================================
+create or replace function auth_org_id()
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select org_id from profiles where id = auth.uid()
+$$;
+
+create or replace function auth_role()
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select role from profiles where id = auth.uid()
+$$;
+
+grant execute on function auth_org_id() to authenticated;
+grant execute on function auth_role() to authenticated;
+
+-- =========================================================
+-- Preenchimento automático de org_id — a maior parte das tabelas é
+-- inserida direto do Client Component via supabase-js (ver src/lib/*-client.ts),
+-- sem passar por RPC nenhuma. Em vez de tocar em cada um desses arquivos só
+-- pra acrescentar org_id no payload, um trigger BEFORE INSERT preenche
+-- sozinho quando a coluna vier null — RPCs que já mandam org_id explícito
+-- (criar_agendamento_publico, aceitar_convite_paciente etc.) não são
+-- afetadas, o "if new.org_id is null" é um no-op pra elas.
+-- =========================================================
+create or replace function set_org_id_from_caller()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.org_id is null then
+    new.org_id := auth_org_id();
+  end if;
+  return new;
+end;
+$$;
+
+-- Para tabelas penduradas em "pacientes" (sem coluna de dono própria): a org
+-- é a do paciente, não a de quem chamou (embora hoje sejam sempre a mesma,
+-- já que só o psicólogo dono insere aqui).
+create or replace function set_org_id_from_paciente()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.org_id is null then
+    select org_id into new.org_id from pacientes where id = new.paciente_id;
+  end if;
+  return new;
+end;
+$$;
+
+-- Para "notificacoes": escrita é só do despachante (service role), que não
+-- tem auth.uid()/JWT — auth_org_id() devolveria null. A org vem da consulta.
+create or replace function set_org_id_from_consulta()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.org_id is null then
+    select org_id into new.org_id from consultas where id = new.consulta_id;
+  end if;
+  return new;
+end;
+$$;
+
+-- =========================================================
+-- criar_organizacao_para_psicologo — cria a org de um psicólogo novo (1
+-- org = 1 usuário autônomo, pode crescer depois com convite de equipe) e já
+-- vincula profiles.org_id. Chamada de dois lugares: de dentro de
+-- handle_new_user() (cadastro por e-mail/senha, mais abaixo) e da RPC
+-- escolher_papel_psicologo() (primeiro login via Google, ver mais abaixo).
+-- =========================================================
+create or replace function criar_organizacao_para_psicologo(p_user_id uuid, p_nome text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org_id uuid;
+begin
+  insert into organizations (nome)
+  values (coalesce(nullif(trim(p_nome), ''), 'Meu Consultório'))
+  returning id into v_org_id;
+
+  update profiles set org_id = v_org_id where id = p_user_id;
+
+  return v_org_id;
+end;
+$$;
+
+-- =========================================================
+-- escolher_papel_psicologo — primeiro login via Google não carrega role no
+-- metadata (o provedor não deixa customizar isso antes do redirect), então
+-- /auth/callback chamava aqui dois updates manuais (profiles.role e upsert
+-- em perfis) direto do client. Isso não criava organização nenhuma — vira
+-- uma RPC só, atômica, no mesmo padrão de porta-de-escrita-controlada já
+-- usado em gerar_convite_paciente/aceitar_convite_paciente.
+-- =========================================================
+create or replace function escolher_papel_psicologo(p_nome text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_nome text;
+  v_org_id uuid;
+begin
+  if exists (select 1 from profiles where id = auth.uid() and role is not null) then
+    raise exception 'role já definida';
+  end if;
+
+  select coalesce(nullif(trim(p_nome), ''), name) into v_nome
+  from profiles where id = auth.uid();
+
+  update profiles
+  set role = 'psicologo', name = coalesce(v_nome, name)
+  where id = auth.uid();
+
+  v_org_id := criar_organizacao_para_psicologo(auth.uid(), v_nome);
+
+  insert into perfis (id, nome, org_id)
+  values (auth.uid(), coalesce(v_nome, ''), v_org_id)
+  on conflict (id) do nothing;
+end;
+$$;
+
+grant execute on function escolher_papel_psicologo(text) to authenticated;
+
+-- =========================================================
 -- perfis (1 linha por psicólogo; inclui disponibilidade)
 -- =========================================================
 create table if not exists perfis (
@@ -78,6 +307,7 @@ alter table perfis add column if not exists consultorio_bairro text not null def
 alter table perfis add column if not exists consultorio_cidade text not null default '';
 alter table perfis add column if not exists consultorio_uf text not null default '';
 alter table perfis add column if not exists consultorio_maps_url text not null default '';
+alter table perfis add column if not exists org_id uuid references organizations(id);
 
 create or replace trigger perfis_set_updated_at
   before update on perfis
@@ -100,6 +330,8 @@ create table if not exists disponibilidades (
   created_at timestamptz not null default now(),
   check (horario_fim > horario_inicio)
 );
+
+alter table disponibilidades add column if not exists org_id uuid references organizations(id);
 
 create index if not exists disponibilidades_psicologo_id_idx
   on disponibilidades (psicologo_id);
@@ -148,6 +380,7 @@ alter table pacientes add column if not exists observacoes text;
 -- psicólogo (ele gera um convite na ficha do paciente e envia o link; ver
 -- convites_paciente mais abaixo), nunca automático.
 alter table pacientes add column if not exists cliente_user_id uuid references auth.users(id) on delete set null;
+alter table pacientes add column if not exists org_id uuid references organizations(id);
 
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
 create index if not exists pacientes_nome_idx on pacientes using gin (nome gin_trgm_ops);
@@ -189,6 +422,7 @@ create table if not exists sessoes_prontuario (
 alter table sessoes_prontuario add column if not exists origem text not null default 'manual';
 alter table sessoes_prontuario add column if not exists consentimento_em timestamptz;
 alter table sessoes_prontuario add column if not exists duracao_segundos int;
+alter table sessoes_prontuario add column if not exists org_id uuid references organizations(id);
 
 do $$
 begin
@@ -248,6 +482,7 @@ create table if not exists consultas (
 alter table consultas add column if not exists email text;
 alter table consultas add column if not exists cliente_id uuid references auth.users(id) on delete set null;
 alter table consultas add column if not exists motivo_cancelamento text;
+alter table consultas add column if not exists org_id uuid references organizations(id);
 
 create index if not exists consultas_cliente_id_idx
   on consultas (cliente_id, data desc);
@@ -295,6 +530,8 @@ create table if not exists lancamentos_financeiros (
   updated_at timestamptz not null default now()
 );
 
+alter table lancamentos_financeiros add column if not exists org_id uuid references organizations(id);
+
 create index if not exists lancamentos_financeiros_psicologo_data_idx
   on lancamentos_financeiros (psicologo_id, data desc);
 
@@ -332,6 +569,8 @@ create table if not exists notificacoes (
   unique (consulta_id, tipo, destinatario, canal)
 );
 
+alter table notificacoes add column if not exists org_id uuid references organizations(id);
+
 create index if not exists notificacoes_pendentes_idx
   on notificacoes (agendado_para)
   where status = 'pendente';
@@ -345,6 +584,63 @@ create table if not exists app_secrets (
   chave text primary key,
   valor text not null
 );
+
+-- =========================================================
+-- Backfill de org_id — cobre bancos que já tinham dado antes desta migração
+-- (psicólogos e pacientes existentes não nasceram com org_id). Cada bloco é
+-- guardado por "where org_id is null", então roda uma vez e vira no-op nas
+-- próximas execuções deste arquivo; seguro de deixar permanente aqui.
+-- =========================================================
+
+-- 1) Uma organização nova por psicólogo existente sem org ainda.
+do $$
+declare
+  r record;
+  v_org_id uuid;
+begin
+  for r in
+    select p.id, coalesce(nullif(pf.nome, ''), p.name, 'Meu Consultório') as nome
+    from profiles p
+    left join perfis pf on pf.id = p.id
+    where p.role = 'psicologo' and p.org_id is null
+  loop
+    insert into organizations (nome) values (r.nome) returning id into v_org_id;
+    update profiles set org_id = v_org_id where id = r.id;
+  end loop;
+end $$;
+
+-- 2) Paciente: org do psicólogo do vínculo mais antigo (pacientes.cliente_user_id).
+-- Decisão de produto: um paciente pertence a uma única organização.
+update profiles p
+set org_id = sub.org_id
+from (
+  select distinct on (pac.cliente_user_id) pac.cliente_user_id as cliente_id, prof.org_id
+  from pacientes pac
+  join profiles prof on prof.id = pac.psicologo_id
+  where pac.cliente_user_id is not null
+  order by pac.cliente_user_id, pac.created_at asc
+) sub
+where p.id = sub.cliente_id and p.role = 'paciente' and p.org_id is null;
+
+-- 3) org_id nas tabelas operacionais, a partir do dono (profiles ou pacientes).
+update perfis pf set org_id = p.org_id from profiles p where pf.id = p.id and pf.org_id is null;
+update disponibilidades d set org_id = p.org_id from profiles p where d.psicologo_id = p.id and d.org_id is null;
+update pacientes pac set org_id = p.org_id from profiles p where pac.psicologo_id = p.id and pac.org_id is null;
+update sessoes_prontuario s set org_id = pac.org_id from pacientes pac where s.paciente_id = pac.id and s.org_id is null;
+update consultas c set org_id = p.org_id from profiles p where c.psicologo_id = p.id and c.org_id is null;
+update lancamentos_financeiros l set org_id = p.org_id from profiles p where l.psicologo_id = p.id and l.org_id is null;
+update notificacoes n set org_id = c.org_id from consultas c where n.consulta_id = c.id and n.org_id is null;
+
+-- Trava org_id como obrigatório nas tabelas operacionais depois do backfill
+-- acima (idempotente: reexecutar "set not null" numa coluna que já é not
+-- null não dá erro).
+alter table perfis alter column org_id set not null;
+alter table disponibilidades alter column org_id set not null;
+alter table pacientes alter column org_id set not null;
+alter table sessoes_prontuario alter column org_id set not null;
+alter table consultas alter column org_id set not null;
+alter table lancamentos_financeiros alter column org_id set not null;
+alter table notificacoes alter column org_id set not null;
 
 -- =========================================================
 -- Row Level Security
@@ -361,46 +657,90 @@ alter table notificacoes enable row level security;
 -- o segredo do cron. Só postgres (o próprio pg_cron) e a service_role key.
 alter table app_secrets enable row level security;
 
+-- "perfis" e "disponibilidades" continuam restritas ao próprio psicólogo:
+-- abrir a agenda/perfil de negócio pra secretaria/admin_clinica mexerem é
+-- feature de uma fase futura (não há UI pra isso ainda). Só ganham o filtro
+-- de org como camada extra.
 drop policy if exists "psicologo_ve_proprio_perfil" on perfis;
 create policy "psicologo_ve_proprio_perfil" on perfis
-  for select using (auth.uid() = id);
+  for select using (org_id = auth_org_id() and auth.uid() = id);
 drop policy if exists "psicologo_cria_proprio_perfil" on perfis;
 create policy "psicologo_cria_proprio_perfil" on perfis
   for insert with check (auth.uid() = id);
 drop policy if exists "psicologo_edita_proprio_perfil" on perfis;
 create policy "psicologo_edita_proprio_perfil" on perfis
-  for update using (auth.uid() = id) with check (auth.uid() = id);
+  for update using (org_id = auth_org_id() and auth.uid() = id) with check (auth.uid() = id);
 
 drop policy if exists "psicologo_ve_proprias_disponibilidades" on disponibilidades;
 create policy "psicologo_ve_proprias_disponibilidades" on disponibilidades
-  for select using (auth.uid() = psicologo_id);
+  for select using (org_id = auth_org_id() and auth.uid() = psicologo_id);
 drop policy if exists "psicologo_cria_proprias_disponibilidades" on disponibilidades;
 create policy "psicologo_cria_proprias_disponibilidades" on disponibilidades
   for insert with check (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_edita_proprias_disponibilidades" on disponibilidades;
 create policy "psicologo_edita_proprias_disponibilidades" on disponibilidades
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+  for update using (org_id = auth_org_id() and auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_apaga_proprias_disponibilidades" on disponibilidades;
 create policy "psicologo_apaga_proprias_disponibilidades" on disponibilidades
-  for delete using (auth.uid() = psicologo_id);
+  for delete using (org_id = auth_org_id() and auth.uid() = psicologo_id);
 
+-- "pacientes": secretaria/admin_clinica veem/gerenciam todos os pacientes da
+-- org (dado cadastral, não clínico); psicólogo só os próprios. Uma única
+-- policy combinada por operação — usar duas policies "permissive" separadas
+-- (org isola + psicólogo vê só os seus) não funcionaria: no Postgres elas se
+-- combinam com OR, e a primeira sozinha já liberaria a org inteira pra
+-- qualquer papel.
 drop policy if exists "psicologo_ve_proprios_pacientes" on pacientes;
-create policy "psicologo_ve_proprios_pacientes" on pacientes
-  for select using (auth.uid() = psicologo_id);
+create policy "acesso_pacientes_select" on pacientes
+  for select using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_cria_proprios_pacientes" on pacientes;
-create policy "psicologo_cria_proprios_pacientes" on pacientes
-  for insert with check (auth.uid() = psicologo_id);
+create policy "acesso_pacientes_insert" on pacientes
+  for insert with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_edita_proprios_pacientes" on pacientes;
-create policy "psicologo_edita_proprios_pacientes" on pacientes
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+create policy "acesso_pacientes_update" on pacientes
+  for update using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  ) with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_apaga_proprios_pacientes" on pacientes;
-create policy "psicologo_apaga_proprios_pacientes" on pacientes
-  for delete using (auth.uid() = psicologo_id);
+create policy "acesso_pacientes_delete" on pacientes
+  for delete using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 
+-- "sessoes_prontuario" (evolução): sigilo é regra de banco. Só o psicólogo
+-- autor — nunca secretaria, nunca admin_clinica, mesmo sendo da mesma org.
 drop policy if exists "psicologo_ve_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_ve_proprias_sessoes" on sessoes_prontuario
   for select using (
-    exists (
+    org_id = auth_org_id()
+    and auth_role() = 'psicologo'
+    and exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -408,7 +748,9 @@ create policy "psicologo_ve_proprias_sessoes" on sessoes_prontuario
 drop policy if exists "psicologo_cria_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
   for insert with check (
-    exists (
+    org_id = auth_org_id()
+    and auth_role() = 'psicologo'
+    and exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -416,24 +758,58 @@ create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
 drop policy if exists "psicologo_apaga_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_apaga_proprias_sessoes" on sessoes_prontuario
   for delete using (
-    exists (
+    org_id = auth_org_id()
+    and auth_role() = 'psicologo'
+    and exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
   );
 
+-- "consultas" (agenda): mesmo padrão de "pacientes" — secretaria/admin veem
+-- a agenda inteira da org, psicólogo só a própria.
 drop policy if exists "psicologo_ve_proprias_consultas" on consultas;
-create policy "psicologo_ve_proprias_consultas" on consultas
-  for select using (auth.uid() = psicologo_id);
+create policy "acesso_consultas_select" on consultas
+  for select using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_cria_proprias_consultas" on consultas;
-create policy "psicologo_cria_proprias_consultas" on consultas
-  for insert with check (auth.uid() = psicologo_id);
+create policy "acesso_consultas_insert" on consultas
+  for insert with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_edita_proprias_consultas" on consultas;
-create policy "psicologo_edita_proprias_consultas" on consultas
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+create policy "acesso_consultas_update" on consultas
+  for update using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  ) with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_apaga_proprias_consultas" on consultas;
-create policy "psicologo_apaga_proprias_consultas" on consultas
-  for delete using (auth.uid() = psicologo_id);
+create policy "acesso_consultas_delete" on consultas
+  for delete using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 -- Sem policy de INSERT para "anon": agendamentos públicos passam pela função
 -- criar_agendamento_publico() (security definer) abaixo, nunca por insert cru
 -- na tabela — isso evita que a anon key (que vai pro bundle JS) seja usada
@@ -446,18 +822,49 @@ drop policy if exists "cliente_ve_proprios_agendamentos" on consultas;
 create policy "cliente_ve_proprios_agendamentos" on consultas
   for select using (auth.uid() = cliente_id);
 
+-- "lancamentos_financeiros": mesmo padrão de "pacientes"/"consultas".
 drop policy if exists "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros;
-create policy "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros
-  for select using (auth.uid() = psicologo_id);
+create policy "acesso_lancamentos_select" on lancamentos_financeiros
+  for select using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros;
-create policy "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros
-  for insert with check (auth.uid() = psicologo_id);
+create policy "acesso_lancamentos_insert" on lancamentos_financeiros
+  for insert with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros;
-create policy "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+create policy "acesso_lancamentos_update" on lancamentos_financeiros
+  for update using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  ) with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 drop policy if exists "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros;
-create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
-  for delete using (auth.uid() = psicologo_id);
+create policy "acesso_lancamentos_delete" on lancamentos_financeiros
+  for delete using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
 
 -- Psicólogo enxerga (só leitura) os lembretes das próprias consultas, para
 -- poder conferir o que foi enviado. Escrita é exclusiva do despachante, que
@@ -465,7 +872,8 @@ create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
 drop policy if exists "psicologo_ve_proprias_notificacoes" on notificacoes;
 create policy "psicologo_ve_proprias_notificacoes" on notificacoes
   for select using (
-    exists (
+    org_id = auth_org_id()
+    and exists (
       select 1 from consultas c
       where c.id = notificacoes.consulta_id and c.psicologo_id = auth.uid()
     )
@@ -572,8 +980,10 @@ set search_path = public
 as $$
 declare
   v_id uuid;
+  v_org_id uuid;
 begin
-  if not exists (select 1 from perfis where id = p_psicologo_id) then
+  select org_id into v_org_id from perfis where id = p_psicologo_id;
+  if v_org_id is null then
     raise exception 'Psicólogo não encontrado';
   end if;
 
@@ -588,14 +998,14 @@ begin
   end if;
 
   insert into consultas (
-    psicologo_id, cliente_id, paciente_nome, data, horario, status, tipo, origem,
+    org_id, psicologo_id, cliente_id, paciente_nome, data, horario, status, tipo, origem,
     modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil,
     escolaridade, motivo
   ) values (
     -- auth.uid() reflete o JWT de quem chamou o RPC, mesmo sendo security
     -- definer — null se o visitante agendou deslogado (fluxo continua
     -- funcionando igual, só não aparece em "Meus Agendamentos" de ninguém).
-    p_psicologo_id, auth.uid(), p_paciente_nome, p_data, p_horario, 'pendente', 'consulta', 'publico',
+    v_org_id, p_psicologo_id, auth.uid(), p_paciente_nome, p_data, p_horario, 'pendente', 'consulta', 'publico',
     p_modalidade, p_idade, p_sexo, p_profissao, p_telefone, p_email, p_endereco, p_estado_civil,
     p_escolaridade, p_motivo
   )
@@ -608,63 +1018,6 @@ $$;
 grant execute on function criar_agendamento_publico(
   uuid, text, date, time, text, int, text, text, text, text, text, text, text, text
 ) to anon, authenticated;
-
--- =========================================================
--- profiles — identidade genérica de QUALQUER usuário (cliente ou
--- psicólogo). Separada de "perfis", que continua sendo só o perfil de
--- negócio do psicólogo (bio, CRP, valor, disponibilidade etc.) — um
--- cliente nunca ganha linha em "perfis".
--- =========================================================
-create table if not exists profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  -- nullable de propósito: deixa espaço para um futuro seletor de papel
-  -- pós-OAuth sem precisar de nova migração (ver comentário no trigger).
-  role text check (role in ('client', 'psychologist') or role is null),
-  name text not null default '',
-  -- campos do perfil de cliente (nunca usados por psicólogos, que têm
-  -- perfil de negócio próprio em "perfis")
-  cpf text,
-  bio text,
-  whatsapp text,
-  created_at timestamptz not null default now()
-);
-
--- alter table (não só create) para que bancos já provisionados antes desta
--- mudança recebam as novas colunas ao reexecutar este arquivo no SQL Editor.
-alter table profiles add column if not exists cpf text;
-alter table profiles add column if not exists bio text;
-alter table profiles add column if not exists whatsapp text;
-
-alter table profiles enable row level security;
-
-drop policy if exists "usuario_ve_proprio_profile" on profiles;
-create policy "usuario_ve_proprio_profile" on profiles
-  for select using (auth.uid() = id);
-drop policy if exists "usuario_edita_proprio_profile" on profiles;
-create policy "usuario_edita_proprio_profile" on profiles
-  for update using (auth.uid() = id) with check (auth.uid() = id);
-
--- A policy de update acima permite ao próprio usuário editar seu profile,
--- mas "role" decide se ele acessa /dashboard ou /agendamentos — sem este
--- trigger, um cliente autenticado poderia chamar
--- supabase.from('profiles').update({ role: 'psychologist' }) direto pelo
--- client e burlar o controle de acesso. Uma vez definido, role é travado.
-create or replace function block_role_change()
-returns trigger
-language plpgsql
-as $$
-begin
-  if old.role is not null and new.role is distinct from old.role then
-    raise exception 'role não pode ser alterado depois de definido';
-  end if;
-  return new;
-end;
-$$;
-
-create or replace trigger profiles_block_role_change
-  before update on profiles
-  for each row execute function block_role_change();
 
 -- =========================================================
 -- Provisionamento automático: dispara quando o e-mail é confirmado (não no
@@ -688,6 +1041,7 @@ set search_path = public
 as $$
 declare
   v_role text;
+  v_org_id uuid;
 begin
   -- Corpo só roda quando o e-mail acabou de ser confirmado. Checar TG_OP
   -- primeiro garante curto-circuito antes de tocar em "old" no caminho de
@@ -713,14 +1067,17 @@ begin
   )
   on conflict (id) do nothing;
 
-  if v_role = 'psychologist' then
-    insert into perfis (id, nome, crp, uf, whatsapp)
+  if v_role = 'psicologo' then
+    v_org_id := criar_organizacao_para_psicologo(new.id, coalesce(new.raw_user_meta_data ->> 'name', ''));
+
+    insert into perfis (id, nome, crp, uf, whatsapp, org_id)
     values (
       new.id,
       coalesce(new.raw_user_meta_data ->> 'name', ''),
       coalesce(new.raw_user_meta_data ->> 'crp', ''),
       coalesce(new.raw_user_meta_data ->> 'uf', ''),
-      new.raw_user_meta_data ->> 'telefone'
+      new.raw_user_meta_data ->> 'telefone',
+      v_org_id
     )
     on conflict (id) do nothing;
   end if;
@@ -875,6 +1232,16 @@ create table if not exists checkins_humor (
   unique (cliente_id, data)
 );
 
+-- org_id fica nullable e fora do filtro das policies abaixo de propósito:
+-- é o cliente quem grava aqui, e profiles.org_id de um paciente só se
+-- resolve no aceite do convite (ver aceitar_convite_paciente) — comparar
+-- checkins_humor.org_id = auth_org_id() numa janela em que ainda esteja
+-- null bloquearia um check-in legítimo. A coluna existe só pra
+-- consistência do schema (toda tabela carrega org_id); quem decide acesso
+-- continua sendo cliente_id/o vínculo em "pacientes", como já era.
+alter table checkins_humor add column if not exists org_id uuid references organizations(id);
+update checkins_humor ch set org_id = p.org_id from profiles p where ch.cliente_id = p.id and ch.org_id is null;
+
 create index if not exists checkins_humor_cliente_data_idx
   on checkins_humor (cliente_id, data desc);
 
@@ -926,6 +1293,10 @@ create table if not exists convites_paciente (
   aceito_por uuid references auth.users(id) on delete set null
 );
 
+alter table convites_paciente add column if not exists org_id uuid references organizations(id);
+update convites_paciente cv set org_id = pac.org_id from pacientes pac where cv.paciente_id = pac.id and cv.org_id is null;
+alter table convites_paciente alter column org_id set not null;
+
 create index if not exists convites_paciente_paciente_idx
   on convites_paciente (paciente_id);
 
@@ -937,7 +1308,8 @@ alter table convites_paciente enable row level security;
 drop policy if exists "psicologo_ve_proprios_convites" on convites_paciente;
 create policy "psicologo_ve_proprios_convites" on convites_paciente
   for select using (
-    exists (
+    org_id = auth_org_id()
+    and exists (
       select 1 from pacientes p
       where p.id = convites_paciente.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -978,8 +1350,8 @@ begin
 
   if v_token is null then
     v_token := encode(gen_random_bytes(24), 'hex');
-    insert into convites_paciente (paciente_id, token)
-    values (p_paciente_id, v_token);
+    insert into convites_paciente (paciente_id, token, org_id)
+    values (p_paciente_id, v_token, (select org_id from pacientes where id = p_paciente_id));
   end if;
 
   return v_token;
@@ -1028,6 +1400,7 @@ set search_path = public
 as $$
 declare
   v_paciente_id uuid;
+  v_org_id uuid;
 begin
   select paciente_id into v_paciente_id
   from convites_paciente
@@ -1036,6 +1409,8 @@ begin
   if v_paciente_id is null then
     raise exception 'Convite inválido ou já utilizado.';
   end if;
+
+  select org_id into v_org_id from pacientes where id = v_paciente_id;
 
   update pacientes
   set cliente_user_id = auth.uid()
@@ -1048,6 +1423,13 @@ begin
   update convites_paciente
   set aceito_em = now(), aceito_por = auth.uid()
   where token = p_token;
+
+  -- Decisão de produto: um paciente pertence a uma única organização (a do
+  -- psicólogo que o convidou). Só seta na primeira aceitação (perfil de
+  -- paciente nasce sem org_id, ver comentário em profiles.org_id acima).
+  update profiles
+  set org_id = v_org_id
+  where id = auth.uid() and org_id is null;
 end;
 $$;
 
@@ -1080,6 +1462,10 @@ create table if not exists avisos_psicologo (
   created_at timestamptz not null default now()
 );
 
+alter table avisos_psicologo add column if not exists org_id uuid references organizations(id);
+update avisos_psicologo a set org_id = p.org_id from profiles p where a.psicologo_id = p.id and a.org_id is null;
+alter table avisos_psicologo alter column org_id set not null;
+
 create index if not exists avisos_psicologo_psicologo_id_idx
   on avisos_psicologo (psicologo_id, created_at desc);
 
@@ -1087,11 +1473,11 @@ alter table avisos_psicologo enable row level security;
 
 drop policy if exists "psicologo_ve_proprios_avisos" on avisos_psicologo;
 create policy "psicologo_ve_proprios_avisos" on avisos_psicologo
-  for select using (auth.uid() = psicologo_id);
+  for select using (org_id = auth_org_id() and auth.uid() = psicologo_id);
 
 drop policy if exists "psicologo_marca_proprios_avisos" on avisos_psicologo;
 create policy "psicologo_marca_proprios_avisos" on avisos_psicologo
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+  for update using (org_id = auth_org_id() and auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
 
 -- =========================================================
 -- meus_compartilhamentos_humor / parar_compartilhar_humor — o vínculo
@@ -1135,8 +1521,9 @@ as $$
 declare
   v_psicologo_id uuid;
   v_paciente_nome text;
+  v_org_id uuid;
 begin
-  select psicologo_id, nome into v_psicologo_id, v_paciente_nome
+  select psicologo_id, nome, org_id into v_psicologo_id, v_paciente_nome, v_org_id
   from pacientes
   where id = p_paciente_id and cliente_user_id = auth.uid();
 
@@ -1146,10 +1533,11 @@ begin
 
   update pacientes set cliente_user_id = null where id = p_paciente_id;
 
-  insert into avisos_psicologo (psicologo_id, mensagem)
+  insert into avisos_psicologo (psicologo_id, mensagem, org_id)
   values (
     v_psicologo_id,
-    v_paciente_nome || ' parou de compartilhar o check-in de humor com você.'
+    v_paciente_nome || ' parou de compartilhar o check-in de humor com você.',
+    v_org_id
   );
 end;
 $$;
@@ -1256,10 +1644,10 @@ begin
     end if;
 
     insert into pacientes (
-      psicologo_id, nome, telefone, email, escolaridade,
+      org_id, psicologo_id, nome, telefone, email, escolaridade,
       cliente_user_id, data_primeira_consulta, observacoes
     ) values (
-      v.psicologo_id, v.paciente_nome, v.telefone, v.email, v.escolaridade,
+      v.org_id, v.psicologo_id, v.paciente_nome, v.telefone, v.email, v.escolaridade,
       v.cliente_id, v.data, v_observacoes
     )
     returning id into v_paciente_id;
@@ -1351,6 +1739,10 @@ create table if not exists materiais_paciente (
   tamanho_bytes bigint,
   created_at timestamptz not null default now()
 );
+
+alter table materiais_paciente add column if not exists org_id uuid references organizations(id);
+update materiais_paciente m set org_id = pac.org_id from pacientes pac where m.paciente_id = pac.id and m.org_id is null;
+alter table materiais_paciente alter column org_id set not null;
 
 create index if not exists materiais_paciente_paciente_idx
   on materiais_paciente (paciente_id, created_at desc);
@@ -1463,6 +1855,10 @@ create table if not exists habitos_paciente (
   unique (paciente_id, chave)
 );
 
+alter table habitos_paciente add column if not exists org_id uuid references organizations(id);
+update habitos_paciente h set org_id = pac.org_id from pacientes pac where h.paciente_id = pac.id and h.org_id is null;
+alter table habitos_paciente alter column org_id set not null;
+
 alter table habitos_paciente enable row level security;
 
 drop policy if exists "psicologo_gerencia_habitos" on habitos_paciente;
@@ -1503,6 +1899,10 @@ create table if not exists registros_habito (
   updated_at timestamptz not null default now(),
   unique (cliente_id, data, chave)
 );
+
+-- org_id nullable, mesmo motivo de checkins_humor.org_id acima.
+alter table registros_habito add column if not exists org_id uuid references organizations(id);
+update registros_habito r set org_id = p.org_id from profiles p where r.cliente_id = p.id and r.org_id is null;
 
 create index if not exists registros_habito_cliente_data_idx
   on registros_habito (cliente_id, data desc);
@@ -1546,6 +1946,10 @@ create table if not exists diario_paciente (
   updated_at timestamptz not null default now()
 );
 
+-- org_id nullable, mesmo motivo de checkins_humor.org_id acima.
+alter table diario_paciente add column if not exists org_id uuid references organizations(id);
+update diario_paciente di set org_id = p.org_id from profiles p where di.cliente_id = p.id and di.org_id is null;
+
 create index if not exists diario_paciente_cliente_idx
   on diario_paciente (cliente_id, created_at desc);
 
@@ -1569,3 +1973,106 @@ create policy "psicologo_le_diario_compartilhado" on diario_paciente
         and p.psicologo_id = auth.uid()
     )
   );
+
+-- =========================================================
+-- Anexa os triggers de preenchimento automático de org_id (funções
+-- definidas logo depois de auth_org_id()/auth_role(), no topo do arquivo) —
+-- juntos aqui no fim porque é o primeiro ponto em que todas as tabelas
+-- referenciadas já existem.
+-- =========================================================
+create or replace trigger disponibilidades_set_org_id
+  before insert on disponibilidades
+  for each row execute function set_org_id_from_caller();
+create or replace trigger pacientes_set_org_id
+  before insert on pacientes
+  for each row execute function set_org_id_from_caller();
+create or replace trigger consultas_set_org_id
+  before insert on consultas
+  for each row execute function set_org_id_from_caller();
+create or replace trigger lancamentos_financeiros_set_org_id
+  before insert on lancamentos_financeiros
+  for each row execute function set_org_id_from_caller();
+create or replace trigger checkins_humor_set_org_id
+  before insert on checkins_humor
+  for each row execute function set_org_id_from_caller();
+create or replace trigger registros_habito_set_org_id
+  before insert on registros_habito
+  for each row execute function set_org_id_from_caller();
+create or replace trigger diario_paciente_set_org_id
+  before insert on diario_paciente
+  for each row execute function set_org_id_from_caller();
+create or replace trigger avisos_psicologo_set_org_id
+  before insert on avisos_psicologo
+  for each row execute function set_org_id_from_caller();
+create or replace trigger convites_paciente_set_org_id
+  before insert on convites_paciente
+  for each row execute function set_org_id_from_caller();
+
+create or replace trigger sessoes_prontuario_set_org_id
+  before insert on sessoes_prontuario
+  for each row execute function set_org_id_from_paciente();
+create or replace trigger materiais_paciente_set_org_id
+  before insert on materiais_paciente
+  for each row execute function set_org_id_from_paciente();
+create or replace trigger habitos_paciente_set_org_id
+  before insert on habitos_paciente
+  for each row execute function set_org_id_from_paciente();
+
+create or replace trigger notificacoes_set_org_id
+  before insert on notificacoes
+  for each row execute function set_org_id_from_consulta();
+
+-- =========================================================
+-- audit_log — trilha de acesso a dado clínico (Res. CFP / LGPD). Nesta fase
+-- só a infraestrutura (tabela + RPC de escrita); instrumentar os pontos de
+-- leitura de sessoes_prontuario fica pra Fase 1, quando essa tela ganha
+-- trabalho de verdade.
+-- =========================================================
+create table if not exists audit_log (
+  id bigserial primary key,
+  org_id uuid not null references organizations(id),
+  actor_id uuid not null references auth.users(id) on delete cascade,
+  acao text not null,          -- 'leu_evolucao', 'assinou_evolucao', 'exportou_prontuario' etc.
+  entidade text not null,
+  entidade_id uuid,
+  paciente_id uuid,
+  -- só preenchidos quando a chamada vem de um route handler com request de
+  -- verdade (ex.: api/gemini); chamadas via RPC direto do client ficam null.
+  ip inet,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists audit_log_org_created_idx on audit_log (org_id, created_at desc);
+create index if not exists audit_log_paciente_idx on audit_log (paciente_id);
+
+alter table audit_log enable row level security;
+
+-- Só psicólogo/admin_clinica da própria org leem a trilha. Secretaria não —
+-- é o mesmo sigilo do dado que a trilha registra. Sem policy de insert pra
+-- "authenticated": a escrita é só via registrar_auditoria() abaixo (mesmo
+-- padrão de avisos_psicologo).
+drop policy if exists "psicologo_admin_ve_auditoria_da_org" on audit_log;
+create policy "psicologo_admin_ve_auditoria_da_org" on audit_log
+  for select using (
+    org_id = auth_org_id() and auth_role() in ('psicologo', 'admin_clinica')
+  );
+
+create or replace function registrar_auditoria(
+  p_acao text,
+  p_entidade text,
+  p_entidade_id uuid default null,
+  p_paciente_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into audit_log (org_id, actor_id, acao, entidade, entidade_id, paciente_id)
+  values (auth_org_id(), auth.uid(), p_acao, p_entidade, p_entidade_id, p_paciente_id);
+end;
+$$;
+
+grant execute on function registrar_auditoria(text, text, uuid, uuid) to authenticated;

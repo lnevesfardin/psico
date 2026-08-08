@@ -65,7 +65,7 @@ export function ConviteSignup({
       email,
       password,
       options: {
-        data: { name, role: "client", telefone },
+        data: { name, role: "paciente", telefone },
         emailRedirectTo: `${window.location.origin}/auth/confirmado`,
       },
     });

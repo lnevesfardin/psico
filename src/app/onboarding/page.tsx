@@ -16,7 +16,7 @@ export default async function OnboardingPage() {
 
   const role = await fetchUserRole(supabase, user.id);
 
-  if (role === "client") {
+  if (role === "paciente") {
     return <OnboardingCliente />;
   }
 

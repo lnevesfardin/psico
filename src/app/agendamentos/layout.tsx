@@ -23,7 +23,7 @@ export default async function AgendamentosLayout({
 
   const role = await fetchUserRole(supabase, user.id);
 
-  if (role === "psychologist") {
+  if (role === "psicologo" || role === "secretaria" || role === "admin_clinica") {
     redirect("/dashboard/agenda");
   }
 
@@ -33,7 +33,7 @@ export default async function AgendamentosLayout({
         <ClientAreaSidebar />
         <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
       </div>
-      <ChatAssistant role="client" />
+      <ChatAssistant role="paciente" />
     </ClientProfileProvider>
   );
 }

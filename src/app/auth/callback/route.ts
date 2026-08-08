@@ -41,19 +41,15 @@ export async function GET(request: Request) {
       // null só acontece no primeiro login via Google. Não existe mais
       // escolha de papel: conta criada por aqui é sempre de psicólogo —
       // paciente não se cadastra sozinho, só por convite (/convite/[token]),
-      // que usa e-mail e senha e já grava role='client'.
+      // que usa e-mail e senha e já grava role='paciente'. A RPC cuida de
+      // role + criação da organização (1 org = 1 psicólogo autônomo) num
+      // passo só.
       if (!role) {
         const displayName =
           (data.user.user_metadata?.full_name as string | undefined) ||
           (data.user.user_metadata?.name as string | undefined) ||
           "";
-        await supabase
-          .from("profiles")
-          .update({ role: "psychologist", ...(displayName ? { name: displayName } : {}) })
-          .eq("id", data.user.id);
-        await supabase
-          .from("perfis")
-          .upsert({ id: data.user.id, ...(displayName ? { nome: displayName } : {}) });
+        await supabase.rpc("escolher_papel_psicologo", { p_nome: displayName || null });
         return NextResponse.redirect(`${origin}/onboarding`);
       }
       return NextResponse.redirect(`${origin}${dashboardPathForRole(role)}`);

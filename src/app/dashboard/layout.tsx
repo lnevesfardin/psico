@@ -27,7 +27,7 @@ export default async function DashboardLayout({
 
   // Sem linha/role ainda (ex.: conta criada antes desta mudança) mantém o
   // comportamento atual em vez de trancar psicólogos existentes fora.
-  if (role === "client") {
+  if (role === "paciente") {
     redirect("/agendamentos");
   }
 
@@ -52,7 +52,7 @@ export default async function DashboardLayout({
             <Sidebar />
             <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
           </div>
-          <ChatAssistant role="psychologist" />
+          <ChatAssistant role="psicologo" />
         </AppointmentsProvider>
       </DisponibilidadeProvider>
     </ProfileProvider>

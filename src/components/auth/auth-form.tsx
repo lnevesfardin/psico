@@ -124,7 +124,7 @@ export function AuthForm({
       email,
       password,
       options: {
-        data: { name, role: "psychologist", telefone, crp, uf },
+        data: { name, role: "psicologo", telefone, crp, uf },
         // Rota própria (não /auth/callback) — só usada se o template de
         // e-mail do projeto ainda incluir o link de confirmação; o fluxo
         // principal agora é o código de 6 dígitos verificado abaixo, sem
