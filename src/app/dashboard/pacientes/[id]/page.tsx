@@ -14,29 +14,47 @@ import {
   Lock,
   Clock,
   Trash2,
+  Archive,
+  ArchiveRestore,
   Pencil,
   CalendarCheck,
   GraduationCap,
   HelpCircle,
   StickyNote,
   Mic,
+  MapPin,
+  UserRound,
+  Wallet,
+  ClipboardList,
 } from "lucide-react";
-import type { Patient } from "@/lib/dashboard-data";
+import type { Patient, PatientStatus } from "@/lib/dashboard-data";
 import { createClient } from "@/lib/supabase/client";
 import {
   addSessionNote,
-  deletePatient,
+  archivePatient,
   deleteSessionNote,
   getPatientWithSessions,
+  isMinor,
   patientToFormInput,
+  unarchivePatient,
   updatePatient,
+  updatePatientStatus,
 } from "@/lib/patients-client";
 import { PatientFormModal } from "@/components/patient-form-modal";
 import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
 import { PatientMaterialsTab } from "@/components/dashboard/patient-materials-tab";
+import { PatientAgendaTab } from "@/components/dashboard/patient-agenda-tab";
+import { PatientFinanceiroTab } from "@/components/dashboard/patient-financeiro-tab";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
-import { formatDateShort, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateShort, formatDateTime, formatEndereco } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
+
+const STATUS_LABEL: Record<PatientStatus, string> = {
+  ativo: "Ativo",
+  pausado: "Pausado",
+  alta: "Alta",
+  desistencia: "Desistência",
+};
 
 export default function PatientDetailPage({
   params,
@@ -50,12 +68,12 @@ export default function PatientDetailPage({
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<
-    "dados" | "evolucao" | "humor" | "materiais"
-  >("dados");
+    "resumo" | "evolucao" | "agenda" | "financeiro" | "humor" | "materiais"
+  >("resumo");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [transcribeOpen, setTranscribeOpen] = useState(false);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
@@ -108,22 +126,50 @@ export default function PatientDetailPage({
     }
   }
 
-  async function handleDelete() {
+  async function handleArchive() {
     if (!patient) return;
     const confirmed = window.confirm(
-      `Excluir ${patient.name}? Isso apaga também o prontuário e não pode ser desfeito.`
+      `Arquivar ${patient.name}? O prontuário continua guardado (exigência de retenção) e some só da lista de pacientes ativos — dá para reativar depois.`
     );
     if (!confirmed) return;
-    setDeleting(true);
-    setDeleteError(null);
+    setArchiving(true);
+    setArchiveError(null);
     try {
       const supabase = createClient();
-      await deletePatient(supabase, patient.id);
+      await archivePatient(supabase, patient.id);
       router.push("/dashboard/pacientes");
       router.refresh();
     } catch {
-      setDeleteError("Não foi possível excluir o paciente.");
-      setDeleting(false);
+      setArchiveError("Não foi possível arquivar o paciente.");
+      setArchiving(false);
+    }
+  }
+
+  async function handleUnarchive() {
+    if (!patient) return;
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const supabase = createClient();
+      await unarchivePatient(supabase, patient.id);
+      setPatient((prev) => (prev ? { ...prev, arquivadoEm: null } : prev));
+    } catch {
+      setArchiveError("Não foi possível reativar o paciente.");
+    } finally {
+      setArchiving(false);
+    }
+  }
+
+  async function handleStatusChange(status: PatientStatus) {
+    if (!patient) return;
+    const previous = patient.status;
+    setPatient((prev) => (prev ? { ...prev, status } : prev));
+    try {
+      const supabase = createClient();
+      await updatePatientStatus(supabase, patient.id, status);
+    } catch {
+      setPatient((prev) => (prev ? { ...prev, status: previous } : prev));
+      window.alert("Não foi possível atualizar o status.");
     }
   }
 
@@ -173,21 +219,33 @@ export default function PatientDetailPage({
             <Pencil className="h-4 w-4" />
             Editar
           </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={deleting}
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
-          >
-            <Trash2 className="h-4 w-4" />
-            {deleting ? "Excluindo..." : "Excluir paciente"}
-          </button>
+          {patient.arquivadoEm ? (
+            <button
+              type="button"
+              onClick={handleUnarchive}
+              disabled={archiving}
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-brand-600 transition-colors hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-brand-400 dark:hover:bg-brand-950"
+            >
+              <ArchiveRestore className="h-4 w-4" />
+              {archiving ? "Reativando..." : "Reativar paciente"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleArchive}
+              disabled={archiving}
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950"
+            >
+              <Archive className="h-4 w-4" />
+              {archiving ? "Arquivando..." : "Arquivar paciente"}
+            </button>
+          )}
         </div>
       </div>
 
-      {deleteError && (
+      {archiveError && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
-          {deleteError}
+          {archiveError}
         </div>
       )}
 
@@ -226,9 +284,33 @@ export default function PatientDetailPage({
             .join("")}
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            {patient.name}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+              {patient.nomeSocial || patient.name}
+            </h1>
+            {patient.arquivadoEm ? (
+              <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                Arquivado
+              </span>
+            ) : (
+              <select
+                value={patient.status}
+                onChange={(e) => handleStatusChange(e.target.value as PatientStatus)}
+                className="rounded-full border-0 bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 focus:outline-none dark:bg-brand-950 dark:text-brand-300"
+              >
+                {(Object.keys(STATUS_LABEL) as PatientStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {patient.nomeSocial && (
+            <p className="text-xs text-zinc-400 dark:text-zinc-600">
+              Nome civil: {patient.name}
+            </p>
+          )}
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             {patient.sessions.length} sessão(ões) registrada(s)
           </p>
@@ -236,29 +318,35 @@ export default function PatientDetailPage({
       </div>
 
       <div className="mt-6 inline-flex flex-wrap rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        {(["dados", "evolucao", "humor", "materiais"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              tab === t
-                ? "bg-brand-600 text-white"
-                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-            }`}
-          >
-            {t === "dados"
-              ? "Dados Pessoais"
-              : t === "evolucao"
-                ? "Evolução / Prontuário"
-                : t === "humor"
-                  ? "Acompanhamento"
-                  : "Materiais"}
-          </button>
-        ))}
+        {(["resumo", "evolucao", "agenda", "financeiro", "humor", "materiais"] as const).map(
+          (t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                tab === t
+                  ? "bg-brand-600 text-white"
+                  : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+              }`}
+            >
+              {t === "resumo"
+                ? "Resumo"
+                : t === "evolucao"
+                  ? "Evolução / Prontuário"
+                  : t === "agenda"
+                    ? "Agenda"
+                    : t === "financeiro"
+                      ? "Financeiro"
+                      : t === "humor"
+                        ? "Acompanhamento"
+                        : "Materiais"}
+            </button>
+          )
+        )}
       </div>
 
-      {tab === "dados" && (
+      {tab === "resumo" && (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <InfoCard icon={CreditCard} label="CPF" value={patient.cpf || "—"} />
           <InfoCard icon={Phone} label="Telefone" value={patient.phone || "—"} />
@@ -266,8 +354,13 @@ export default function PatientDetailPage({
           <InfoCard
             icon={Cake}
             label="Data de nascimento"
-            value={patient.birthDate ? formatDateShort(patient.birthDate) : "—"}
+            value={
+              patient.birthDate
+                ? `${formatDateShort(patient.birthDate)} (${isMinor(patient.birthDate) ? "menor de idade" : "maior de idade"})`
+                : "—"
+            }
           />
+          <InfoCard icon={UserRound} label="Gênero" value={patient.genero || "—"} />
           <InfoCard
             icon={CalendarCheck}
             label="Data da primeira consulta"
@@ -277,6 +370,13 @@ export default function PatientDetailPage({
                 : "—"
             }
           />
+          {patient.endereco && (
+            <InfoCard
+              icon={MapPin}
+              label="Endereço"
+              value={formatEndereco(patient.endereco) || "—"}
+            />
+          )}
           <div className="rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
@@ -307,6 +407,20 @@ export default function PatientDetailPage({
             </p>
           </div>
 
+          {isMinor(patient.birthDate) && (
+            <div className="sm:col-span-2 rounded-xl border border-amber-100 bg-amber-50 p-4 dark:border-amber-950 dark:bg-amber-950/40">
+              <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
+                <ShieldAlert className="h-4 w-4" />
+                Responsável legal
+              </div>
+              <p className="mt-2 text-sm text-amber-900 dark:text-amber-200">
+                {patient.responsavel.nome || "—"}
+                {patient.responsavel.parentesco ? ` (${patient.responsavel.parentesco})` : ""}
+                {patient.responsavel.cpf ? ` · CPF ${patient.responsavel.cpf}` : ""}
+              </p>
+            </div>
+          )}
+
           <div className="sm:col-span-2">
             <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
               Dados Adicionais
@@ -321,6 +435,26 @@ export default function PatientDetailPage({
                 icon={HelpCircle}
                 label="Por onde conheceu o profissional"
                 value={patient.comoConheceu || "—"}
+              />
+              <InfoCard
+                icon={ClipboardList}
+                label="Queixa inicial"
+                value={patient.queixaInicial || "—"}
+              />
+              <InfoCard
+                icon={HelpCircle}
+                label="Encaminhado por"
+                value={patient.encaminhadoPor || "—"}
+              />
+              <InfoCard
+                icon={Wallet}
+                label="Valor da sessão"
+                value={patient.valorSessao != null ? formatCurrency(patient.valorSessao) : "—"}
+              />
+              <InfoCard
+                icon={CalendarCheck}
+                label="Frequência padrão"
+                value={patient.frequenciaPadrao || "—"}
               />
               <div className="sm:col-span-2 rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
                 <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
@@ -434,6 +568,10 @@ export default function PatientDetailPage({
           </div>
         </div>
       )}
+
+      {tab === "agenda" && <PatientAgendaTab patientId={patient.id} />}
+
+      {tab === "financeiro" && <PatientFinanceiroTab patientId={patient.id} />}
 
       {tab === "humor" && (
         <PatientMoodTab

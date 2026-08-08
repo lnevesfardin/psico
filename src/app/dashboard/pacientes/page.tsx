@@ -5,30 +5,49 @@ import Link from "next/link";
 import { Search, ChevronRight, FileText, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/context/auth-context";
-import { createPatient, listPatients } from "@/lib/patients-client";
+import {
+  createPatient,
+  listPatients,
+  type ListPatientsFilter,
+} from "@/lib/patients-client";
 import { PatientFormModal } from "@/components/patient-form-modal";
-import type { Patient } from "@/lib/dashboard-data";
+import type { Patient, PatientStatus } from "@/lib/dashboard-data";
+
+const STATUS_LABEL: Record<PatientStatus, string> = {
+  ativo: "Ativo",
+  pausado: "Pausado",
+  alta: "Alta",
+  desistencia: "Desistência",
+};
+
+type StatusFilter = "todos" | PatientStatus;
 
 export default function PacientesPage() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
+  const [showArchived, setShowArchived] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
-    listPatients(supabase, user.id)
+    const filter: ListPatientsFilter = {
+      arquivamento: showArchived ? "arquivados" : "ativos",
+    };
+    listPatients(supabase, user.id, filter)
       .then(setPatients)
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, showArchived]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return patients;
-    return patients.filter((p) => p.name.toLowerCase().includes(q));
-  }, [patients, query]);
+    return patients
+      .filter((p) => !q || p.name.toLowerCase().includes(q))
+      .filter((p) => statusFilter === "todos" || p.status === statusFilter);
+  }, [patients, query, statusFilter]);
 
   function handleCreated(patient: Patient) {
     setPatients((prev) => [...prev, patient].sort((a, b) => a.name.localeCompare(b.name)));
@@ -56,15 +75,40 @@ export default function PacientesPage() {
         </button>
       </div>
 
-      <div className="relative mt-6">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar paciente por nome..."
-          className="w-full rounded-full border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
-        />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar paciente por nome..."
+            className="w-full rounded-full border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="shrink-0 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+        >
+          <option value="todos">Todos os status</option>
+          {(Object.keys(STATUS_LABEL) as PatientStatus[]).map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setShowArchived((v) => !v)}
+          className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium shadow-sm transition-colors ${
+            showArchived
+              ? "border-brand-600 bg-brand-600 text-white"
+              : "border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+          }`}
+        >
+          {showArchived ? "Vendo arquivados" : "Ver arquivados"}
+        </button>
       </div>
 
       <div className="mt-6 space-y-2">

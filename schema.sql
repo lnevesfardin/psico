@@ -388,6 +388,34 @@ alter table pacientes add column if not exists observacoes text;
 alter table pacientes add column if not exists cliente_user_id uuid references auth.users(id) on delete set null;
 alter table pacientes add column if not exists org_id uuid references organizations(id);
 
+-- Fase 1 (Entrega A): ficha completa do paciente + suporte a menor de
+-- idade/interdito (responsavel_* fica obrigatório na UI quando
+-- data_nascimento indicar menor — não é uma constraint de banco porque a
+-- idade muda com o tempo e travar isso em SQL exigiria um trigger recalculando
+-- a cada leitura) + arquivamento (ver política de retenção abaixo).
+alter table pacientes add column if not exists nome_social text;
+alter table pacientes add column if not exists genero text;
+alter table pacientes add column if not exists endereco jsonb;
+alter table pacientes add column if not exists responsavel_nome text;
+alter table pacientes add column if not exists responsavel_cpf text;
+alter table pacientes add column if not exists responsavel_parentesco text;
+alter table pacientes add column if not exists queixa_inicial text;
+alter table pacientes add column if not exists encaminhado_por text;
+alter table pacientes add column if not exists valor_sessao numeric(10, 2);
+alter table pacientes add column if not exists frequencia_padrao text;
+alter table pacientes add column if not exists status text not null default 'ativo';
+alter table pacientes add column if not exists arquivado_em timestamptz;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'pacientes_status_check'
+  ) then
+    alter table pacientes add constraint pacientes_status_check
+      check (status in ('ativo', 'pausado', 'alta', 'desistencia'));
+  end if;
+end $$;
+
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
 create index if not exists pacientes_nome_idx on pacientes using gin (nome gin_trgm_ops);
 create index if not exists pacientes_cliente_user_id_idx
@@ -729,15 +757,12 @@ create policy "acesso_pacientes_update" on pacientes
       or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
     )
   );
+-- Retenção obrigatória (Res. CFP 01/2009 e 06/2019): prontuário/paciente
+-- nunca é apagado por capricho, só arquivado (ver pacientes.arquivado_em).
+-- Sem policy de DELETE nenhuma pra ninguém — bloqueia a remoção física no
+-- banco, não só na UI.
 drop policy if exists "psicologo_apaga_proprios_pacientes" on pacientes;
-create policy "acesso_pacientes_delete" on pacientes
-  for delete using (
-    org_id = auth_org_id()
-    and (
-      auth_role() in ('secretaria', 'admin_clinica')
-      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
-    )
-  );
+drop policy if exists "acesso_pacientes_delete" on pacientes;
 
 -- "sessoes_prontuario" (evolução): sigilo é regra de banco. Só o psicólogo
 -- autor — nunca secretaria, nunca admin_clinica, mesmo sendo da mesma org.

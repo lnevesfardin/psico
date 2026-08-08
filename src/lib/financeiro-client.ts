@@ -49,6 +49,19 @@ export async function listLancamentos(
   return (data as LancamentoRow[]).map(rowToLancamento);
 }
 
+export async function listLancamentosByPatient(
+  supabase: SupabaseClient,
+  patientId: string
+): Promise<Lancamento[]> {
+  const { data, error } = await supabase
+    .from("lancamentos_financeiros")
+    .select(COLUMNS)
+    .eq("paciente_id", patientId)
+    .order("data", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as LancamentoRow[]).map(rowToLancamento);
+}
+
 export type NewLancamentoInput = {
   patientId: string;
   patientName: string;
