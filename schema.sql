@@ -59,9 +59,15 @@ alter table profiles add column if not exists org_id uuid references organizatio
 
 -- Renomeia os papéis do modelo antigo (2 valores) pro novo (4 valores) antes
 -- de trocar a constraint — idempotente: some a segunda vez que este arquivo
--- rodar, porque não sobra linha com o valor antigo.
+-- rodar, porque não sobra linha com o valor antigo. Precisa derrubar o
+-- trigger de bloqueio antes: em bancos que já rodaram uma versão anterior
+-- deste arquivo, profiles_block_role_change já existe e barraria esta
+-- própria renomeação (old.role='psychologist' -> new.role='psicologo' é,
+-- pra ele, uma troca de role). É recriado mais abaixo, então o bloqueio
+-- fica ausente só durante este trecho.
 drop policy if exists "usuario_ve_proprio_profile" on profiles;
 drop policy if exists "usuario_edita_proprio_profile" on profiles;
+drop trigger if exists profiles_block_role_change on profiles;
 alter table profiles drop constraint if exists profiles_role_check;
 update profiles set role = 'psicologo' where role = 'psychologist';
 update profiles set role = 'paciente' where role = 'client';
