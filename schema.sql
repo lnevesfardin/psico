@@ -468,6 +468,67 @@ begin
   end if;
 end $$;
 
+-- =========================================================
+-- Fase 1 (Entrega C): formato/assinatura da evolução.
+-- "conteudo" continua text (não jsonb como no doc de especificação) — trocar
+-- pra jsonb exigiria migrar toda anotação já escrita em produção; os
+-- formatos DAP/SOAP/BIRP são montados na UI como texto com seções (## Dados,
+-- ## Avaliação, ## Plano etc.) e gravados nessa mesma coluna.
+-- =========================================================
+alter table sessoes_prontuario add column if not exists formato text not null default 'livre';
+alter table sessoes_prontuario add column if not exists status text not null default 'rascunho';
+alter table sessoes_prontuario add column if not exists assinado_em timestamptz;
+-- SHA-256 do conteúdo no momento da assinatura (hex), calculado no cliente
+-- via Web Crypto — não prova nada sozinho (o cliente que assina é o mesmo
+-- que gravou), mas destrava detectar qualquer alteração posterior ao
+-- conteúdo gravado, incluindo uma eventual edição direta no banco.
+alter table sessoes_prontuario add column if not exists hash_conteudo text;
+-- Vínculo opcional com a consulta que originou esta evolução — permite
+-- calcular "sessões realizadas sem evolução registrada" com precisão (por
+-- consulta, não só por contagem). Nullable: nem toda evolução nasce de uma
+-- consulta específica marcada como realizada (ex.: nota avulsa).
+alter table sessoes_prontuario add column if not exists agendamento_id uuid references consultas(id) on delete set null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'sessoes_prontuario_formato_check'
+  ) then
+    alter table sessoes_prontuario add constraint sessoes_prontuario_formato_check
+      check (formato in ('dap', 'soap', 'birp', 'livre'));
+  end if;
+  if not exists (
+    select 1 from pg_constraint where conname = 'sessoes_prontuario_status_check'
+  ) then
+    alter table sessoes_prontuario add constraint sessoes_prontuario_status_check
+      check (status in ('rascunho', 'assinada'));
+  end if;
+end $$;
+
+create unique index if not exists sessoes_prontuario_agendamento_id_idx
+  on sessoes_prontuario (agendamento_id) where agendamento_id is not null;
+
+-- Trava de imutabilidade: depois de assinada, a evolução não pode ser
+-- editada nem apagada (Res. CFP 01/2009 e 06/2019) — correção só via
+-- adendo datado (ver adendos_evolucao mais abaixo). Bloqueia pra QUALQUER
+-- role, inclusive o próprio autor — é o que faz a assinatura significar algo
+-- de verdade em fiscalização/processo, não só uma checkbox de UI.
+create or replace function bloqueia_edicao_assinada()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.status = 'assinada' then
+    raise exception 'Evolução assinada não pode ser alterada. Use um adendo.';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace trigger sessoes_prontuario_imutavel
+  before update or delete on sessoes_prontuario
+  for each row execute function bloqueia_edicao_assinada();
+
 create index if not exists sessoes_prontuario_paciente_id_idx
   on sessoes_prontuario (paciente_id, data_hora desc);
 
@@ -845,6 +906,68 @@ create policy "psicologo_apaga_proprias_sessoes" on sessoes_prontuario
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
   );
+-- UPDATE não existia até aqui (só criar/apagar) — passa a existir pro
+-- autosave do rascunho e pro botão "Assinar" (que é, ele mesmo, um update).
+-- A policy permite a linha inteira; quem trava edição pós-assinatura é o
+-- trigger sessoes_prontuario_imutavel acima, não a RLS.
+drop policy if exists "psicologo_edita_proprias_sessoes" on sessoes_prontuario;
+create policy "psicologo_edita_proprias_sessoes" on sessoes_prontuario
+  for update using (
+    org_id = auth_org_id()
+    and auth_role() = 'psicologo'
+    and exists (
+      select 1 from pacientes p
+      where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from pacientes p
+      where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- =========================================================
+-- adendos_evolucao — correção de uma evolução já assinada. Nunca edita a
+-- linha original (o trigger de imutabilidade bloquearia mesmo que
+-- tentasse); é sempre um registro novo, datado, anexado.
+-- =========================================================
+create table if not exists adendos_evolucao (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  evolucao_id uuid not null references sessoes_prontuario(id) on delete cascade,
+  autor_id uuid not null references auth.users(id),
+  texto text not null,
+  motivo text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists adendos_evolucao_evolucao_id_idx
+  on adendos_evolucao (evolucao_id, created_at);
+
+alter table adendos_evolucao enable row level security;
+
+drop policy if exists "psicologo_ve_proprios_adendos" on adendos_evolucao;
+create policy "psicologo_ve_proprios_adendos" on adendos_evolucao
+  for select using (
+    org_id = auth_org_id()
+    and exists (
+      select 1 from sessoes_prontuario s
+      join pacientes p on p.id = s.paciente_id
+      where s.id = adendos_evolucao.evolucao_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_cria_proprios_adendos" on adendos_evolucao;
+create policy "psicologo_cria_proprios_adendos" on adendos_evolucao
+  for insert with check (
+    autor_id = auth.uid()
+    and exists (
+      select 1 from sessoes_prontuario s
+      join pacientes p on p.id = s.paciente_id
+      where s.id = adendos_evolucao.evolucao_id and p.psicologo_id = auth.uid()
+    )
+  );
+-- Sem policy de update/delete: adendo também é permanente, mesmo motivo da
+-- evolução original.
 
 -- "consultas" (agenda): mesmo padrão de "pacientes" — secretaria/admin veem
 -- a agenda inteira da org, psicólogo só a própria.
@@ -2094,6 +2217,9 @@ create or replace trigger convites_paciente_set_org_id
 create or replace trigger sessoes_prontuario_set_org_id
   before insert on sessoes_prontuario
   for each row execute function set_org_id_from_paciente();
+create or replace trigger adendos_evolucao_set_org_id
+  before insert on adendos_evolucao
+  for each row execute function set_org_id_from_caller();
 create or replace trigger materiais_paciente_set_org_id
   before insert on materiais_paciente
   for each row execute function set_org_id_from_paciente();
@@ -2106,10 +2232,10 @@ create or replace trigger notificacoes_set_org_id
   for each row execute function set_org_id_from_consulta();
 
 -- =========================================================
--- audit_log — trilha de acesso a dado clínico (Res. CFP / LGPD). Nesta fase
--- só a infraestrutura (tabela + RPC de escrita); instrumentar os pontos de
--- leitura de sessoes_prontuario fica pra Fase 1, quando essa tela ganha
--- trabalho de verdade.
+-- audit_log — trilha de acesso a dado clínico (Res. CFP / LGPD). Criada na
+-- Fase 0 só como infraestrutura; passa a ser chamada de verdade na Fase 1
+-- Entrega C (assinatura de evolução e exportação de prontuário em PDF, ver
+-- registrar_auditoria() abaixo e as chamadas em src/lib/patients-client.ts).
 -- =========================================================
 create table if not exists audit_log (
   id bigserial primary key,

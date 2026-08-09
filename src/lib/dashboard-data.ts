@@ -1,3 +1,14 @@
+export type FormatoEvolucao = "dap" | "soap" | "birp" | "livre";
+export type StatusEvolucao = "rascunho" | "assinada";
+
+export type Adendo = {
+  id: string;
+  evolucaoId: string;
+  texto: string;
+  motivo: string | null;
+  createdAt: string; // ISO string
+};
+
 export type SessionNote = {
   id: string;
   dateTime: string; // ISO string
@@ -5,6 +16,11 @@ export type SessionNote = {
   // "transcricao" = texto vindo da transcrição automática do áudio da sessão,
   // revisado pelo psicólogo antes de salvar; "manual" = digitado por ele.
   origem: "manual" | "transcricao";
+  formato: FormatoEvolucao;
+  status: StatusEvolucao;
+  assinadoEm: string | null; // ISO string, null enquanto for rascunho
+  agendamentoId: string | null;
+  adendos: Adendo[];
 };
 
 export type PatientStatus = "ativo" | "pausado" | "alta" | "desistencia";

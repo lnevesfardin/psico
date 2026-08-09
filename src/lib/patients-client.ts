@@ -1,10 +1,59 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  Adendo,
+  FormatoEvolucao,
   Patient,
   PatientAddress,
   PatientStatus,
   SessionNote,
+  StatusEvolucao,
 } from "@/lib/dashboard-data";
+
+type SessaoRow = {
+  id: string;
+  conteudo: string;
+  data_hora: string;
+  origem: SessionNote["origem"];
+  formato: FormatoEvolucao;
+  status: StatusEvolucao;
+  assinado_em: string | null;
+  agendamento_id: string | null;
+};
+
+const SESSAO_COLUMNS =
+  "id, conteudo, data_hora, origem, formato, status, assinado_em, agendamento_id";
+
+function rowToSessionNote(row: SessaoRow, adendos: Adendo[] = []): SessionNote {
+  return {
+    id: row.id,
+    content: row.conteudo,
+    dateTime: row.data_hora,
+    origem: row.origem ?? "manual",
+    formato: row.formato ?? "livre",
+    status: row.status ?? "rascunho",
+    assinadoEm: row.assinado_em,
+    agendamentoId: row.agendamento_id,
+    adendos,
+  };
+}
+
+type AdendoRow = {
+  id: string;
+  evolucao_id: string;
+  texto: string;
+  motivo: string | null;
+  created_at: string;
+};
+
+function rowToAdendo(row: AdendoRow): Adendo {
+  return {
+    id: row.id,
+    evolucaoId: row.evolucao_id,
+    texto: row.texto,
+    motivo: row.motivo,
+    createdAt: row.created_at,
+  };
+}
 
 type PacienteRow = {
   id: string;
@@ -137,16 +186,31 @@ export async function getPatientWithSessions(
 
   const { data: sessoes } = await supabase
     .from("sessoes_prontuario")
-    .select("id, conteudo, data_hora, origem")
+    .select(SESSAO_COLUMNS)
     .eq("paciente_id", patientId)
     .order("data_hora", { ascending: false });
 
-  const sessions: SessionNote[] = (sessoes ?? []).map((s) => ({
-    id: s.id as string,
-    content: s.conteudo as string,
-    dateTime: s.data_hora as string,
-    origem: (s.origem as SessionNote["origem"]) ?? "manual",
-  }));
+  const sessaoRows = (sessoes ?? []) as SessaoRow[];
+  const sessaoIds = sessaoRows.map((s) => s.id);
+
+  const { data: adendoRows } = sessaoIds.length
+    ? await supabase
+        .from("adendos_evolucao")
+        .select("id, evolucao_id, texto, motivo, created_at")
+        .in("evolucao_id", sessaoIds)
+        .order("created_at")
+    : { data: [] as AdendoRow[] };
+
+  const adendosPorEvolucao = new Map<string, Adendo[]>();
+  for (const a of (adendoRows ?? []) as AdendoRow[]) {
+    const lista = adendosPorEvolucao.get(a.evolucao_id) ?? [];
+    lista.push(rowToAdendo(a));
+    adendosPorEvolucao.set(a.evolucao_id, lista);
+  }
+
+  const sessions: SessionNote[] = sessaoRows.map((s) =>
+    rowToSessionNote(s, adendosPorEvolucao.get(s.id) ?? [])
+  );
 
   return rowToPatient(paciente as PacienteRow, sessions);
 }
@@ -323,17 +387,25 @@ export type SessionNoteOrigin =
       duracaoSegundos: number;
     };
 
+// Nasce sempre como rascunho (status default no banco) — vira evolução de
+// verdade só quando assinada (ver signSessionNote). agendamentoId é
+// opcional: liga esta nota a uma consulta "realizada" específica, usado
+// pro alerta de "sessões sem evolução" (ver listAgendamentoIdsComEvolucao).
 export async function addSessionNote(
   supabase: SupabaseClient,
   patientId: string,
   content: string,
-  origin: SessionNoteOrigin = { origem: "manual" }
+  formato: FormatoEvolucao,
+  origin: SessionNoteOrigin = { origem: "manual" },
+  agendamentoId: string | null = null
 ): Promise<SessionNote> {
   const { data, error } = await supabase
     .from("sessoes_prontuario")
     .insert({
       paciente_id: patientId,
       conteudo: content,
+      formato,
+      agendamento_id: agendamentoId,
       origem: origin.origem,
       ...(origin.origem === "transcricao"
         ? {
@@ -342,17 +414,88 @@ export async function addSessionNote(
           }
         : {}),
     })
-    .select("id, conteudo, data_hora, origem")
+    .select(SESSAO_COLUMNS)
     .single();
   if (error) throw new Error(error.message);
-  return {
-    id: data.id as string,
-    content: data.conteudo as string,
-    dateTime: data.data_hora as string,
-    origem: (data.origem as SessionNote["origem"]) ?? "manual",
-  };
+  return rowToSessionNote(data as SessaoRow);
 }
 
+// Autosave do rascunho — só funciona enquanto status='rascunho'; o gatilho
+// sessoes_prontuario_imutavel no banco bloqueia update depois de assinada
+// (a RLS por si só permitiria, é o trigger que trava de verdade).
+export async function updateSessionNoteContent(
+  supabase: SupabaseClient,
+  sessionId: string,
+  content: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("sessoes_prontuario")
+    .update({ conteudo: content })
+    .eq("id", sessionId);
+  if (error) throw new Error(error.message);
+}
+
+async function sha256Hex(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Congela o conteúdo, grava o hash SHA-256 e passa status -> assinada.
+// Depois disso o trigger de imutabilidade bloqueia qualquer update/delete
+// nesta linha, inclusive pelo próprio autor — correção só via adendo.
+export async function signSessionNote(
+  supabase: SupabaseClient,
+  sessionId: string,
+  content: string
+): Promise<{ assinadoEm: string; hash: string }> {
+  const hash = await sha256Hex(content);
+  const assinadoEm = new Date().toISOString();
+  const { error } = await supabase
+    .from("sessoes_prontuario")
+    .update({
+      conteudo: content,
+      status: "assinada",
+      assinado_em: assinadoEm,
+      hash_conteudo: hash,
+    })
+    .eq("id", sessionId);
+  if (error) throw new Error(error.message);
+
+  await supabase.rpc("registrar_auditoria", {
+    p_acao: "assinou_evolucao",
+    p_entidade: "sessoes_prontuario",
+    p_entidade_id: sessionId,
+  });
+
+  return { assinadoEm, hash };
+}
+
+export async function addAdendo(
+  supabase: SupabaseClient,
+  evolucaoId: string,
+  texto: string,
+  motivo: string
+): Promise<Adendo> {
+  const { data, error } = await supabase
+    .from("adendos_evolucao")
+    .insert({
+      evolucao_id: evolucaoId,
+      autor_id: (await supabase.auth.getUser()).data.user?.id,
+      texto,
+      motivo: motivo || null,
+    })
+    .select("id, evolucao_id, texto, motivo, created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return rowToAdendo(data as AdendoRow);
+}
+
+// Draft ainda pode ser apagado (o trigger só bloqueia quando status já é
+// 'assinada' — tentar apagar uma evolução assinada gera o erro do Postgres,
+// que a UI nem oferece mais pra evitar).
 export async function deleteSessionNote(
   supabase: SupabaseClient,
   sessionId: string
@@ -373,4 +516,19 @@ export async function deleteSessionNote(
       "A anotação não foi apagada no banco de dados. Confirme se o schema.sql mais recente foi executado no SQL Editor do Supabase."
     );
   }
+}
+
+// "X sessões realizadas sem evolução registrada" (alerta da Agenda) —
+// devolve o conjunto de agendamento_id que já têm evolução vinculada, pra
+// comparar contra as consultas com status='realizada'. RLS de
+// sessoes_prontuario já restringe ao psicólogo logado.
+export async function listAgendamentoIdsComEvolucao(
+  supabase: SupabaseClient
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("sessoes_prontuario")
+    .select("agendamento_id")
+    .not("agendamento_id", "is", null);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((r) => r.agendamento_id as string));
 }

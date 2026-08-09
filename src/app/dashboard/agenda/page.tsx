@@ -34,7 +34,7 @@ import { useAppointments } from "@/context/appointments-context";
 import { useProfile } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { listPatients } from "@/lib/patients-client";
+import { listAgendamentoIdsComEvolucao, listPatients } from "@/lib/patients-client";
 import { createRecorrenciaComOcorrencias, deactivateRecorrencia } from "@/lib/recorrencias-client";
 import { TimeSelect } from "@/components/ui/time-select";
 
@@ -101,10 +101,15 @@ export default function AgendaPage() {
   // mesmos botões prev/next da visão de mês.
   const [weekCursor, setWeekCursor] = useState(todayIso());
 
+  const [agendamentosComEvolucao, setAgendamentosComEvolucao] = useState<Set<string>>(
+    new Set()
+  );
+
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
     listPatients(supabase, user.id).then(setPatients);
+    listAgendamentoIdsComEvolucao(supabase).then(setAgendamentosComEvolucao);
   }, [user]);
 
   function getPhone(item: Appointment): string | undefined {
@@ -112,6 +117,20 @@ export default function AgendaPage() {
   }
 
   const today = todayIso();
+  // Spec: "alerta no dashboard: X sessões realizadas sem evolução
+  // registrada". Precisão por consulta (via agendamento_id), não só
+  // contagem — ver listAgendamentoIdsComEvolucao em patients-client.ts.
+  const consultasSemEvolucao = useMemo(
+    () =>
+      appointments.filter(
+        (a) =>
+          a.kind === "consulta" &&
+          a.status === "realizada" &&
+          a.patientId &&
+          !agendamentosComEvolucao.has(a.id)
+      ),
+    [appointments, agendamentosComEvolucao]
+  );
   const weekDays = useMemo(() => weekRangeIso(weekCursor), [weekCursor]);
   const weekLabel = `${formatDateShort(weekDays[0])} – ${formatDateShort(weekDays[6])}`;
 
@@ -336,6 +355,14 @@ export default function AgendaPage() {
           <BellRing className="h-4 w-4 shrink-0" />
           Você tem {pendingAppointments.length} agendamento(s) pendente(s) de
           confirmação, feito(s) pelo site.
+        </div>
+      )}
+
+      {consultasSemEvolucao.length > 0 && (
+        <div className="mt-6 flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300">
+          <ClipboardEdit className="h-4 w-4 shrink-0" />
+          {consultasSemEvolucao.length} sessão(ões) realizada(s) sem evolução
+          registrada.
         </div>
       )}
 

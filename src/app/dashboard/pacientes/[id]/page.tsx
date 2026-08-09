@@ -11,17 +11,14 @@ import {
   Cake,
   HeartPulse,
   ShieldAlert,
-  Lock,
-  Clock,
-  Trash2,
   Archive,
   ArchiveRestore,
+  FileDown,
   Pencil,
   CalendarCheck,
   GraduationCap,
   HelpCircle,
   StickyNote,
-  Mic,
   MapPin,
   UserRound,
   Wallet,
@@ -30,9 +27,7 @@ import {
 import type { Patient, PatientStatus } from "@/lib/dashboard-data";
 import { createClient } from "@/lib/supabase/client";
 import {
-  addSessionNote,
   archivePatient,
-  deleteSessionNote,
   getPatientWithSessions,
   isMinor,
   patientToFormInput,
@@ -45,8 +40,8 @@ import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
 import { PatientMaterialsTab } from "@/components/dashboard/patient-materials-tab";
 import { PatientAgendaTab } from "@/components/dashboard/patient-agenda-tab";
 import { PatientFinanceiroTab } from "@/components/dashboard/patient-financeiro-tab";
-import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
-import { formatCurrency, formatDateShort, formatDateTime, formatEndereco } from "@/lib/format";
+import { PatientEvolucaoTab } from "@/components/dashboard/patient-evolucao-tab";
+import { formatCurrency, formatDateShort, formatEndereco } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
 
 const STATUS_LABEL: Record<PatientStatus, string> = {
@@ -88,15 +83,9 @@ export default function PatientDetailPage({
     }
     return "resumo";
   });
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [transcribeOpen, setTranscribeOpen] = useState(false);
-  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
-    null
-  );
 
   useEffect(() => {
     const supabase = createClient();
@@ -126,22 +115,6 @@ export default function PatientDetailPage({
         <p className="mt-8 text-center text-zinc-500">Paciente não encontrado.</p>
       </div>
     );
-  }
-
-  async function handleAddNote(e: React.FormEvent) {
-    e.preventDefault();
-    if (!patient) return;
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      const newNote = await addSessionNote(supabase, patient.id, note.trim());
-      setPatient((prev) =>
-        prev ? { ...prev, sessions: [newNote, ...prev.sessions] } : prev
-      );
-      setNote("");
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function handleArchive() {
@@ -191,33 +164,6 @@ export default function PatientDetailPage({
     }
   }
 
-  async function handleDeleteSession(sessionId: string) {
-    const confirmed = window.confirm(
-      "Apagar esta anotação do histórico de sessão? Não pode ser desfeito."
-    );
-    if (!confirmed) return;
-    setDeletingSessionId(sessionId);
-    try {
-      const supabase = createClient();
-      await deleteSessionNote(supabase, sessionId);
-      setPatient((prev) =>
-        prev
-          ? { ...prev, sessions: prev.sessions.filter((s) => s.id !== sessionId) }
-          : prev
-      );
-    } catch (err) {
-      window.alert(
-        err instanceof Error ? err.message : "Não foi possível apagar a anotação."
-      );
-    } finally {
-      setDeletingSessionId(null);
-    }
-  }
-
-  const sortedSessions = [...patient.sessions].sort(
-    (a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-  );
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -229,6 +175,13 @@ export default function PatientDetailPage({
           Voltar para pacientes
         </Link>
         <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/dashboard/pacientes/${patient.id}/prontuario`}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <FileDown className="h-4 w-4" />
+            Exportar prontuário
+          </Link>
           <button
             type="button"
             onClick={() => setEditOpen(true)}
@@ -489,102 +442,14 @@ export default function PatientDetailPage({
       )}
 
       {tab === "evolucao" && (
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => setTranscribeOpen(true)}
-            className="flex w-full items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 text-left transition-colors hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-950/40 dark:hover:bg-brand-950/70"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
-              <Mic className="h-5 w-5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-brand-900 dark:text-brand-200">
-                Transcrever sessão
-              </span>
-              <span className="block text-xs text-brand-700/80 dark:text-brand-300/70">
-                Grave o atendimento e gere a anotação automaticamente. O áudio
-                não é armazenado.
-              </span>
-            </span>
-          </button>
-
-          <form
-            onSubmit={handleAddNote}
-            className="mt-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              <Lock className="h-4 w-4 text-zinc-400" />
-              Nova anotação sigilosa
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={4}
-              placeholder="Registre a evolução da sessão..."
-              className="mt-2 w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-            />
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-zinc-400 dark:text-zinc-600">
-                Data e hora serão registradas automaticamente.
-              </p>
-              <button
-                type="submit"
-                disabled={saving}
-                className="shrink-0 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {saving ? "Salvando..." : "Salvar anotação"}
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-8">
-            <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-              Histórico de sessões
-            </h3>
-            <div className="mt-3 space-y-3">
-              {sortedSessions.length === 0 && (
-                <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-8 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
-                  Nenhuma anotação registrada ainda.
-                </p>
-              )}
-              {sortedSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-1.5">
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-600">
-                      <Clock className="h-3.5 w-3.5" />
-                      {formatDateTime(session.dateTime)}
-                      <span className="ml-1 inline-flex" title="Anotação sigilosa">
-                        <Lock className="h-3.5 w-3.5" />
-                      </span>
-                      {session.origem === "transcricao" && (
-                        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-                          <Mic className="h-3 w-3" />
-                          Transcrição da sessão
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSession(session.id)}
-                      disabled={deletingSessionId === session.id}
-                      aria-label="Apagar anotação"
-                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700 dark:text-zinc-300">
-                    {session.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <PatientEvolucaoTab
+          patientId={patient.id}
+          patientName={patient.name}
+          initialSessions={patient.sessions}
+          onSessionsChange={(sessions) =>
+            setPatient((prev) => (prev ? { ...prev, sessions } : prev))
+          }
+        />
       )}
 
       {tab === "agenda" && <PatientAgendaTab patientId={patient.id} />}
@@ -604,25 +469,6 @@ export default function PatientDetailPage({
         <PatientMaterialsTab
           pacienteId={patient.id}
           temConta={Boolean(patient.clienteUserId)}
-        />
-      )}
-
-      {transcribeOpen && patient && (
-        <SessionTranscriptionModal
-          patientName={patient.name}
-          onClose={() => setTranscribeOpen(false)}
-          onSave={async ({ texto, duracaoSegundos, consentimentoEm }) => {
-            const supabase = createClient();
-            const newNote = await addSessionNote(supabase, patient.id, texto, {
-              origem: "transcricao",
-              consentimentoEm,
-              duracaoSegundos,
-            });
-            setPatient((prev) =>
-              prev ? { ...prev, sessions: [newNote, ...prev.sessions] } : prev
-            );
-            setTranscribeOpen(false);
-          }}
         />
       )}
 
