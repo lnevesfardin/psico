@@ -46,3 +46,14 @@ export async function marcarTodosAvisosLidos(supabase: SupabaseClient): Promise<
     .eq("lido", false);
   if (error) throw new Error(error.message);
 }
+
+// Gera avisos de "revisão de plano terapêutico vencida" pendentes (ver
+// verificar_revisoes_pendentes em schema.sql) — chamada uma vez ao carregar
+// o sino, antes de listar os avisos.
+export async function verificarRevisoesPendentes(
+  supabase: SupabaseClient,
+  hoje: string
+): Promise<void> {
+  const { error } = await supabase.rpc("verificar_revisoes_pendentes", { p_hoje: hoje });
+  if (error) throw new Error(error.message);
+}

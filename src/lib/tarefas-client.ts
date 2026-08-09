@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type Tarefa = {
   id: string;
   patientId: string;
+  objetivoId: string | null;
   titulo: string;
   instrucoes: string | null;
   prazo: string | null; // yyyy-mm-dd
@@ -14,6 +15,7 @@ export type Tarefa = {
 type TarefaRow = {
   id: string;
   paciente_id: string;
+  objetivo_id: string | null;
   titulo: string;
   instrucoes: string | null;
   prazo: string | null;
@@ -23,12 +25,13 @@ type TarefaRow = {
 };
 
 const COLUMNS =
-  "id, paciente_id, titulo, instrucoes, prazo, concluida_em, resposta_paciente, created_at";
+  "id, paciente_id, objetivo_id, titulo, instrucoes, prazo, concluida_em, resposta_paciente, created_at";
 
 function rowToTarefa(row: TarefaRow): Tarefa {
   return {
     id: row.id,
     patientId: row.paciente_id,
+    objetivoId: row.objetivo_id,
     titulo: row.titulo,
     instrucoes: row.instrucoes,
     prazo: row.prazo,
@@ -64,6 +67,7 @@ export async function listMinhasTarefas(supabase: SupabaseClient): Promise<Taref
 
 export type NewTarefaInput = {
   patientId: string;
+  objetivoId: string | null;
   titulo: string;
   instrucoes: string;
   prazo: string | null;
@@ -79,6 +83,7 @@ export async function createTarefa(
     .insert({
       psicologo_id: psicologoId,
       paciente_id: input.patientId,
+      objetivo_id: input.objetivoId,
       titulo: input.titulo,
       instrucoes: input.instrucoes || null,
       prazo: input.prazo,

@@ -2561,6 +2561,457 @@ create policy "cliente_responde_proprias_tarefas" on tarefas_paciente
   for update using (eh_meu_paciente(tarefas_paciente.paciente_id::text));
 
 -- =========================================================
+-- planos_terapeuticos / objetivos_terapeuticos (Fase 4) — hipótese,
+-- objetivo geral e objetivos específicos com indicador de progresso.
+-- Nunca visível ao paciente (mesmo sigilo de sessoes_prontuario: é
+-- raciocínio clínico do psicólogo, não dado que o paciente deva ler
+-- diretamente — diferente de tarefas_paciente, que É pensada pra ele ler).
+-- =========================================================
+create table if not exists planos_terapeuticos (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  abordagem text,
+  hipotese_diagnostica text,
+  objetivo_geral text,
+  status text not null default 'ativo' check (status in ('ativo', 'concluido', 'pausado')),
+  revisar_em date,
+  -- Guarda o "revisar_em" pro qual já foi gerado um aviso in-app (ver
+  -- verificar_revisoes_pendentes abaixo), pra não repetir o mesmo aviso a
+  -- cada login depois que a data já venceu.
+  revisao_avisada_em date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists planos_terapeuticos_paciente_id_idx on planos_terapeuticos (paciente_id);
+
+create or replace trigger planos_terapeuticos_set_updated_at
+  before update on planos_terapeuticos
+  for each row execute function set_updated_at();
+
+alter table planos_terapeuticos enable row level security;
+
+drop policy if exists "psicologo_gerencia_planos" on planos_terapeuticos;
+create policy "psicologo_gerencia_planos" on planos_terapeuticos
+  for all using (
+    org_id = auth_org_id() and psicologo_id = auth.uid()
+  ) with check (
+    org_id = auth_org_id() and psicologo_id = auth.uid()
+  );
+
+create table if not exists objetivos_terapeuticos (
+  id uuid primary key default gen_random_uuid(),
+  plano_id uuid not null references planos_terapeuticos(id) on delete cascade,
+  descricao text not null,
+  indicador text,
+  ordem int not null default 0,
+  status text not null default 'em_andamento' check (status in ('em_andamento', 'concluido')),
+  concluido_em date,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists objetivos_terapeuticos_plano_id_idx on objetivos_terapeuticos (plano_id, ordem);
+
+alter table objetivos_terapeuticos enable row level security;
+
+-- Sem org_id direto (a tabela é pequena e sempre acessada via plano_id) —
+-- a policy junta com planos_terapeuticos, que já garante psicólogo dono.
+drop policy if exists "psicologo_gerencia_objetivos" on objetivos_terapeuticos;
+create policy "psicologo_gerencia_objetivos" on objetivos_terapeuticos
+  for all using (
+    exists (
+      select 1 from planos_terapeuticos p
+      where p.id = objetivos_terapeuticos.plano_id and p.psicologo_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from planos_terapeuticos p
+      where p.id = objetivos_terapeuticos.plano_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- Tarefa de casa pode nascer vinculada a um objetivo específico do plano
+-- (opcional — nem toda tarefa precisa de um objetivo formal por trás).
+alter table tarefas_paciente add column if not exists objetivo_id uuid references objetivos_terapeuticos(id) on delete set null;
+
+-- =========================================================
+-- verificar_revisoes_pendentes — lembrete automático de revisão do plano
+-- terapêutico (item 6 da Fase 4). Em vez de um novo job de cron (o único
+-- que existe hoje, api/notificacoes/dispatch, é pra lembrete de consulta por
+-- e-mail/webhook — revisão de plano não é isso, é só um aviso in-app pro
+-- próprio psicólogo), essa função roda "de passagem" toda vez que o
+-- psicólogo abre o painel (chamada pelo NotificationBell antes de listar os
+-- avisos — ver notification-bell.tsx), o que já cobre o caso de uso real:
+-- ele fica sabendo a próxima vez que entra no sistema, sem exigir configurar
+-- um cron novo no Supabase. p_hoje vem do cliente (todayIso()) pelo mesmo
+-- motivo de sempre no projeto: current_date do servidor é UTC e erra a data
+-- perto da meia-noite em Brasília.
+-- =========================================================
+create or replace function verificar_revisoes_pendentes(p_hoje date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v record;
+begin
+  for v in
+    select pt.id, pt.revisar_em, pt.org_id, pac.nome as paciente_nome
+    from planos_terapeuticos pt
+    join pacientes pac on pac.id = pt.paciente_id
+    where pt.psicologo_id = auth.uid()
+      and pt.status = 'ativo'
+      and pt.revisar_em is not null
+      and pt.revisar_em <= p_hoje
+      and (pt.revisao_avisada_em is null or pt.revisao_avisada_em <> pt.revisar_em)
+  loop
+    insert into avisos_psicologo (psicologo_id, mensagem, org_id)
+    values (
+      auth.uid(),
+      'O plano terapêutico de ' || v.paciente_nome || ' está com revisão prevista para ' ||
+        to_char(v.revisar_em, 'DD/MM/YYYY') || '.',
+      v.org_id
+    );
+
+    update planos_terapeuticos set revisao_avisada_em = v.revisar_em where id = v.id;
+  end loop;
+end;
+$$;
+
+grant execute on function verificar_revisoes_pendentes(date) to authenticated;
+
+-- =========================================================
+-- instrumentos (Fase 4) — catálogo de escalas psicométricas. Tabela
+-- GLOBAL (sem org_id): o instrumento em si (PHQ-9, GAD-7...) é o mesmo
+-- pra qualquer clínica, só a aplicação (ver aplicacoes_instrumento) é por
+-- paciente/org. Leitura pública de propósito — a página de resposta
+-- (/escala/[token]) é anônima e precisa ler os itens sem estar logada.
+--
+-- "licenca": 'livre' = itens completos vêm daqui e a UI reproduz o
+-- questionário. 'restrito_manual' = a licença do instrumento não permite
+-- reproduzir os itens na plataforma — "itens"/"faixas" ficam vazios de
+-- propósito, e o psicólogo só registra o escore final manualmente (ver
+-- aplicacoes_instrumento.origem).
+-- =========================================================
+create table if not exists instrumentos (
+  id uuid primary key default gen_random_uuid(),
+  sigla text not null unique,
+  nome text not null,
+  itens jsonb not null default '[]',
+  faixas jsonb not null default '[]',
+  licenca text not null check (licenca in ('livre', 'restrito_manual')),
+  fonte text
+);
+
+alter table instrumentos enable row level security;
+
+drop policy if exists "qualquer_um_ve_instrumentos" on instrumentos;
+create policy "qualquer_um_ve_instrumentos" on instrumentos
+  for select using (true);
+-- Sem policy de insert/update/delete pra "authenticated"/"anon": o catálogo
+-- é mantido só por este arquivo (seed abaixo), nunca editado pelo app.
+
+-- =========================================================
+-- Seed — só os 4 instrumentos de uso livre (domínio público, sem exigir
+-- licenciamento pra reproduzir os itens): PHQ-9 e GAD-7 (Spitzer/Kroenke/
+-- Williams, Pfizer — uso livre pra profissionais de saúde), WHO-5 (OMS,
+-- domínio público) e DASS-21 (Lovibond & Lovibond, uso livre não-comercial,
+-- versão em português amplamente validada no Brasil). Instrumentos
+-- proprietários (ex.: BDI-II, escalas da Pearson/WPS) NÃO entram aqui —
+-- ver comentário na tabela "instrumentos" sobre o caminho licenca =
+-- 'restrito_manual' pra esses casos.
+--
+-- PHQ-9: item 9 (ideação suicida) marcado com "alerta": true — a UI
+-- destaca resposta > 0 nesse item pro psicólogo, é o item de risco clínico
+-- do instrumento.
+-- =========================================================
+insert into instrumentos (sigla, nome, itens, faixas, licenca, fonte) values
+(
+  'PHQ-9',
+  'Patient Health Questionnaire-9 (rastreio de depressão)',
+  '{
+    "instrucoes": "Nas últimas 2 semanas, com que frequência você foi incomodado(a) por qualquer um dos problemas a seguir?",
+    "opcoes": [
+      {"valor": 0, "label": "Nenhuma vez"},
+      {"valor": 1, "label": "Vários dias"},
+      {"valor": 2, "label": "Mais da metade dos dias"},
+      {"valor": 3, "label": "Quase todos os dias"}
+    ],
+    "perguntas": [
+      {"numero": 1, "texto": "Pouco interesse ou prazer em fazer as coisas"},
+      {"numero": 2, "texto": "Se sentir para baixo, deprimido(a) ou sem perspectiva"},
+      {"numero": 3, "texto": "Dificuldade para pegar no sono ou continuar dormindo, ou dormir demais"},
+      {"numero": 4, "texto": "Se sentir cansado(a) ou com pouca energia"},
+      {"numero": 5, "texto": "Falta de apetite ou comer demais"},
+      {"numero": 6, "texto": "Se sentir mal consigo mesmo(a) — ou achar que é um fracasso ou que decepcionou sua família ou você mesmo(a)"},
+      {"numero": 7, "texto": "Dificuldade para se concentrar nas coisas, como ler o jornal ou ver televisão"},
+      {"numero": 8, "texto": "Lentidão para se movimentar ou falar, a ponto de outras pessoas notarem — ou o oposto, ficar tão agitado(a) ou inquieto(a) que você andou de um lado para o outro muito mais do que o normal"},
+      {"numero": 9, "texto": "Pensar em se ferir de alguma maneira ou que seria melhor estar morto(a)", "alerta": true}
+    ]
+  }'::jsonb,
+  '[
+    {"min": 0, "max": 4, "rotulo": "Mínima"},
+    {"min": 5, "max": 9, "rotulo": "Leve"},
+    {"min": 10, "max": 14, "rotulo": "Moderada"},
+    {"min": 15, "max": 19, "rotulo": "Moderadamente grave"},
+    {"min": 20, "max": 27, "rotulo": "Grave"}
+  ]'::jsonb,
+  'livre',
+  'Kroenke, Spitzer & Williams (2001) — versão validada em português'
+),
+(
+  'GAD-7',
+  'Generalized Anxiety Disorder-7 (rastreio de ansiedade)',
+  '{
+    "instrucoes": "Nas últimas 2 semanas, com que frequência você foi incomodado(a) pelos problemas a seguir?",
+    "opcoes": [
+      {"valor": 0, "label": "Nenhuma vez"},
+      {"valor": 1, "label": "Vários dias"},
+      {"valor": 2, "label": "Mais da metade dos dias"},
+      {"valor": 3, "label": "Quase todos os dias"}
+    ],
+    "perguntas": [
+      {"numero": 1, "texto": "Sentir-se nervoso(a), ansioso(a) ou muito tenso(a)"},
+      {"numero": 2, "texto": "Não ser capaz de impedir ou controlar as preocupações"},
+      {"numero": 3, "texto": "Preocupar-se muito com diversas coisas"},
+      {"numero": 4, "texto": "Dificuldade para relaxar"},
+      {"numero": 5, "texto": "Ficar tão agitado(a) que se torna difícil permanecer sentado(a)"},
+      {"numero": 6, "texto": "Ficar facilmente aborrecido(a) ou irritado(a)"},
+      {"numero": 7, "texto": "Sentir medo, como se algo terrível fosse acontecer"}
+    ]
+  }'::jsonb,
+  '[
+    {"min": 0, "max": 4, "rotulo": "Mínima"},
+    {"min": 5, "max": 9, "rotulo": "Leve"},
+    {"min": 10, "max": 14, "rotulo": "Moderada"},
+    {"min": 15, "max": 21, "rotulo": "Grave"}
+  ]'::jsonb,
+  'livre',
+  'Spitzer, Kroenke, Williams & Löwe (2006) — versão validada em português'
+),
+(
+  'WHO-5',
+  'WHO-5 Well-Being Index (índice de bem-estar)',
+  '{
+    "instrucoes": "Nas últimas duas semanas...",
+    "opcoes": [
+      {"valor": 0, "label": "Em nenhum momento"},
+      {"valor": 1, "label": "Em alguns momentos"},
+      {"valor": 2, "label": "Menos da metade do tempo"},
+      {"valor": 3, "label": "Mais da metade do tempo"},
+      {"valor": 4, "label": "Na maior parte do tempo"},
+      {"valor": 5, "label": "O tempo todo"}
+    ],
+    "perguntas": [
+      {"numero": 1, "texto": "Eu me senti alegre e de bom humor"},
+      {"numero": 2, "texto": "Eu me senti calmo(a) e relaxado(a)"},
+      {"numero": 3, "texto": "Eu me senti ativo(a) e cheio(a) de energia"},
+      {"numero": 4, "texto": "Eu acordei me sentindo descansado(a)"},
+      {"numero": 5, "texto": "Meu dia a dia tem sido cheio de coisas que me interessam"}
+    ]
+  }'::jsonb,
+  '[
+    {"min": 0, "max": 28, "rotulo": "Bem-estar baixo — avaliação de depressão recomendada"},
+    {"min": 29, "max": 50, "rotulo": "Bem-estar abaixo do esperado"},
+    {"min": 51, "max": 100, "rotulo": "Bem-estar adequado"}
+  ]'::jsonb,
+  'livre',
+  'OMS (1998), versão validada em português — escore final = soma bruta (0-25) × 4, faixa 0-100'
+),
+(
+  'DASS-21',
+  'Depression Anxiety Stress Scales-21 (depressão, ansiedade e estresse)',
+  '{
+    "instrucoes": "Leia cada frase e escolha o quanto ela se aplicou a você durante a última semana.",
+    "opcoes": [
+      {"valor": 0, "label": "Não se aplicou de forma alguma"},
+      {"valor": 1, "label": "Aplicou-se um pouco, ou por pouco tempo"},
+      {"valor": 2, "label": "Aplicou-se consideravelmente, ou por um bom período de tempo"},
+      {"valor": 3, "label": "Aplicou-se muito, ou na maior parte do tempo"}
+    ],
+    "perguntas": [
+      {"numero": 1, "texto": "Achei difícil me acalmar", "subescala": "estresse"},
+      {"numero": 2, "texto": "Senti minha boca ficar seca", "subescala": "ansiedade"},
+      {"numero": 3, "texto": "Não consegui vivenciar nenhum sentimento positivo", "subescala": "depressao"},
+      {"numero": 4, "texto": "Tive dificuldade para respirar (ex.: respiração ofegante, falta de ar sem esforço físico)", "subescala": "ansiedade"},
+      {"numero": 5, "texto": "Achei difícil ter iniciativa para fazer as coisas", "subescala": "depressao"},
+      {"numero": 6, "texto": "Tive a tendência de reagir de forma exagerada às situações", "subescala": "estresse"},
+      {"numero": 7, "texto": "Senti tremores (ex.: nas mãos)", "subescala": "ansiedade"},
+      {"numero": 8, "texto": "Senti que estava gastando muita energia nervosa", "subescala": "estresse"},
+      {"numero": 9, "texto": "Preocupei-me com situações em que eu pudesse entrar em pânico e parecer ridículo(a)", "subescala": "ansiedade"},
+      {"numero": 10, "texto": "Senti que não tinha nada a esperar do futuro", "subescala": "depressao"},
+      {"numero": 11, "texto": "Percebi que estava ficando agitado(a)", "subescala": "estresse"},
+      {"numero": 12, "texto": "Achei difícil relaxar", "subescala": "estresse"},
+      {"numero": 13, "texto": "Senti-me deprimido(a) e triste", "subescala": "depressao"},
+      {"numero": 14, "texto": "Fiquei intolerante com as coisas que me impediam de continuar o que eu estava fazendo", "subescala": "estresse"},
+      {"numero": 15, "texto": "Senti que estava prestes a entrar em pânico", "subescala": "ansiedade"},
+      {"numero": 16, "texto": "Não consegui me entusiasmar com nada", "subescala": "depressao"},
+      {"numero": 17, "texto": "Senti que não tinha muito valor como pessoa", "subescala": "depressao"},
+      {"numero": 18, "texto": "Senti que estava muito irritado(a)", "subescala": "estresse"},
+      {"numero": 19, "texto": "Percebi as batidas do meu coração mesmo sem ter feito esforço físico (ex.: taquicardia)", "subescala": "ansiedade"},
+      {"numero": 20, "texto": "Tive medo sem motivo", "subescala": "ansiedade"},
+      {"numero": 21, "texto": "Senti que a vida não tinha sentido", "subescala": "depressao"}
+    ]
+  }'::jsonb,
+  '{
+    "depressao": [
+      {"min": 0, "max": 9, "rotulo": "Normal"},
+      {"min": 10, "max": 13, "rotulo": "Leve"},
+      {"min": 14, "max": 20, "rotulo": "Moderada"},
+      {"min": 21, "max": 27, "rotulo": "Severa"},
+      {"min": 28, "max": 42, "rotulo": "Extremamente severa"}
+    ],
+    "ansiedade": [
+      {"min": 0, "max": 7, "rotulo": "Normal"},
+      {"min": 8, "max": 9, "rotulo": "Leve"},
+      {"min": 10, "max": 14, "rotulo": "Moderada"},
+      {"min": 15, "max": 19, "rotulo": "Severa"},
+      {"min": 20, "max": 42, "rotulo": "Extremamente severa"}
+    ],
+    "estresse": [
+      {"min": 0, "max": 14, "rotulo": "Normal"},
+      {"min": 15, "max": 18, "rotulo": "Leve"},
+      {"min": 19, "max": 25, "rotulo": "Moderada"},
+      {"min": 26, "max": 33, "rotulo": "Severa"},
+      {"min": 34, "max": 42, "rotulo": "Extremamente severa"}
+    ]
+  }'::jsonb,
+  'livre',
+  'Lovibond & Lovibond (1995), versão em português — escore de cada subescala = soma dos 7 itens × 2 (compatível com as normas do DASS-42)'
+)
+on conflict (sigla) do update set
+  nome = excluded.nome,
+  itens = excluded.itens,
+  faixas = excluded.faixas,
+  licenca = excluded.licenca,
+  fonte = excluded.fonte;
+
+-- =========================================================
+-- aplicacoes_instrumento — um envio de escala pra um paciente responder.
+-- token_publico + expira_em seguem o mesmo padrão de convites_paciente:
+-- token aleatório (não o id, pra não dar pra enumerar aplicação de
+-- paciente), de uso único (respondido_em preenchido trava reenvio).
+-- =========================================================
+create table if not exists aplicacoes_instrumento (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  instrumento_id uuid not null references instrumentos(id),
+  token_publico text unique,
+  expira_em timestamptz,
+  respostas jsonb,
+  escore numeric,
+  faixa text,
+  -- Resultado por subescala (ex.: DASS-21 tem depressão/ansiedade/estresse
+  -- separados) — "escore"/"faixa" acima viram o resumo (soma/pior faixa)
+  -- pro gráfico de evolução; o detalhe fiel mora aqui.
+  resultado_detalhado jsonb,
+  -- 'formulario' = paciente respondeu pelo link; 'manual' = psicólogo
+  -- digitou o escore de um instrumento restrito (sem itens reproduzidos).
+  origem text not null default 'formulario' check (origem in ('formulario', 'manual')),
+  enviado_em timestamptz not null default now(),
+  respondido_em timestamptz
+);
+
+create index if not exists aplicacoes_instrumento_paciente_id_idx
+  on aplicacoes_instrumento (paciente_id, enviado_em desc);
+
+alter table aplicacoes_instrumento enable row level security;
+
+drop policy if exists "psicologo_gerencia_aplicacoes" on aplicacoes_instrumento;
+create policy "psicologo_gerencia_aplicacoes" on aplicacoes_instrumento
+  for all using (
+    org_id = auth_org_id() and psicologo_id = auth.uid()
+  ) with check (
+    org_id = auth_org_id() and psicologo_id = auth.uid()
+  );
+-- Sem policy nenhuma pra "anon"/paciente: a página pública de resposta
+-- passa só pelas funções abaixo (mesmo motivo de convite_info/
+-- aceitar_convite_paciente — o token não pode virar uma forma de ler a
+-- linha inteira, inclusive o paciente_id de outra pessoa).
+
+-- Dados mínimos pra montar a tela pública de resposta: instrumento
+-- completo (se livre) + se o token ainda é válido. Nunca devolve
+-- paciente_id/psicologo_id.
+create or replace function escala_info(p_token text)
+returns table (
+  instrumento_sigla text,
+  instrumento_nome text,
+  instrumento_itens jsonb,
+  instrumento_faixas jsonb,
+  instrumento_licenca text,
+  expirado boolean,
+  ja_respondido boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    i.sigla,
+    i.nome,
+    i.itens,
+    i.faixas,
+    i.licenca,
+    (a.expira_em is not null and a.expira_em < now()),
+    (a.respondido_em is not null)
+  from aplicacoes_instrumento a
+  join instrumentos i on i.id = a.instrumento_id
+  where a.token_publico = p_token;
+$$;
+
+grant execute on function escala_info(text) to anon, authenticated;
+
+-- Grava a resposta. O escore/faixa vêm calculados do cliente (a fórmula de
+-- cada instrumento é pública e documentada — PHQ-9/GAD-7/WHO-5/DASS-21 não
+-- têm nada a esconder no cálculo, diferente de um gabarito proprietário),
+-- mas token de uso único + trava de expirado/já respondido aqui garantem
+-- que não dá pra responder duas vezes nem depois do prazo.
+create or replace function responder_escala(
+  p_token text,
+  p_respostas jsonb,
+  p_escore numeric,
+  p_faixa text,
+  p_resultado_detalhado jsonb default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v aplicacoes_instrumento%rowtype;
+begin
+  select * into v from aplicacoes_instrumento where token_publico = p_token;
+
+  if not found then
+    raise exception 'Link inválido.';
+  end if;
+  if v.respondido_em is not null then
+    raise exception 'Esta escala já foi respondida.';
+  end if;
+  if v.expira_em is not null and v.expira_em < now() then
+    raise exception 'Este link expirou.';
+  end if;
+
+  update aplicacoes_instrumento
+  set respostas = p_respostas,
+      escore = p_escore,
+      faixa = p_faixa,
+      resultado_detalhado = p_resultado_detalhado,
+      respondido_em = now()
+  where token_publico = p_token;
+end;
+$$;
+
+grant execute on function responder_escala(text, jsonb, numeric, text, jsonb) to anon, authenticated;
+
+-- =========================================================
 -- Anexa os triggers de preenchimento automático de org_id (funções
 -- definidas logo depois de auth_org_id()/auth_role(), no topo do arquivo) —
 -- juntos aqui no fim porque é o primeiro ponto em que todas as tabelas
@@ -2618,6 +3069,12 @@ create or replace trigger pacotes_sessao_set_org_id
   for each row execute function set_org_id_from_caller();
 create or replace trigger tarefas_paciente_set_org_id
   before insert on tarefas_paciente
+  for each row execute function set_org_id_from_caller();
+create or replace trigger planos_terapeuticos_set_org_id
+  before insert on planos_terapeuticos
+  for each row execute function set_org_id_from_caller();
+create or replace trigger aplicacoes_instrumento_set_org_id
+  before insert on aplicacoes_instrumento
   for each row execute function set_org_id_from_caller();
 
 -- =========================================================

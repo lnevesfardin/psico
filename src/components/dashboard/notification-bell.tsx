@@ -3,8 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { listAvisos, marcarAvisoLido, marcarTodosAvisosLidos, type Aviso } from "@/lib/avisos-client";
-import { formatDateTime } from "@/lib/format";
+import {
+  listAvisos,
+  marcarAvisoLido,
+  marcarTodosAvisosLidos,
+  verificarRevisoesPendentes,
+  type Aviso,
+} from "@/lib/avisos-client";
+import { formatDateTime, todayIso } from "@/lib/format";
 
 export function NotificationBell() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
@@ -13,9 +19,13 @@ export function NotificationBell() {
 
   useEffect(() => {
     const supabase = createClient();
-    listAvisos(supabase)
-      .then(setAvisos)
-      .catch(() => {});
+    verificarRevisoesPendentes(supabase, todayIso())
+      .catch(() => {})
+      .finally(() => {
+        listAvisos(supabase)
+          .then(setAvisos)
+          .catch(() => {});
+      });
   }, []);
 
   useEffect(() => {

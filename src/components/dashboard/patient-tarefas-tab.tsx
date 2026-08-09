@@ -5,23 +5,32 @@ import { CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { createTarefa, deleteTarefa, listTarefasByPatient, type Tarefa } from "@/lib/tarefas-client";
+import { listObjetivosAbertosByPatient, type Objetivo } from "@/lib/planos-terapeuticos-client";
 import { formatDateShort } from "@/lib/format";
 
 export function PatientTarefasTab({ patientId }: { patientId: string }) {
   const { user } = useAuth();
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [instrucoes, setInstrucoes] = useState("");
   const [prazo, setPrazo] = useState("");
+  const [objetivoId, setObjetivoId] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
-    listTarefasByPatient(supabase, patientId)
-      .then(setTarefas)
+    Promise.all([
+      listTarefasByPatient(supabase, patientId),
+      listObjetivosAbertosByPatient(supabase, patientId),
+    ])
+      .then(([t, o]) => {
+        setTarefas(t);
+        setObjetivos(o);
+      })
       .finally(() => setLoading(false));
   }, [patientId]);
 
@@ -33,6 +42,7 @@ export function PatientTarefasTab({ patientId }: { patientId: string }) {
       const supabase = createClient();
       const tarefa = await createTarefa(supabase, user.id, {
         patientId,
+        objetivoId: objetivoId || null,
         titulo: titulo.trim(),
         instrucoes,
         prazo: prazo || null,
@@ -41,6 +51,7 @@ export function PatientTarefasTab({ patientId }: { patientId: string }) {
       setTitulo("");
       setInstrucoes("");
       setPrazo("");
+      setObjetivoId("");
       setFormOpen(false);
     } finally {
       setSaving(false);
@@ -109,6 +120,23 @@ export function PatientTarefasTab({ patientId }: { patientId: string }) {
               className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
           </label>
+          {objetivos.length > 0 && (
+            <label className="mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Vincular a um objetivo do plano (opcional)
+              <select
+                value={objetivoId}
+                onChange={(e) => setObjetivoId(e.target.value)}
+                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              >
+                <option value="">Nenhum</option>
+                {objetivos.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.descricao}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="mt-4 flex gap-2">
             <button
               type="button"
@@ -151,6 +179,11 @@ export function PatientTarefasTab({ patientId }: { patientId: string }) {
                 {t.prazo && (
                   <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
                     Prazo: {formatDateShort(t.prazo)}
+                  </p>
+                )}
+                {t.objetivoId && (
+                  <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
+                    Objetivo: {objetivos.find((o) => o.id === t.objetivoId)?.descricao ?? "—"}
                   </p>
                 )}
                 {t.respostaPaciente && (
