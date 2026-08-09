@@ -835,6 +835,7 @@ create policy "psicologo_apaga_proprias_recorrencias" on recorrencias
 -- combinam com OR, e a primeira sozinha já liberaria a org inteira pra
 -- qualquer papel.
 drop policy if exists "psicologo_ve_proprios_pacientes" on pacientes;
+drop policy if exists "acesso_pacientes_select" on pacientes;
 create policy "acesso_pacientes_select" on pacientes
   for select using (
     org_id = auth_org_id()
@@ -844,6 +845,7 @@ create policy "acesso_pacientes_select" on pacientes
     )
   );
 drop policy if exists "psicologo_cria_proprios_pacientes" on pacientes;
+drop policy if exists "acesso_pacientes_insert" on pacientes;
 create policy "acesso_pacientes_insert" on pacientes
   for insert with check (
     org_id = auth_org_id()
@@ -853,6 +855,7 @@ create policy "acesso_pacientes_insert" on pacientes
     )
   );
 drop policy if exists "psicologo_edita_proprios_pacientes" on pacientes;
+drop policy if exists "acesso_pacientes_update" on pacientes;
 create policy "acesso_pacientes_update" on pacientes
   for update using (
     org_id = auth_org_id()
@@ -972,6 +975,7 @@ create policy "psicologo_cria_proprios_adendos" on adendos_evolucao
 -- "consultas" (agenda): mesmo padrão de "pacientes" — secretaria/admin veem
 -- a agenda inteira da org, psicólogo só a própria.
 drop policy if exists "psicologo_ve_proprias_consultas" on consultas;
+drop policy if exists "acesso_consultas_select" on consultas;
 create policy "acesso_consultas_select" on consultas
   for select using (
     org_id = auth_org_id()
@@ -981,6 +985,7 @@ create policy "acesso_consultas_select" on consultas
     )
   );
 drop policy if exists "psicologo_cria_proprias_consultas" on consultas;
+drop policy if exists "acesso_consultas_insert" on consultas;
 create policy "acesso_consultas_insert" on consultas
   for insert with check (
     org_id = auth_org_id()
@@ -990,6 +995,7 @@ create policy "acesso_consultas_insert" on consultas
     )
   );
 drop policy if exists "psicologo_edita_proprias_consultas" on consultas;
+drop policy if exists "acesso_consultas_update" on consultas;
 create policy "acesso_consultas_update" on consultas
   for update using (
     org_id = auth_org_id()
@@ -1005,6 +1011,7 @@ create policy "acesso_consultas_update" on consultas
     )
   );
 drop policy if exists "psicologo_apaga_proprias_consultas" on consultas;
+drop policy if exists "acesso_consultas_delete" on consultas;
 create policy "acesso_consultas_delete" on consultas
   for delete using (
     org_id = auth_org_id()
@@ -1027,6 +1034,7 @@ create policy "cliente_ve_proprios_agendamentos" on consultas
 
 -- "lancamentos_financeiros": mesmo padrão de "pacientes"/"consultas".
 drop policy if exists "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros;
+drop policy if exists "acesso_lancamentos_select" on lancamentos_financeiros;
 create policy "acesso_lancamentos_select" on lancamentos_financeiros
   for select using (
     org_id = auth_org_id()
@@ -1036,6 +1044,7 @@ create policy "acesso_lancamentos_select" on lancamentos_financeiros
     )
   );
 drop policy if exists "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros;
+drop policy if exists "acesso_lancamentos_insert" on lancamentos_financeiros;
 create policy "acesso_lancamentos_insert" on lancamentos_financeiros
   for insert with check (
     org_id = auth_org_id()
@@ -1045,6 +1054,7 @@ create policy "acesso_lancamentos_insert" on lancamentos_financeiros
     )
   );
 drop policy if exists "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros;
+drop policy if exists "acesso_lancamentos_update" on lancamentos_financeiros;
 create policy "acesso_lancamentos_update" on lancamentos_financeiros
   for update using (
     org_id = auth_org_id()
@@ -1060,6 +1070,7 @@ create policy "acesso_lancamentos_update" on lancamentos_financeiros
     )
   );
 drop policy if exists "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros;
+drop policy if exists "acesso_lancamentos_delete" on lancamentos_financeiros;
 create policy "acesso_lancamentos_delete" on lancamentos_financeiros
   for delete using (
     org_id = auth_org_id()
