@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   TEXTOS_CONSENTIMENTO,
   aceitarConsentimento,
-  consentimentosPendentes,
+  consentimentoAtivo,
   listMeusConsentimentos,
   type Consentimento,
   type TipoConsentimento,
@@ -60,8 +60,6 @@ export default function ConsentimentosPage() {
     );
   }
 
-  const pendentes = consentimentosPendentes(consentimentos);
-
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
@@ -80,7 +78,7 @@ export default function ConsentimentosPage() {
       <div className="mt-6 space-y-4">
         {(Object.keys(TEXTOS_CONSENTIMENTO) as TipoConsentimento[]).map((tipo) => {
           const info = TEXTOS_CONSENTIMENTO[tipo];
-          const aceito = !pendentes.includes(tipo);
+          const aceito = consentimentoAtivo(consentimentos, tipo);
           return (
             <div
               key={tipo}

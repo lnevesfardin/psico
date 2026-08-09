@@ -45,6 +45,7 @@ import { PatientEvolucaoTab } from "@/components/dashboard/patient-evolucao-tab"
 import { PatientInstrumentosTab } from "@/components/dashboard/patient-instrumentos-tab";
 import { PatientPlanoTab } from "@/components/dashboard/patient-plano-tab";
 import { PatientAntesDaSessaoTab } from "@/components/dashboard/patient-antes-sessao-tab";
+import { PatientDocumentosTab } from "@/components/dashboard/patient-documentos-tab";
 import { formatCurrency, formatDateShort, formatEndereco } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
 
@@ -77,6 +78,7 @@ export default function PatientDetailPage({
     | "instrumentos"
     | "plano"
     | "sessao"
+    | "documentos"
   >(() => {
     // Link "Escrever evolução" da Agenda (após marcar uma consulta como
     // realizada) chega com ?tab=evolucao — lido direto de window.location
@@ -94,7 +96,8 @@ export default function PatientDetailPage({
       requested === "materiais" ||
       requested === "instrumentos" ||
       requested === "plano" ||
-      requested === "sessao"
+      requested === "sessao" ||
+      requested === "documentos"
     ) {
       return requested;
     }
@@ -316,6 +319,7 @@ export default function PatientDetailPage({
             "tarefas",
             "instrumentos",
             "plano",
+            "documentos",
             "humor",
             "materiais",
           ] as const
@@ -346,9 +350,11 @@ export default function PatientDetailPage({
                           ? "Instrumentos"
                           : t === "plano"
                             ? "Plano terapêutico"
-                            : t === "humor"
-                              ? "Acompanhamento"
-                              : "Materiais"}
+                            : t === "documentos"
+                              ? "Documentos"
+                              : t === "humor"
+                                ? "Acompanhamento"
+                                : "Materiais"}
           </button>
         ))}
       </div>
@@ -499,6 +505,8 @@ export default function PatientDetailPage({
       {tab === "plano" && <PatientPlanoTab patientId={patient.id} />}
 
       {tab === "sessao" && <PatientAntesDaSessaoTab patient={patient} />}
+
+      {tab === "documentos" && <PatientDocumentosTab patient={patient} />}
 
       {tab === "humor" && (
         <PatientMoodTab

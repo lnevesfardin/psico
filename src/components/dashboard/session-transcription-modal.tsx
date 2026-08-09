@@ -14,6 +14,7 @@ import {
   startSessionRecorder,
   type SessionRecorder,
 } from "@/lib/audio/session-recorder";
+import { registrarConsentimentoGravacao } from "@/lib/consentimentos-client";
 
 /**
  * ~2,9 MB por trecho em WAV 16 kHz mono — abaixo do limite de corpo de
@@ -49,10 +50,12 @@ async function transcreverTrecho(wav: Blob): Promise<string> {
 }
 
 export function SessionTranscriptionModal({
+  patientId,
   patientName,
   onClose,
   onSave,
 }: {
+  patientId: string;
   patientName: string;
   onClose: () => void;
   onSave: (input: {
@@ -64,6 +67,7 @@ export function SessionTranscriptionModal({
   const [phase, setPhase] = useState<Phase>("idle");
   const [consentimento, setConsentimento] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [consentindo, setConsentindo] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [texto, setTexto] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +119,22 @@ export function SessionTranscriptionModal({
 
   async function handleStart() {
     setError(null);
+    setConsentindo(true);
+    try {
+      // Registra o termo formal de gravação (Res. CFP 13/2022) em nome do
+      // paciente ANTES de ligar o microfone — se o registro falhar (ex.:
+      // schema.sql desatualizado no Supabase), a gravação nem começa.
+      await registrarConsentimentoGravacao(patientId);
+    } catch (err) {
+      setConsentindo(false);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível registrar o consentimento de gravação."
+      );
+      return;
+    }
+    setConsentindo(false);
     try {
       consentimentoEmRef.current = new Date().toISOString();
       recorderRef.current = await startSessionRecorder({
@@ -254,11 +274,11 @@ export function SessionTranscriptionModal({
             <button
               type="button"
               onClick={handleStart}
-              disabled={!consentimento}
+              disabled={!consentimento || consentindo}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Mic className="h-4 w-4" />
-              Iniciar gravação
+              {consentindo ? "Registrando consentimento..." : "Iniciar gravação"}
             </button>
           </>
         )}

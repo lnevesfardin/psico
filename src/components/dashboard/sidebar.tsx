@@ -12,6 +12,7 @@ import {
   X,
   LogOut,
   UserCog,
+  ShieldCheck,
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/dashboard/pacientes", label: "Pacientes & Prontuários", icon: Users },
   { href: "/dashboard/financeiro", label: "Financeiro / Recibos", icon: Wallet },
   { href: "/dashboard/link", label: "Meu Link de Agendamento", icon: Link2 },
+  { href: "/dashboard/auditoria", label: "Log de Acesso", icon: ShieldCheck },
   { href: "/dashboard/perfil", label: "Meu Perfil", icon: UserCog },
 ];
 

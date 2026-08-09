@@ -2539,6 +2539,50 @@ $$;
 
 grant execute on function aceitar_consentimento(text, text, text, text, inet) to authenticated;
 
+-- Consentimento de gravação de sessão (Res. CFP 13/2022): diferente dos
+-- outros tipos, o paciente normalmente concorda VERBALMENTE no início do
+-- atendimento, não logado no próprio portal — quem está com a mão no app
+-- naquele momento é o psicólogo (ver session-transcription-modal.tsx). Por
+-- isso esta função é chamada pelo psicólogo, atestando em nome do paciente
+-- (fica registrado como tal — "aceito por" não é o mesmo texto de
+-- aceitar_consentimento, que é sempre o próprio titular). Continua exigindo
+-- que o paciente já tenha ficha com este psicólogo como dono.
+create or replace function registrar_consentimento_gravacao(
+  p_paciente_id uuid,
+  p_versao_texto text,
+  p_texto_integral text,
+  p_hash_texto text,
+  p_ip inet default null
+)
+returns consentimentos
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org_id uuid;
+  v_row consentimentos;
+begin
+  select org_id into v_org_id
+  from pacientes where id = p_paciente_id and psicologo_id = auth.uid();
+
+  if v_org_id is null then
+    raise exception 'Paciente não encontrado.';
+  end if;
+
+  insert into consentimentos (
+    org_id, paciente_id, tipo, versao_texto, texto_integral, hash_texto, ip
+  ) values (
+    v_org_id, p_paciente_id, 'gravacao_sessao', p_versao_texto, p_texto_integral, p_hash_texto, p_ip
+  )
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function registrar_consentimento_gravacao(uuid, text, text, text, inet) to authenticated;
+
 -- =========================================================
 -- tarefas_paciente (Fase 3) — tarefa de casa que o psicólogo atribui a um
 -- paciente; o paciente responde/marca como concluída no portal.
@@ -2612,9 +2656,22 @@ create or replace trigger planos_terapeuticos_set_updated_at
 
 alter table planos_terapeuticos enable row level security;
 
+-- Retenção obrigatória (Res. CFP 01/2009 e 06/2019, mesma regra de
+-- "pacientes"): a hipótese diagnóstica e o raciocínio clínico registrados
+-- aqui não podem ser apagados fisicamente do banco, só pausados/concluídos
+-- (status). Por isso "psicologo_gerencia_planos" (for all, que incluía
+-- DELETE) virou 3 policies separadas sem nenhuma de delete — dropar o nome
+-- antigo evita que ele fique combinando por OR com as novas.
 drop policy if exists "psicologo_gerencia_planos" on planos_terapeuticos;
-create policy "psicologo_gerencia_planos" on planos_terapeuticos
-  for all using (
+drop policy if exists "psicologo_ve_planos" on planos_terapeuticos;
+create policy "psicologo_ve_planos" on planos_terapeuticos
+  for select using (org_id = auth_org_id() and psicologo_id = auth.uid());
+drop policy if exists "psicologo_cria_planos" on planos_terapeuticos;
+create policy "psicologo_cria_planos" on planos_terapeuticos
+  for insert with check (org_id = auth_org_id() and psicologo_id = auth.uid());
+drop policy if exists "psicologo_edita_planos" on planos_terapeuticos;
+create policy "psicologo_edita_planos" on planos_terapeuticos
+  for update using (
     org_id = auth_org_id() and psicologo_id = auth.uid()
   ) with check (
     org_id = auth_org_id() and psicologo_id = auth.uid()
@@ -2637,9 +2694,28 @@ alter table objetivos_terapeuticos enable row level security;
 
 -- Sem org_id direto (a tabela é pequena e sempre acessada via plano_id) —
 -- a policy junta com planos_terapeuticos, que já garante psicólogo dono.
+-- Mesma retenção do plano: sem policy de delete (um objetivo indesejado se
+-- marca "concluído", não desaparece do histórico do que foi planejado).
 drop policy if exists "psicologo_gerencia_objetivos" on objetivos_terapeuticos;
-create policy "psicologo_gerencia_objetivos" on objetivos_terapeuticos
-  for all using (
+drop policy if exists "psicologo_ve_objetivos" on objetivos_terapeuticos;
+create policy "psicologo_ve_objetivos" on objetivos_terapeuticos
+  for select using (
+    exists (
+      select 1 from planos_terapeuticos p
+      where p.id = objetivos_terapeuticos.plano_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_cria_objetivos" on objetivos_terapeuticos;
+create policy "psicologo_cria_objetivos" on objetivos_terapeuticos
+  for insert with check (
+    exists (
+      select 1 from planos_terapeuticos p
+      where p.id = objetivos_terapeuticos.plano_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_edita_objetivos" on objetivos_terapeuticos;
+create policy "psicologo_edita_objetivos" on objetivos_terapeuticos
+  for update using (
     exists (
       select 1 from planos_terapeuticos p
       where p.id = objetivos_terapeuticos.plano_id and p.psicologo_id = auth.uid()
@@ -2941,12 +3017,30 @@ create index if not exists aplicacoes_instrumento_paciente_id_idx
 
 alter table aplicacoes_instrumento enable row level security;
 
+-- select/insert/update sem restrição de conteúdo (enviar escala, cancelar
+-- envio antes de responder etc.); delete é a parte que muda por retenção —
+-- ver policy separada abaixo.
 drop policy if exists "psicologo_gerencia_aplicacoes" on aplicacoes_instrumento;
-create policy "psicologo_gerencia_aplicacoes" on aplicacoes_instrumento
-  for all using (
+drop policy if exists "psicologo_ve_aplicacoes" on aplicacoes_instrumento;
+create policy "psicologo_ve_aplicacoes" on aplicacoes_instrumento
+  for select using (org_id = auth_org_id() and psicologo_id = auth.uid());
+drop policy if exists "psicologo_cria_aplicacoes" on aplicacoes_instrumento;
+create policy "psicologo_cria_aplicacoes" on aplicacoes_instrumento
+  for insert with check (org_id = auth_org_id() and psicologo_id = auth.uid());
+drop policy if exists "psicologo_edita_aplicacoes" on aplicacoes_instrumento;
+create policy "psicologo_edita_aplicacoes" on aplicacoes_instrumento
+  for update using (
     org_id = auth_org_id() and psicologo_id = auth.uid()
   ) with check (
     org_id = auth_org_id() and psicologo_id = auth.uid()
+  );
+-- Retenção: uma aplicação já respondida carrega escore/resultado, é dado
+-- clínico do paciente — não pode ser apagada (só o envio pendente, sem
+-- resposta nenhuma, pode ser cancelado/removido por engano de destinatário).
+drop policy if exists "psicologo_apaga_aplicacoes_pendentes" on aplicacoes_instrumento;
+create policy "psicologo_apaga_aplicacoes_pendentes" on aplicacoes_instrumento
+  for delete using (
+    org_id = auth_org_id() and psicologo_id = auth.uid() and respondido_em is null
   );
 -- Sem policy nenhuma pra "anon"/paciente: a página pública de resposta
 -- passa só pelas funções abaixo (mesmo motivo de convite_info/
@@ -3265,3 +3359,102 @@ end;
 $$;
 
 grant execute on function emitir_recibo(uuid, date, date, numeric, int, text, text) to authenticated;
+
+-- =========================================================
+-- documentos_psicologicos — modelos de documento com a estrutura da Res.
+-- CFP 06/2019 (Manual de Elaboração de Documentos Escritos produzidos pelo
+-- psicólogo). Só os 2 tipos mais simples/frequentes por ora: 'declaracao'
+-- (atesta um fato, ex.: comparecimento/vínculo terapêutico) e 'atestado'
+-- (atesta necessidade de afastamento) — Relatório/Laudo/Parecer ficam pra
+-- uma fase futura, são bem mais longos e dependem de estrutura própria
+-- (histórico de avaliação, instrumentos utilizados, resultado, conclusão).
+-- Mesmo padrão de "recibos": numeração sequencial por org via RPC
+-- (nunca insert cru), documento emitido é definitivo — sem policy de
+-- update/delete, correção é emitir um novo documento, não editar o antigo.
+-- =========================================================
+create table if not exists documentos_psicologicos (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  numero int not null,
+  tipo text not null check (tipo in ('declaracao', 'atestado')),
+  finalidade text not null,
+  conteudo text not null,
+  dias_afastamento int,
+  data_inicio_afastamento date,
+  emitido_em timestamptz not null default now(),
+  unique (org_id, numero)
+);
+
+create index if not exists documentos_psicologicos_paciente_id_idx on documentos_psicologicos (paciente_id);
+
+alter table documentos_psicologicos enable row level security;
+
+drop policy if exists "acesso_documentos_select" on documentos_psicologicos;
+create policy "acesso_documentos_select" on documentos_psicologicos
+  for select using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
+-- Paciente vê os próprios documentos no portal — mesmo raciocínio de
+-- "cliente_ve_proprios_recibos" (OR correto aqui: as duas condições já são
+-- exatamente o conjunto de acesso pretendido).
+drop policy if exists "cliente_ve_proprios_documentos" on documentos_psicologicos;
+create policy "cliente_ve_proprios_documentos" on documentos_psicologicos
+  for select using (eh_meu_paciente(documentos_psicologicos.paciente_id::text));
+-- Sem policy de insert/update/delete pra "authenticated": só emitir_documento
+-- abaixo escreve.
+
+create or replace function emitir_documento(
+  p_paciente_id uuid,
+  p_tipo text,
+  p_finalidade text,
+  p_conteudo text,
+  p_dias_afastamento int default null,
+  p_data_inicio_afastamento date default null
+)
+returns documentos_psicologicos
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org_id uuid;
+  v_proximo_numero int;
+  v_doc documentos_psicologicos;
+begin
+  if p_tipo not in ('declaracao', 'atestado') then
+    raise exception 'Tipo de documento inválido.';
+  end if;
+
+  if not exists (
+    select 1 from pacientes where id = p_paciente_id and psicologo_id = auth.uid()
+  ) then
+    raise exception 'Paciente não encontrado';
+  end if;
+
+  v_org_id := auth_org_id();
+
+  select coalesce(max(numero), 0) + 1 into v_proximo_numero
+  from documentos_psicologicos where org_id = v_org_id;
+
+  insert into documentos_psicologicos (
+    org_id, psicologo_id, paciente_id, numero, tipo, finalidade, conteudo,
+    dias_afastamento, data_inicio_afastamento
+  ) values (
+    v_org_id, auth.uid(), p_paciente_id, v_proximo_numero, p_tipo, p_finalidade, p_conteudo,
+    p_dias_afastamento, p_data_inicio_afastamento
+  )
+  returning * into v_doc;
+
+  perform registrar_auditoria('emitiu_documento', 'documentos_psicologicos', v_doc.id, p_paciente_id);
+
+  return v_doc;
+end;
+$$;
+
+grant execute on function emitir_documento(uuid, text, text, text, int, date) to authenticated;

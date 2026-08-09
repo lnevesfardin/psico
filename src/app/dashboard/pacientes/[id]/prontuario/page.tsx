@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, Printer, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getPatientWithSessions } from "@/lib/patients-client";
+import { listPlanos, listObjetivos, type Objetivo, type Plano } from "@/lib/planos-terapeuticos-client";
+import { listAplicacoesByPatient, type AplicacaoInstrumento } from "@/lib/instrumentos-client";
 import { useProfile } from "@/context/profile-context";
 import type { Patient } from "@/lib/dashboard-data";
 import { formatDateShort, formatDateTime } from "@/lib/format";
@@ -24,13 +26,28 @@ export default function ProntuarioPage({
   const { id } = use(params);
   const { profile } = useProfile();
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [planos, setPlanos] = useState<Plano[]>([]);
+  const [objetivosPorPlano, setObjetivosPorPlano] = useState<Record<string, Objetivo[]>>({});
+  const [aplicacoes, setAplicacoes] = useState<AplicacaoInstrumento[]>([]);
   const [loading, setLoading] = useState(true);
   const loggedRef = useRef(false);
 
   useEffect(() => {
     const supabase = createClient();
-    getPatientWithSessions(supabase, id)
-      .then(setPatient)
+    Promise.all([
+      getPatientWithSessions(supabase, id),
+      listPlanos(supabase, id),
+      listAplicacoesByPatient(supabase, id),
+    ])
+      .then(async ([p, pl, apl]) => {
+        setPatient(p);
+        setPlanos(pl);
+        setAplicacoes(apl);
+        const entries = await Promise.all(
+          pl.map(async (plano) => [plano.id, await listObjetivos(supabase, plano.id)] as const)
+        );
+        setObjetivosPorPlano(Object.fromEntries(entries));
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -139,6 +156,68 @@ export default function ProntuarioPage({
             </div>
           ))}
         </div>
+
+        {/* Plano terapêutico e instrumentos entram no export por portabilidade
+            — em caso de transferência de profissional, é dado clínico
+            relevante pra continuidade do cuidado, não só a evolução. */}
+        {planos.length > 0 && (
+          <>
+            <hr className="mt-6 border-zinc-200 dark:border-zinc-800" />
+            <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Plano terapêutico
+            </h2>
+            <div className="mt-4 space-y-6">
+              {planos.map((p) => (
+                <div key={p.id} className="break-inside-avoid border-b border-zinc-100 pb-4 dark:border-zinc-800">
+                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    {p.abordagem || "Sem abordagem informada"} · status: {p.status} · criado em{" "}
+                    {formatDateShort(p.createdAt)}
+                  </div>
+                  {p.hipoteseDiagnostica && (
+                    <p className="mt-2 text-sm text-zinc-800 dark:text-zinc-200">
+                      <strong className="font-semibold">Queixa / hipótese:</strong> {p.hipoteseDiagnostica}
+                    </p>
+                  )}
+                  {p.objetivoGeral && (
+                    <p className="mt-1 text-sm text-zinc-800 dark:text-zinc-200">
+                      <strong className="font-semibold">Objetivo geral:</strong> {p.objetivoGeral}
+                    </p>
+                  )}
+                  {(objetivosPorPlano[p.id] ?? []).length > 0 && (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
+                      {objetivosPorPlano[p.id].map((o) => (
+                        <li key={o.id}>
+                          {o.descricao}
+                          {o.indicador ? ` (indicador: ${o.indicador})` : ""} —{" "}
+                          {o.status === "concluido" ? "concluído" : "em andamento"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {aplicacoes.some((a) => a.respondidoEm) && (
+          <>
+            <hr className="mt-6 border-zinc-200 dark:border-zinc-800" />
+            <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Instrumentos psicométricos
+            </h2>
+            <div className="mt-4 space-y-2">
+              {aplicacoes
+                .filter((a) => a.respondidoEm)
+                .map((a) => (
+                  <p key={a.id} className="text-sm text-zinc-800 dark:text-zinc-200">
+                    <strong className="font-semibold">{a.instrumentoSigla}</strong> —{" "}
+                    {formatDateShort(a.respondidoEm!)} · escore {a.escore} ({a.faixa})
+                  </p>
+                ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

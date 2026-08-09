@@ -390,15 +390,22 @@ export function PatientInstrumentosTab({ patientId }: { patientId: string }) {
                     </div>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(a.id)}
-                  disabled={deletingId === a.id}
-                  aria-label="Apagar aplicação"
-                  className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {/* Retenção: uma aplicação já respondida carrega escore/
+                    resultado (dado clínico) e não pode ser apagada — o banco
+                    já bloqueia isso na RLS, o botão só aparece quando existe
+                    de fato a opção de cancelar um envio ainda sem resposta. */}
+                {!a.respondidoEm && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(a.id)}
+                    disabled={deletingId === a.id}
+                    aria-label="Cancelar envio"
+                    title="Cancelar envio (só antes de respondida)"
+                    className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           );

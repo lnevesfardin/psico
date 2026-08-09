@@ -633,6 +633,7 @@ export function PatientEvolucaoTab({
 
       {transcribeOpen && (
         <SessionTranscriptionModal
+          patientId={patientId}
           patientName={patientName}
           onClose={() => setTranscribeOpen(false)}
           onSave={async ({ texto, duracaoSegundos, consentimentoEm }) => {

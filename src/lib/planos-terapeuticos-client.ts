@@ -220,7 +220,8 @@ export async function updateObjetivoStatus(
   if (error) throw new Error(error.message);
 }
 
-export async function deleteObjetivo(supabase: SupabaseClient, objetivoId: string): Promise<void> {
-  const { error } = await supabase.from("objetivos_terapeuticos").delete().eq("id", objetivoId);
-  if (error) throw new Error(error.message);
-}
+// Sem deleteObjetivo de propósito: retenção de prontuário (Res. CFP 01/2009
+// e 06/2019) — um objetivo indesejado se marca "concluído" via
+// updateObjetivoStatus, nunca desaparece do histórico do que foi planejado.
+// O banco já bloqueia o delete (ver policies em schema.sql); a função nem
+// existe pra não sugerir um caminho que a RLS vai rejeitar.

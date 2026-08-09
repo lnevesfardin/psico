@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Pencil, Plus } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import {
   createObjetivo,
   createPlano,
-  deleteObjetivo,
   listObjetivos,
   listPlanos,
   updateObjetivoStatus,
@@ -136,16 +135,6 @@ export function PatientPlanoTab({ patientId }: { patientId: string }) {
     }));
     const supabase = createClient();
     await updateObjetivoStatus(supabase, objetivo.id, novoStatus);
-  }
-
-  async function handleDeleteObjetivo(objetivo: Objetivo) {
-    if (!planoAtivo) return;
-    const supabase = createClient();
-    await deleteObjetivo(supabase, objetivo.id);
-    setObjetivosPorPlano((prev) => ({
-      ...prev,
-      [planoAtivo.id]: prev[planoAtivo.id].filter((o) => o.id !== objetivo.id),
-    }));
   }
 
   if (loading) {
@@ -329,14 +318,6 @@ export function PatientPlanoTab({ patientId }: { patientId: string }) {
                       </p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteObjetivo(o)}
-                    aria-label="Apagar objetivo"
-                    className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
               ))}
             </div>
