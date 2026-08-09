@@ -36,9 +36,11 @@ export function montarLembrete(payload: LembretePayload): Mensagem {
     ? `Olá, ${payload.pacienteNome}!`
     : `Olá, ${payload.psicologoNome}!`;
 
+  const quandoRelativo = payload.tipo === "lembrete_24h" ? "cerca de 24 horas" : "cerca de 1 hora";
+
   const abertura = paraPaciente
-    ? `Passando para lembrar da sua consulta com ${payload.psicologoNome}, que começa em cerca de 1 hora.`
-    : `Passando para lembrar da sua sessão com ${payload.pacienteNome}, que começa em cerca de 1 hora.`;
+    ? `Passando para lembrar da sua consulta com ${payload.psicologoNome}, que começa em ${quandoRelativo}.`
+    : `Passando para lembrar da sua sessão com ${payload.pacienteNome}, que começa em ${quandoRelativo}.`;
 
   const modalidadeLegivel =
     payload.modalidade === "online"
@@ -63,6 +65,7 @@ export function montarLembrete(payload: LembretePayload): Mensagem {
     abertura,
     "",
     ...itens.map((i) => `${i.label}: ${i.url ?? i.valor}`),
+    ...(payload.mensagemExtra ? ["", payload.mensagemExtra] : []),
     "",
     "— Psi Rob",
   ].join("\n");
@@ -87,6 +90,11 @@ export function montarLembrete(payload: LembretePayload): Mensagem {
           )
           .join("")}
       </table>
+      ${
+        payload.mensagemExtra
+          ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#3f3f46;">${escapeHtml(payload.mensagemExtra)}</p>`
+          : ""
+      }
       <p style="margin:28px 0 0;font-size:13px;color:#a1a1aa;">
         Você recebeu este e-mail porque tem uma consulta agendada no Psi Rob.
       </p>

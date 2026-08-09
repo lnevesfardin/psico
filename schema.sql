@@ -26,6 +26,10 @@ create table if not exists organizations (
   created_at timestamptz not null default now()
 );
 
+-- Fase 3: prazo mínimo (em horas) pro paciente cancelar pelo portal. 0 =
+-- sem restrição (comportamento que já existia antes desta coluna existir).
+alter table organizations add column if not exists prazo_cancelamento_horas int not null default 0;
+
 -- =========================================================
 -- profiles — identidade genérica de QUALQUER usuário (psicólogo, secretária,
 -- admin de clínica ou paciente). Separada de "perfis", que continua sendo só
@@ -145,6 +149,17 @@ drop policy if exists "membro_ve_propria_organizacao" on organizations;
 create policy "membro_ve_propria_organizacao" on organizations
   for select using (id = auth_org_id());
 
+-- Fase 3: psicólogo/admin_clinica editam configurações da própria org
+-- (hoje só nome e prazo_cancelamento_horas — nunca criar/apagar org por
+-- aqui, isso continua exclusivo das funções security definer).
+drop policy if exists "psicologo_admin_edita_propria_organizacao" on organizations;
+create policy "psicologo_admin_edita_propria_organizacao" on organizations
+  for update using (
+    id = auth_org_id() and auth_role() in ('psicologo', 'admin_clinica')
+  ) with check (
+    id = auth_org_id() and auth_role() in ('psicologo', 'admin_clinica')
+  );
+
 -- =========================================================
 -- Preenchimento automático de org_id — a maior parte das tabelas é
 -- inserida direto do Client Component via supabase-js (ver src/lib/*-client.ts),
@@ -216,6 +231,8 @@ begin
   returning id into v_org_id;
 
   update profiles set org_id = v_org_id where id = p_user_id;
+
+  insert into configuracao_notificacoes (org_id) values (v_org_id);
 
   return v_org_id;
 end;
@@ -777,7 +794,7 @@ create table if not exists notificacoes (
     check (status in ('pendente', 'enviado', 'erro', 'cancelado')),
   tentativas int not null default 0,
   erro text,
-  agendado_para timestamptz not null, -- início da consulta menos 1h
+  agendado_para timestamptz not null, -- início da consulta menos a antecedência do tipo
   enviado_em timestamptz,
   created_at timestamptz not null default now(),
   -- Garantia de idempotência: mesmo se o cron rodar duas vezes em paralelo,
@@ -787,9 +804,55 @@ create table if not exists notificacoes (
 
 alter table notificacoes add column if not exists org_id uuid references organizations(id);
 
+-- Fase 3: lembrete de 24h antes, além do de 1h que já existia.
+alter table notificacoes drop constraint if exists notificacoes_tipo_check;
+alter table notificacoes add constraint notificacoes_tipo_check
+  check (tipo in ('lembrete_1h', 'lembrete_24h'));
+
 create index if not exists notificacoes_pendentes_idx
   on notificacoes (agendado_para)
   where status = 'pendente';
+
+-- =========================================================
+-- configuracao_notificacoes (Fase 3) — uma linha por organização. Liga/
+-- desliga cada tipo de lembrete e permite um complemento curto na
+-- mensagem, mas NUNCA substituição total do template — trocar o texto
+-- inteiro deixaria um psicólogo escrever sem querer "sua sessão de
+-- terapia" ou algo clínico num lembrete que pode ser lido por terceiros
+-- (o requisito de neutralidade da mensagem é o motivo desta restrição
+-- deliberada). org_id é chave primária: sempre existe exatamente uma
+-- linha por org, criada junto com a organização (ver
+-- criar_organizacao_para_psicologo).
+-- =========================================================
+create table if not exists configuracao_notificacoes (
+  org_id uuid primary key references organizations(id) on delete cascade,
+  ativo boolean not null default true,
+  lembrete_1h_ativo boolean not null default true,
+  lembrete_24h_ativo boolean not null default false,
+  mensagem_extra text,
+  updated_at timestamptz not null default now()
+);
+
+create or replace trigger configuracao_notificacoes_set_updated_at
+  before update on configuracao_notificacoes
+  for each row execute function set_updated_at();
+
+alter table configuracao_notificacoes enable row level security;
+
+drop policy if exists "psicologo_admin_ve_config_notificacoes" on configuracao_notificacoes;
+create policy "psicologo_admin_ve_config_notificacoes" on configuracao_notificacoes
+  for select using (org_id = auth_org_id() and auth_role() in ('psicologo', 'admin_clinica'));
+drop policy if exists "psicologo_admin_edita_config_notificacoes" on configuracao_notificacoes;
+create policy "psicologo_admin_edita_config_notificacoes" on configuracao_notificacoes
+  for update using (org_id = auth_org_id() and auth_role() in ('psicologo', 'admin_clinica'))
+  with check (org_id = auth_org_id() and auth_role() in ('psicologo', 'admin_clinica'));
+-- Sem policy de insert: a linha nasce sozinha em
+-- criar_organizacao_para_psicologo, nunca direto do client.
+
+-- Backfill pras organizações que já existiam antes desta tabela.
+insert into configuracao_notificacoes (org_id)
+select o.id from organizations o
+where not exists (select 1 from configuracao_notificacoes c where c.org_id = o.id);
 
 -- =========================================================
 -- app_secrets — URL da aplicação e segredo usados pelo pg_cron para chamar
@@ -1587,6 +1650,22 @@ create table if not exists checkins_humor (
 alter table checkins_humor add column if not exists org_id uuid references organizations(id);
 update checkins_humor ch set org_id = p.org_id from profiles p where ch.cliente_id = p.id and ch.org_id is null;
 
+-- Fase 3: campos extras do diário de humor pedidos no portal do paciente.
+-- Nullable — check-ins antigos não têm esses dados, e o paciente pode
+-- continuar preenchendo só humor/energia se quiser.
+alter table checkins_humor add column if not exists ansiedade smallint;
+alter table checkins_humor add column if not exists sono_horas numeric(3, 1);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'checkins_humor_ansiedade_check'
+  ) then
+    alter table checkins_humor add constraint checkins_humor_ansiedade_check
+      check (ansiedade is null or ansiedade between 1 and 5);
+  end if;
+end $$;
+
 create index if not exists checkins_humor_cliente_data_idx
   on checkins_humor (cliente_id, data desc);
 
@@ -2036,6 +2115,7 @@ as $$
 declare
   v consultas%rowtype;
   v_motivo text := nullif(trim(p_motivo), '');
+  v_prazo_horas int;
 begin
   if v_motivo is null then
     raise exception 'Informe o motivo do cancelamento.';
@@ -2051,6 +2131,15 @@ begin
     raise exception 'Este agendamento não pode mais ser cancelado.';
   end if;
 
+  -- Prazo mínimo configurável por organização (0 = sem restrição, padrão
+  -- atual preservado). Ver organizations.prazo_cancelamento_horas.
+  select o.prazo_cancelamento_horas into v_prazo_horas
+  from organizations o where o.id = v.org_id;
+
+  if v_prazo_horas > 0 and (v.data + v.horario)::timestamp - (v_prazo_horas || ' hours')::interval < now() then
+    raise exception 'Esse agendamento só pode ser cancelado com pelo menos % horas de antecedência.', v_prazo_horas;
+  end if;
+
   update consultas
   set status = 'desmarcada', motivo_cancelamento = v_motivo
   where id = p_consulta_id;
@@ -2063,6 +2152,30 @@ end;
 $$;
 
 grant execute on function cancelar_consulta_cliente(uuid, text) to authenticated;
+
+-- =========================================================
+-- confirmar_consulta_cliente — o paciente confirma presença numa consulta
+-- pendente. Mesmo motivo de cancelar_consulta_cliente: cliente não tem
+-- policy de UPDATE em "consultas", então isso passa por security definer.
+-- =========================================================
+create or replace function confirmar_consulta_cliente(p_consulta_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update consultas
+  set status = 'confirmada'
+  where id = p_consulta_id and cliente_id = auth.uid() and status = 'pendente';
+
+  if not found then
+    raise exception 'Agendamento não encontrado ou já não está mais pendente.';
+  end if;
+end;
+$$;
+
+grant execute on function confirmar_consulta_cliente(uuid) to authenticated;
 
 -- =========================================================
 -- materiais_paciente — biblioteca pessoal: PDFs, áudios de meditação,
@@ -2320,6 +2433,134 @@ create policy "psicologo_le_diario_compartilhado" on diario_paciente
   );
 
 -- =========================================================
+-- consentimentos (Fase 3) — aceite de termos pelo paciente no portal
+-- (contrato de prestação de serviço, LGPD, processamento por IA). Guarda o
+-- TEXTO INTEGRAL aceito (não só a versão) porque o texto padrão pode mudar
+-- no futuro — sem isso, não daria pra provar o que a pessoa realmente leu
+-- e aceitou numa fiscalização. hash é redundante com o texto guardado de
+-- propósito: é o que permite detectar uma alteração posterior sem
+-- reprocessar o texto inteiro. Nunca UPDATE/DELETE — revogar é uma linha
+-- nova com revogado_em, não apagar a antiga.
+-- =========================================================
+create table if not exists consentimentos (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  tipo text not null check (tipo in ('contrato_tdic', 'lgpd', 'gravacao_sessao', 'processamento_ia')),
+  versao_texto text not null,
+  texto_integral text not null,
+  hash_texto text not null,
+  aceito boolean not null default true,
+  aceito_em timestamptz not null default now(),
+  ip inet,
+  revogado_em timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists consentimentos_paciente_id_idx on consentimentos (paciente_id, tipo);
+
+alter table consentimentos enable row level security;
+
+-- Mesmo motivo de materiais_paciente/habitos_paciente: cliente não tem
+-- SELECT em "pacientes", então precisa passar por eh_meu_paciente().
+drop policy if exists "cliente_ve_proprios_consentimentos" on consentimentos;
+create policy "cliente_ve_proprios_consentimentos" on consentimentos
+  for select using (eh_meu_paciente(consentimentos.paciente_id::text));
+drop policy if exists "psicologo_ve_consentimentos_pacientes" on consentimentos;
+create policy "psicologo_ve_consentimentos_pacientes" on consentimentos
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = consentimentos.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+-- Sem policy de insert direta: só via aceitar_consentimento() abaixo (grava
+-- IP/hash de forma consistente, e evita que o cliente forje aceito_em ou
+-- aceite em nome de outro paciente).
+
+-- Registra o aceite. IP fica null quando chamado direto do client (RPC via
+-- supabase-js não tem acesso ao IP do visitante) — a rota
+-- /api/consentimentos/aceitar preenche o IP de verdade porque roda num
+-- route handler, com acesso ao cabeçalho da requisição.
+create or replace function aceitar_consentimento(
+  p_tipo text,
+  p_versao_texto text,
+  p_texto_integral text,
+  p_hash_texto text,
+  p_ip inet default null
+)
+returns consentimentos
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_paciente_id uuid;
+  v_org_id uuid;
+  v_row consentimentos;
+begin
+  select id, org_id into v_paciente_id, v_org_id
+  from pacientes where cliente_user_id = auth.uid()
+  limit 1;
+
+  if v_paciente_id is null then
+    raise exception 'Nenhuma ficha de paciente vinculada a esta conta.';
+  end if;
+
+  insert into consentimentos (
+    org_id, paciente_id, tipo, versao_texto, texto_integral, hash_texto, ip
+  ) values (
+    v_org_id, v_paciente_id, p_tipo, p_versao_texto, p_texto_integral, p_hash_texto, p_ip
+  )
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function aceitar_consentimento(text, text, text, text, inet) to authenticated;
+
+-- =========================================================
+-- tarefas_paciente (Fase 3) — tarefa de casa que o psicólogo atribui a um
+-- paciente; o paciente responde/marca como concluída no portal.
+-- =========================================================
+create table if not exists tarefas_paciente (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  titulo text not null,
+  instrucoes text,
+  prazo date,
+  concluida_em timestamptz,
+  resposta_paciente text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists tarefas_paciente_paciente_id_idx on tarefas_paciente (paciente_id, created_at desc);
+
+alter table tarefas_paciente enable row level security;
+
+drop policy if exists "psicologo_gerencia_tarefas" on tarefas_paciente;
+create policy "psicologo_gerencia_tarefas" on tarefas_paciente
+  for all using (
+    org_id = auth_org_id() and psicologo_id = auth.uid()
+  ) with check (
+    org_id = auth_org_id() and psicologo_id = auth.uid()
+  );
+
+-- Paciente só lê e só grava resposta/conclusão — nunca título/instruções
+-- (essas são do psicólogo). A policy de update aqui é ampla (RLS não
+-- distingue coluna), então o controle de "só resposta/conclusão" fica por
+-- conta da UI; nada sensível vaza mudando outras colunas de qualquer forma.
+drop policy if exists "cliente_ve_proprias_tarefas" on tarefas_paciente;
+create policy "cliente_ve_proprias_tarefas" on tarefas_paciente
+  for select using (eh_meu_paciente(tarefas_paciente.paciente_id::text));
+drop policy if exists "cliente_responde_proprias_tarefas" on tarefas_paciente;
+create policy "cliente_responde_proprias_tarefas" on tarefas_paciente
+  for update using (eh_meu_paciente(tarefas_paciente.paciente_id::text));
+
+-- =========================================================
 -- Anexa os triggers de preenchimento automático de org_id (funções
 -- definidas logo depois de auth_org_id()/auth_role(), no topo do arquivo) —
 -- juntos aqui no fim porque é o primeiro ponto em que todas as tabelas
@@ -2374,6 +2615,9 @@ create or replace trigger notificacoes_set_org_id
   for each row execute function set_org_id_from_consulta();
 create or replace trigger pacotes_sessao_set_org_id
   before insert on pacotes_sessao
+  for each row execute function set_org_id_from_caller();
+create or replace trigger tarefas_paciente_set_org_id
+  before insert on tarefas_paciente
   for each row execute function set_org_id_from_caller();
 
 -- =========================================================
@@ -2471,6 +2715,15 @@ create policy "acesso_recibos_select" on recibos
       or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
     )
   );
+-- Fase 3: paciente vê os próprios recibos no portal. Policy separada (não
+-- combinada na de cima) de propósito: aqui o OR é correto, porque as duas
+-- condições já são exatamente o conjunto de acesso pretendido (psicólogo
+-- dono OU paciente dono) — diferente do bug de "org isola" do doc de
+-- especificação, essas duas nunca se sobrepõem de um jeito que libera mais
+-- do que deveria.
+drop policy if exists "cliente_ve_proprios_recibos" on recibos;
+create policy "cliente_ve_proprios_recibos" on recibos
+  for select using (eh_meu_paciente(recibos.paciente_id::text));
 -- Sem policy de insert/update/delete pra "authenticated": só a função
 -- abaixo escreve (numeração sequencial não pode passar por um insert cru
 -- que um cliente poderia repetir/pular). Sem policy de update/delete

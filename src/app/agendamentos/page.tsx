@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Clock, MapPin, Video, X } from "lucide-react";
+import { CalendarClock, CheckCircle2, Clock, MapPin, Video, X } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import {
   cancelAppointment,
+  confirmAppointment,
   listClientAppointments,
   type ClientAppointment,
 } from "@/lib/client-appointments-client";
+import { consentimentosPendentes, listMeusConsentimentos } from "@/lib/consentimentos-client";
 import type { AppointmentStatus } from "@/lib/dashboard-data";
 import { formatDateLabel } from "@/lib/format";
 
@@ -42,6 +44,9 @@ export default function AgendamentosPage() {
   const [cancelTarget, setCancelTarget] = useState<ClientAppointment | null>(
     null
   );
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [pendingConsents, setPendingConsents] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -50,6 +55,10 @@ export default function AgendamentosPage() {
     listClientAppointments(supabase, user.id)
       .then(setAppointments)
       .finally(() => setLoading(false));
+
+    listMeusConsentimentos(supabase)
+      .then((lista) => setPendingConsents(consentimentosPendentes(lista).length))
+      .catch(() => {});
 
     // Um agendamento feito agora mesmo (ou confirmado pelo psicólogo em
     // outro dispositivo) aparece aqui sem precisar recarregar a página.
@@ -85,6 +94,38 @@ export default function AgendamentosPage() {
     setCancelTarget(null);
   }
 
+  async function handleConfirm(item: ClientAppointment) {
+    setConfirmingId(item.id);
+    setConfirmError(null);
+    try {
+      const supabase = createClient();
+      await confirmAppointment(supabase, item.id);
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === item.id ? { ...a, status: "confirmada" } : a))
+      );
+    } catch (err) {
+      setConfirmError(
+        err instanceof Error ? err.message : "Não foi possível confirmar."
+      );
+    } finally {
+      setConfirmingId(null);
+    }
+  }
+
+  // "Próximas" = ainda por acontecer (pendente/confirmada); o resto
+  // (realizada/falta/desmarcada) vira histórico de comparecimento,
+  // independente da data.
+  const { proximas, historico } = useMemo(() => {
+    const proximas: ClientAppointment[] = [];
+    const historico: ClientAppointment[] = [];
+    for (const a of appointments) {
+      if (a.status === "pendente" || a.status === "confirmada") proximas.push(a);
+      else historico.push(a);
+    }
+    proximas.sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+    return { proximas, historico };
+  }, [appointments]);
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
@@ -93,6 +134,16 @@ export default function AgendamentosPage() {
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         Acompanhe aqui suas consultas marcadas.
       </p>
+
+      {pendingConsents > 0 && (
+        <Link
+          href="/agendamentos/consentimentos"
+          className="mt-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+        >
+          Você tem {pendingConsents} termo(s) pendente(s) de aceite.
+          <span className="ml-auto font-semibold underline">Ver termos</span>
+        </Link>
+      )}
 
       {loading && (
         <p className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
@@ -115,80 +166,41 @@ export default function AgendamentosPage() {
         </div>
       )}
 
-      {!loading && appointments.length > 0 && (
-        <div className="mt-6 space-y-3">
-          {appointments.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
-            >
-              <Link
-                href={`/agendar/${item.psicologoId}`}
-                className="flex items-center gap-4"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-900 dark:text-brand-300">
-                  {item.psicologoFotoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.psicologoFotoUrl}
-                      alt={item.psicologoNome}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    item.psicologoNome
-                      .split(" ")
-                      .filter((w) => !["Dr.", "Dra."].includes(w))
-                      .slice(0, 2)
-                      .map((n) => n[0])
-                      .join("")
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-zinc-900 dark:text-white">
-                    {item.psicologoNome}
-                    {item.psicologoTitulo ? ` · ${item.psicologoTitulo}` : ""}
-                  </p>
-                  <p className="mt-0.5 flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-                    <Clock className="h-3.5 w-3.5" />
-                    {formatDateLabel(item.date)} às {item.time}
-                    {item.modalidade && (
-                      <span className="ml-1 inline-flex items-center gap-1">
-                        {item.modalidade === "presencial" ? (
-                          <MapPin className="h-3.5 w-3.5" />
-                        ) : (
-                          <Video className="h-3.5 w-3.5" />
-                        )}
-                        {item.modalidade === "presencial" ? "Presencial" : "Online"}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[item.status]}`}
-                >
-                  {statusLabel[item.status]}
-                </span>
-              </Link>
+      {confirmError && (
+        <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+          {confirmError}
+        </div>
+      )}
 
-              {item.status === "desmarcada" && item.motivoCancelamento && (
-                <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-950/60 dark:text-zinc-400">
-                  Motivo do cancelamento: {item.motivoCancelamento}
-                </p>
-              )}
+      {!loading && proximas.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+            Próximas
+          </h2>
+          <div className="mt-3 space-y-3">
+            {proximas.map((item) => (
+              <AppointmentCard
+                key={item.id}
+                item={item}
+                onCancel={() => setCancelTarget(item)}
+                onConfirm={() => handleConfirm(item)}
+                confirming={confirmingId === item.id}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
-              {CANCELAVEIS.includes(item.status) && (
-                <div className="mt-3 flex justify-end border-t border-zinc-100 pt-3 dark:border-zinc-800">
-                  <button
-                    type="button"
-                    onClick={() => setCancelTarget(item)}
-                    className="text-sm font-medium text-rose-600 transition-colors hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
-                  >
-                    Cancelar agendamento
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+      {!loading && historico.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+            Histórico
+          </h2>
+          <div className="mt-3 space-y-3">
+            {historico.map((item) => (
+              <AppointmentCard key={item.id} item={item} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -200,6 +212,98 @@ export default function AgendamentosPage() {
         />
       )}
     </main>
+  );
+}
+
+function AppointmentCard({
+  item,
+  onCancel,
+  onConfirm,
+  confirming,
+}: {
+  item: ClientAppointment;
+  onCancel?: () => void;
+  onConfirm?: () => void;
+  confirming?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+      <Link href={`/agendar/${item.psicologoId}`} className="flex items-center gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-900 dark:text-brand-300">
+          {item.psicologoFotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.psicologoFotoUrl}
+              alt={item.psicologoNome}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            item.psicologoNome
+              .split(" ")
+              .filter((w) => !["Dr.", "Dra."].includes(w))
+              .slice(0, 2)
+              .map((n) => n[0])
+              .join("")
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-zinc-900 dark:text-white">
+            {item.psicologoNome}
+            {item.psicologoTitulo ? ` · ${item.psicologoTitulo}` : ""}
+          </p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+            <Clock className="h-3.5 w-3.5" />
+            {formatDateLabel(item.date)} às {item.time}
+            {item.modalidade && (
+              <span className="ml-1 inline-flex items-center gap-1">
+                {item.modalidade === "presencial" ? (
+                  <MapPin className="h-3.5 w-3.5" />
+                ) : (
+                  <Video className="h-3.5 w-3.5" />
+                )}
+                {item.modalidade === "presencial" ? "Presencial" : "Online"}
+              </span>
+            )}
+          </p>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[item.status]}`}
+        >
+          {statusLabel[item.status]}
+        </span>
+      </Link>
+
+      {item.status === "desmarcada" && item.motivoCancelamento && (
+        <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-950/60 dark:text-zinc-400">
+          Motivo do cancelamento: {item.motivoCancelamento}
+        </p>
+      )}
+
+      {CANCELAVEIS.includes(item.status) && (onCancel || onConfirm) && (
+        <div className="mt-3 flex items-center justify-end gap-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+          {item.status === "pendente" && onConfirm && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={confirming}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 transition-colors hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-emerald-400 dark:hover:text-emerald-300"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {confirming ? "Confirmando..." : "Confirmar presença"}
+            </button>
+          )}
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-sm font-medium text-rose-600 transition-colors hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+            >
+              Cancelar agendamento
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

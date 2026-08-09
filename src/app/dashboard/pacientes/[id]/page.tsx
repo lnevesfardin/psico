@@ -40,6 +40,7 @@ import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
 import { PatientMaterialsTab } from "@/components/dashboard/patient-materials-tab";
 import { PatientAgendaTab } from "@/components/dashboard/patient-agenda-tab";
 import { PatientFinanceiroTab } from "@/components/dashboard/patient-financeiro-tab";
+import { PatientTarefasTab } from "@/components/dashboard/patient-tarefas-tab";
 import { PatientEvolucaoTab } from "@/components/dashboard/patient-evolucao-tab";
 import { formatCurrency, formatDateShort, formatEndereco } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
@@ -63,7 +64,13 @@ export default function PatientDetailPage({
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<
-    "resumo" | "evolucao" | "agenda" | "financeiro" | "humor" | "materiais"
+    | "resumo"
+    | "evolucao"
+    | "agenda"
+    | "financeiro"
+    | "tarefas"
+    | "humor"
+    | "materiais"
   >(() => {
     // Link "Escrever evolução" da Agenda (após marcar uma consulta como
     // realizada) chega com ?tab=evolucao — lido direto de window.location
@@ -76,6 +83,7 @@ export default function PatientDetailPage({
       requested === "evolucao" ||
       requested === "agenda" ||
       requested === "financeiro" ||
+      requested === "tarefas" ||
       requested === "humor" ||
       requested === "materiais"
     ) {
@@ -289,32 +297,42 @@ export default function PatientDetailPage({
       </div>
 
       <div className="mt-6 inline-flex flex-wrap rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        {(["resumo", "evolucao", "agenda", "financeiro", "humor", "materiais"] as const).map(
-          (t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                tab === t
-                  ? "bg-brand-600 text-white"
-                  : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-              }`}
-            >
-              {t === "resumo"
-                ? "Resumo"
-                : t === "evolucao"
-                  ? "Evolução / Prontuário"
-                  : t === "agenda"
-                    ? "Agenda"
-                    : t === "financeiro"
-                      ? "Financeiro"
+        {(
+          [
+            "resumo",
+            "evolucao",
+            "agenda",
+            "financeiro",
+            "tarefas",
+            "humor",
+            "materiais",
+          ] as const
+        ).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              tab === t
+                ? "bg-brand-600 text-white"
+                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+          >
+            {t === "resumo"
+              ? "Resumo"
+              : t === "evolucao"
+                ? "Evolução / Prontuário"
+                : t === "agenda"
+                  ? "Agenda"
+                  : t === "financeiro"
+                    ? "Financeiro"
+                    : t === "tarefas"
+                      ? "Tarefas"
                       : t === "humor"
                         ? "Acompanhamento"
                         : "Materiais"}
-            </button>
-          )
-        )}
+          </button>
+        ))}
       </div>
 
       {tab === "resumo" && (
@@ -455,6 +473,8 @@ export default function PatientDetailPage({
       {tab === "agenda" && <PatientAgendaTab patientId={patient.id} />}
 
       {tab === "financeiro" && <PatientFinanceiroTab patientId={patient.id} />}
+
+      {tab === "tarefas" && <PatientTarefasTab patientId={patient.id} />}
 
       {tab === "humor" && (
         <PatientMoodTab

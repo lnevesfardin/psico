@@ -102,3 +102,18 @@ export async function cancelAppointment(
     body: JSON.stringify({ consultaId }),
   }).catch(() => {});
 }
+
+/**
+ * Confirma presença numa consulta pendente — mesmo motivo de
+ * cancelAppointment, passa por RPC (ver confirmar_consulta_cliente no
+ * schema.sql) porque o cliente não tem policy de UPDATE em "consultas".
+ */
+export async function confirmAppointment(
+  supabase: SupabaseClient,
+  consultaId: string
+): Promise<void> {
+  const { error } = await supabase.rpc("confirmar_consulta_cliente", {
+    p_consulta_id: consultaId,
+  });
+  if (error) throw new Error(error.message);
+}

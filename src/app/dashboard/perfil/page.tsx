@@ -28,6 +28,7 @@ import {
   type ModalidadeSelecao,
 } from "@/lib/disponibilidade-data";
 import { TimeSelect } from "@/components/ui/time-select";
+import { NotificacoesConfigSection } from "@/components/dashboard/notificacoes-config-section";
 import { CidadeSelect } from "@/components/ui/cidade-select";
 import { brStates } from "@/lib/br-states";
 import {
@@ -719,6 +720,8 @@ export default function PerfilPage() {
           )}
         </div>
       </div>
+
+      <NotificacoesConfigSection />
     </div>
   );
 }

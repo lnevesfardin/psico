@@ -33,6 +33,8 @@ export type MoodCheckin = {
   date: string; // yyyy-mm-dd
   mood: MoodLevel;
   energy: MoodLevel;
+  anxiety: MoodLevel | null;
+  sleepHours: number | null;
   tags: MoodTag[];
   positiveNote: string;
   createdAt: string;
@@ -43,12 +45,15 @@ type CheckinRow = {
   data: string;
   humor: number;
   energia: number;
+  ansiedade: number | null;
+  sono_horas: number | null;
   tags: string[];
   reflexao_positiva: string | null;
   created_at: string;
 };
 
-const CHECKIN_COLUMNS = "id, data, humor, energia, tags, reflexao_positiva, created_at";
+const CHECKIN_COLUMNS =
+  "id, data, humor, energia, ansiedade, sono_horas, tags, reflexao_positiva, created_at";
 
 function rowToCheckin(row: CheckinRow): MoodCheckin {
   return {
@@ -56,6 +61,8 @@ function rowToCheckin(row: CheckinRow): MoodCheckin {
     date: row.data,
     mood: row.humor as MoodLevel,
     energy: row.energia as MoodLevel,
+    anxiety: row.ansiedade as MoodLevel | null,
+    sleepHours: row.sono_horas,
     tags: row.tags as MoodTag[],
     positiveNote: row.reflexao_positiva ?? "",
     createdAt: row.created_at,
@@ -83,6 +90,8 @@ export async function listMoodCheckins(
 export type MoodCheckinInput = {
   mood: MoodLevel;
   energy: MoodLevel;
+  anxiety: MoodLevel | null;
+  sleepHours: number | null;
   tags: MoodTag[];
   positiveNote: string;
 };
@@ -100,6 +109,8 @@ export async function upsertTodayCheckin(
         data: todayIso(),
         humor: input.mood,
         energia: input.energy,
+        ansiedade: input.anxiety,
+        sono_horas: input.sleepHours,
         tags: input.tags,
         reflexao_positiva: input.positiveNote.trim() || null,
       },

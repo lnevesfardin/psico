@@ -4,6 +4,7 @@ import type { Recibo } from "@/lib/dashboard-data";
 type ReciboRow = {
   id: string;
   paciente_id: string;
+  psicologo_id: string;
   numero: number;
   competencia_inicio: string;
   competencia_fim: string;
@@ -15,12 +16,13 @@ type ReciboRow = {
 };
 
 const COLUMNS =
-  "id, paciente_id, numero, competencia_inicio, competencia_fim, valor_total, quantidade_sessoes, pagador_nome, pagador_cpf, emitido_em";
+  "id, paciente_id, psicologo_id, numero, competencia_inicio, competencia_fim, valor_total, quantidade_sessoes, pagador_nome, pagador_cpf, emitido_em";
 
 function rowToRecibo(row: ReciboRow): Recibo {
   return {
     id: row.id,
     patientId: row.paciente_id,
+    psicologoId: row.psicologo_id,
     numero: row.numero,
     competenciaInicio: row.competencia_inicio,
     competenciaFim: row.competencia_fim,
@@ -40,6 +42,18 @@ export async function listRecibos(
     .from("recibos")
     .select(COLUMNS)
     .eq("psicologo_id", psicologoId)
+    .order("numero", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as ReciboRow[]).map(rowToRecibo);
+}
+
+// Portal do paciente: sem filtro por psicologo_id (o paciente não tem essa
+// info à mão) — a RLS (cliente_ve_proprios_recibos, via eh_meu_paciente())
+// já restringe ao próprio.
+export async function listMeusRecibos(supabase: SupabaseClient): Promise<Recibo[]> {
+  const { data, error } = await supabase
+    .from("recibos")
+    .select(COLUMNS)
     .order("numero", { ascending: false });
   if (error) throw new Error(error.message);
   return (data as ReciboRow[]).map(rowToRecibo);

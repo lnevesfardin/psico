@@ -2,32 +2,51 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatEndereco } from "@/lib/format";
-import { montarLembrete } from "@/lib/notificacoes/templates";
-import { emailConfigurado, enviarEmail } from "@/lib/notificacoes/email";
-import {
-  enviarWebhook,
-  webhookConfigurado,
-  webhookUrl,
-} from "@/lib/notificacoes/webhook";
+import { emailConfigurado } from "@/lib/notificacoes/email";
+import { webhookConfigurado, webhookUrl } from "@/lib/notificacoes/webhook";
+import { enviarMensagem } from "@/lib/notificacoes/enviar";
 import type {
   Canal,
   Destinatario,
   LembretePayload,
+  TipoLembrete,
 } from "@/lib/notificacoes/types";
 import type { ModalidadeAtendimento } from "@/lib/dashboard-data";
 
-/** Antecedência do lembrete. */
-const ANTECEDENCIA_MIN = 60;
 /**
- * Janela de planejamento: olha 2h à frente, não só a hora exata. Torna o
- * processo auto-recuperável (se o cron falhar algumas rodadas, a próxima
- * recupera) e cobre consultas marcadas em cima da hora — nesse caso
- * agendado_para já nasce no passado e o lembrete sai na mesma execução.
+ * Um tipo de lembrete = uma antecedência + a própria janela de
+ * planejamento pra ele (sempre antecedência + 2h de folga, mesma margem
+ * que o lembrete de 1h sempre teve — dá tempo do cron de 10 em 10 minutos
+ * pegar a linha bem antes dela vencer). Cada org liga/desliga cada tipo
+ * independentemente (ver configuracao_notificacoes).
  */
-const JANELA_MIN = 120;
+const TIPOS_LEMBRETE: { tipo: TipoLembrete; antecedenciaMin: number; janelaMin: number }[] = [
+  { tipo: "lembrete_1h", antecedenciaMin: 60, janelaMin: 120 },
+  { tipo: "lembrete_24h", antecedenciaMin: 24 * 60, janelaMin: 24 * 60 + 120 },
+];
+const JANELA_MAX_MIN = Math.max(...TIPOS_LEMBRETE.map((t) => t.janelaMin));
 const MAX_TENTATIVAS = 3;
 const LOTE = 50;
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
+
+type ConfigNotificacoes = {
+  ativo: boolean;
+  lembrete_1h_ativo: boolean;
+  lembrete_24h_ativo: boolean;
+  mensagem_extra: string | null;
+};
+
+const CONFIG_PADRAO: ConfigNotificacoes = {
+  ativo: true,
+  lembrete_1h_ativo: true,
+  lembrete_24h_ativo: false,
+  mensagem_extra: null,
+};
+
+function tipoAtivoNaOrg(config: ConfigNotificacoes, tipo: TipoLembrete): boolean {
+  if (!config.ativo) return false;
+  return tipo === "lembrete_1h" ? config.lembrete_1h_ativo : config.lembrete_24h_ativo;
+}
 
 function diaIso(epochMs: number): string {
   return new Date(epochMs).toISOString().slice(0, 10);
@@ -58,6 +77,7 @@ function papelDaChave(): string {
 type ConsultaRow = {
   id: string;
   psicologo_id: string;
+  org_id: string;
   paciente_id: string | null;
   paciente_nome: string;
   data: string;
@@ -142,7 +162,7 @@ export async function POST(request: Request) {
   }
 
   const agora = new Date();
-  const limite = new Date(agora.getTime() + JANELA_MIN * 60_000);
+  const limite = new Date(agora.getTime() + JANELA_MAX_MIN * 60_000);
 
   // ---------------------------------------------------------------
   // 1. Planejar: enfileira lembretes das consultas que começam em breve.
@@ -150,7 +170,7 @@ export async function POST(request: Request) {
   const { data: consultas, error: erroConsultas } = await supabase
     .from("consultas")
     .select(
-      "id, psicologo_id, paciente_id, paciente_nome, data, horario, status, modalidade, email, cliente_id"
+      "id, psicologo_id, org_id, paciente_id, paciente_nome, data, horario, status, modalidade, email, cliente_id"
     )
     .eq("status", "confirmada")
     .eq("tipo", "consulta")
@@ -166,7 +186,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: erroConsultas.message }, { status: 500 });
   }
 
-  // Recorte exato da janela, com o fuso já resolvido.
+  // Recorte exato da janela (a mais larga entre os tipos), com o fuso já
+  // resolvido. Cada tipo aplica sua própria janela mais abaixo, mais
+  // restrita — este é só o corte inicial pra não carregar dado à toa.
   const naJanela = (consultas ?? []).filter((c) => {
     const inicio = inicioDaConsulta(c.data, c.horario);
     return inicio > agora && inicio <= limite;
@@ -182,8 +204,9 @@ export async function POST(request: Request) {
     const pacienteIds = [
       ...new Set(naJanela.map((c) => c.paciente_id).filter((id): id is string => !!id)),
     ];
+    const orgIds = [...new Set(naJanela.map((c) => c.org_id))];
 
-    const [{ data: perfis }, { data: profiles }, { data: pacientes }] =
+    const [{ data: perfis }, { data: profiles }, { data: pacientes }, { data: configs }] =
       await Promise.all([
         supabase
           .from("perfis")
@@ -204,6 +227,11 @@ export async function POST(request: Request) {
               .in("id", pacienteIds)
               .returns<{ id: string; email: string | null }[]>()
           : Promise.resolve({ data: [] as { id: string; email: string | null }[] }),
+        supabase
+          .from("configuracao_notificacoes")
+          .select("org_id, ativo, lembrete_1h_ativo, lembrete_24h_ativo, mensagem_extra")
+          .in("org_id", orgIds)
+          .returns<(ConfigNotificacoes & { org_id: string })[]>(),
       ]);
 
     const perfilPorId = new Map((perfis ?? []).map((p) => [p.id, p]));
@@ -211,6 +239,7 @@ export async function POST(request: Request) {
     const emailPacientePorId = new Map(
       (pacientes ?? []).map((p) => [p.id, p.email])
     );
+    const configPorOrg = new Map((configs ?? []).map((c) => [c.org_id, c]));
 
     const linhas: Record<string, unknown>[] = [];
 
@@ -218,10 +247,8 @@ export async function POST(request: Request) {
       const perfil = perfilPorId.get(consulta.psicologo_id);
       if (!perfil) continue;
 
-      const agendadoPara = new Date(
-        inicioDaConsulta(consulta.data, consulta.horario).getTime() -
-          ANTECEDENCIA_MIN * 60_000
-      );
+      const config = configPorOrg.get(consulta.org_id) ?? CONFIG_PADRAO;
+      const inicio = inicioDaConsulta(consulta.data, consulta.horario);
 
       // Ordem de preferência do e-mail do paciente:
       // 1. o informado no próprio agendamento público (mais específico);
@@ -235,55 +262,63 @@ export async function POST(request: Request) {
         null;
       const emailPsicologo = emailPorId.get(consulta.psicologo_id) ?? null;
 
-      const basePayload = {
-        tipo: "lembrete_1h" as const,
-        consultaId: consulta.id,
-        data: consulta.data,
-        horario: consulta.horario.slice(0, 5),
-        modalidade: consulta.modalidade,
-        pacienteNome: consulta.paciente_nome,
-        psicologoNome: perfil.nome,
-        salaUrl:
-          consulta.modalidade === "online" && perfil.sala_online_url
-            ? perfil.sala_online_url
-            : null,
-        enderecoConsultorio:
-          consulta.modalidade === "presencial" ? enderecoDoPerfil(perfil) : null,
-        mapsUrl:
-          consulta.modalidade === "presencial" && perfil.tem_consultorio
-            ? perfil.consultorio_maps_url || null
-            : null,
-      };
+      for (const { tipo, antecedenciaMin, janelaMin } of TIPOS_LEMBRETE) {
+        if (!tipoAtivoNaOrg(config, tipo)) continue;
+        if (inicio.getTime() - agora.getTime() > janelaMin * 60_000) continue;
 
-      const destinatarios: { quem: Destinatario; email: string | null }[] = [
-        { quem: "paciente", email: emailPaciente },
-        { quem: "psicologo", email: emailPsicologo },
-      ];
+        const agendadoPara = new Date(inicio.getTime() - antecedenciaMin * 60_000);
 
-      for (const { quem, email } of destinatarios) {
-        const payload: LembretePayload = { ...basePayload, destinatario: quem };
+        const basePayload = {
+          tipo,
+          consultaId: consulta.id,
+          data: consulta.data,
+          horario: consulta.horario.slice(0, 5),
+          mensagemExtra: config.mensagem_extra,
+          modalidade: consulta.modalidade,
+          pacienteNome: consulta.paciente_nome,
+          psicologoNome: perfil.nome,
+          salaUrl:
+            consulta.modalidade === "online" && perfil.sala_online_url
+              ? perfil.sala_online_url
+              : null,
+          enderecoConsultorio:
+            consulta.modalidade === "presencial" ? enderecoDoPerfil(perfil) : null,
+          mapsUrl:
+            consulta.modalidade === "presencial" && perfil.tem_consultorio
+              ? perfil.consultorio_maps_url || null
+              : null,
+        };
 
-        if (emailConfigurado() && email) {
-          linhas.push({
-            consulta_id: consulta.id,
-            tipo: "lembrete_1h",
-            destinatario: quem,
-            canal: "email",
-            destino: email,
-            payload,
-            agendado_para: agendadoPara.toISOString(),
-          });
-        }
-        if (webhookConfigurado()) {
-          linhas.push({
-            consulta_id: consulta.id,
-            tipo: "lembrete_1h",
-            destinatario: quem,
-            canal: "webhook",
-            destino: webhookUrl(),
-            payload,
-            agendado_para: agendadoPara.toISOString(),
-          });
+        const destinatarios: { quem: Destinatario; email: string | null }[] = [
+          { quem: "paciente", email: emailPaciente },
+          { quem: "psicologo", email: emailPsicologo },
+        ];
+
+        for (const { quem, email } of destinatarios) {
+          const payload: LembretePayload = { ...basePayload, destinatario: quem };
+
+          if (emailConfigurado() && email) {
+            linhas.push({
+              consulta_id: consulta.id,
+              tipo,
+              destinatario: quem,
+              canal: "email",
+              destino: email,
+              payload,
+              agendado_para: agendadoPara.toISOString(),
+            });
+          }
+          if (webhookConfigurado()) {
+            linhas.push({
+              consulta_id: consulta.id,
+              tipo,
+              destinatario: quem,
+              canal: "webhook",
+              destino: webhookUrl(),
+              payload,
+              agendado_para: agendadoPara.toISOString(),
+            });
+          }
         }
       }
     }
@@ -344,10 +379,11 @@ export async function POST(request: Request) {
       continue;
     }
 
-    const resultado =
-      notificacao.canal === "email"
-        ? await enviarEmail(notificacao.destino, montarLembrete(notificacao.payload))
-        : await enviarWebhook(notificacao.destino, notificacao.payload);
+    const resultado = await enviarMensagem(
+      notificacao.canal,
+      notificacao.destino,
+      notificacao.payload
+    );
 
     if (resultado.ok) {
       await supabase

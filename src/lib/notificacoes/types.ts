@@ -7,8 +7,10 @@ export type Canal = "email" | "webhook";
  * Conteúdo de um lembrete. Só dado de agendamento — nunca prontuário,
  * motivo da consulta, CPF ou qualquer informação clínica (LGPD).
  */
+export type TipoLembrete = "lembrete_1h" | "lembrete_24h";
+
 export type LembretePayload = {
-  tipo: "lembrete_1h";
+  tipo: TipoLembrete;
   consultaId: string;
   destinatario: Destinatario;
   /** yyyy-mm-dd */
@@ -23,6 +25,13 @@ export type LembretePayload = {
   /** Preenchidos só quando a consulta é presencial e há consultório. */
   enderecoConsultorio: string | null;
   mapsUrl: string | null;
+  /**
+   * Complemento curto configurado pelo psicólogo (ver
+   * configuracao_notificacoes.mensagem_extra) — nunca o template inteiro,
+   * de propósito (ver comentário em schema.sql sobre por que isso é
+   * restrito a um complemento, não uma substituição total).
+   */
+  mensagemExtra: string | null;
 };
 
 export type ResultadoEnvio =

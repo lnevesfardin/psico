@@ -107,6 +107,7 @@ export type PacoteSessao = {
 export type Recibo = {
   id: string;
   patientId: string;
+  psicologoId: string;
   numero: number;
   competenciaInicio: string; // yyyy-mm-dd
   competenciaFim: string;

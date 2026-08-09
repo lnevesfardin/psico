@@ -6,9 +6,11 @@ import { useState } from "react";
 import {
   BookLock,
   CalendarClock,
+  ClipboardList,
   FileText,
   LogOut,
   Menu,
+  Receipt,
   Smile,
   UserCog,
   X,
@@ -20,7 +22,9 @@ const navItems = [
   { href: "/agendamentos", label: "Meus Agendamentos", icon: CalendarClock },
   { href: "/agendamentos/humor", label: "Humor", icon: Smile },
   { href: "/agendamentos/diario", label: "Meu Diário", icon: BookLock },
+  { href: "/agendamentos/tarefas", label: "Tarefas", icon: ClipboardList },
   { href: "/agendamentos/materiais", label: "Materiais", icon: FileText },
+  { href: "/agendamentos/recibos", label: "Recibos", icon: Receipt },
   { href: "/agendamentos/perfil", label: "Meu Perfil", icon: UserCog },
 ];
 
