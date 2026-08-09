@@ -18,10 +18,11 @@ type SessaoRow = {
   status: StatusEvolucao;
   assinado_em: string | null;
   agendamento_id: string | null;
+  gerado_por_ia: boolean;
 };
 
 const SESSAO_COLUMNS =
-  "id, conteudo, data_hora, origem, formato, status, assinado_em, agendamento_id";
+  "id, conteudo, data_hora, origem, formato, status, assinado_em, agendamento_id, gerado_por_ia";
 
 function rowToSessionNote(row: SessaoRow, adendos: Adendo[] = []): SessionNote {
   return {
@@ -33,6 +34,7 @@ function rowToSessionNote(row: SessaoRow, adendos: Adendo[] = []): SessionNote {
     status: row.status ?? "rascunho",
     assinadoEm: row.assinado_em,
     agendamentoId: row.agendamento_id,
+    geradoPorIa: row.gerado_por_ia ?? false,
     adendos,
   };
 }
@@ -397,7 +399,8 @@ export async function addSessionNote(
   content: string,
   formato: FormatoEvolucao,
   origin: SessionNoteOrigin = { origem: "manual" },
-  agendamentoId: string | null = null
+  agendamentoId: string | null = null,
+  geradoPorIa: boolean = false
 ): Promise<SessionNote> {
   const { data, error } = await supabase
     .from("sessoes_prontuario")
@@ -407,6 +410,7 @@ export async function addSessionNote(
       formato,
       agendamento_id: agendamentoId,
       origem: origin.origem,
+      gerado_por_ia: geradoPorIa,
       ...(origin.origem === "transcricao"
         ? {
             consentimento_em: origin.consentimentoEm,

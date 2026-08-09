@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole, type Role } from "@/lib/auth/role";
+import { verificarIaAtivaNaOrg } from "@/lib/ia/guards";
 
 const COMMON_RULES = `Regras importantes:
 - Responda sempre em português do Brasil, de forma breve, clara e cordial.
@@ -76,6 +77,11 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  const iaError = await verificarIaAtivaNaOrg(supabase, user.id);
+  if (iaError) {
+    return NextResponse.json({ error: iaError.error }, { status: iaError.status });
   }
 
   const role = await fetchUserRole(supabase, user.id);

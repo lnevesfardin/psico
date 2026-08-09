@@ -9,6 +9,7 @@ import {
   PenLine,
   Plus,
   ShieldCheck,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import type { Appointment, FormatoEvolucao, SessionNote } from "@/lib/dashboard-data";
@@ -20,9 +21,13 @@ import {
   signSessionNote,
   updateSessionNoteContent,
 } from "@/lib/patients-client";
+import { gerarRascunhoEvolucao } from "@/lib/ia-client";
 import { useAppointments } from "@/context/appointments-context";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
+
+const BANNER_IA =
+  "Rascunho gerado com apoio de IA. Revise antes de assinar. A responsabilidade técnica é sua.";
 
 const FORMATO_LABEL: Record<FormatoEvolucao, string> = {
   dap: "DAP",
@@ -90,6 +95,11 @@ export function PatientEvolucaoTab({
   const [adendoOpenFor, setAdendoOpenFor] = useState<string | null>(null);
   const [adendoTexto, setAdendoTexto] = useState("");
   const [adendoMotivo, setAdendoMotivo] = useState("");
+  const [geradoPorIa, setGeradoPorIa] = useState(false);
+  const [iaOpen, setIaOpen] = useState(false);
+  const [iaAnotacoes, setIaAnotacoes] = useState("");
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaError, setIaError] = useState<string | null>(null);
   const loggedRead = useRef(false);
 
   // "Toda leitura de evolução grava em audit_log" — este componente só
@@ -140,7 +150,8 @@ export function PatientEvolucaoTab({
       content,
       formato,
       { origem: "manual" },
-      agendamentoId || null
+      agendamentoId || null,
+      geradoPorIa
     );
     setDraftId(note.id);
     lastSaved.current = content;
@@ -182,6 +193,31 @@ export function PatientEvolucaoTab({
     setAgendamentoId("");
     setDraftId(null);
     lastSaved.current = "";
+    setGeradoPorIa(false);
+    setIaOpen(false);
+    setIaAnotacoes("");
+    setIaError(null);
+  }
+
+  async function handleGerarComIa() {
+    if (formato !== "dap" && formato !== "soap") return;
+    if (!iaAnotacoes.trim()) return;
+    setIaLoading(true);
+    setIaError(null);
+    try {
+      const campos = await gerarRascunhoEvolucao({
+        patientId,
+        anotacoes: iaAnotacoes.trim(),
+        formato,
+      });
+      setCampos(campos);
+      setGeradoPorIa(true);
+      setIaOpen(false);
+    } catch (err) {
+      setIaError(err instanceof Error ? err.message : "Não foi possível gerar o rascunho.");
+    } finally {
+      setIaLoading(false);
+    }
   }
 
   async function handleSign() {
@@ -354,6 +390,61 @@ export function PatientEvolucaoTab({
             </label>
           )}
 
+          {(formato === "dap" || formato === "soap") && !geradoPorIa && (
+            <div className="mt-3">
+              {!iaOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setIaOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-950/40 dark:text-brand-300"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Gerar rascunho com IA a partir de anotações livres
+                </button>
+              ) : (
+                <div className="rounded-lg border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-900 dark:bg-brand-950/30">
+                  {iaError && (
+                    <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+                      {iaError}
+                    </div>
+                  )}
+                  <textarea
+                    value={iaAnotacoes}
+                    onChange={(e) => setIaAnotacoes(e.target.value)}
+                    rows={4}
+                    placeholder={`Escreva suas anotações livres da sessão — a IA organiza em ${FORMATO_LABEL[formato]} sem inventar conteúdo.`}
+                    className="w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIaOpen(false)}
+                      className="rounded-full px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGerarComIa}
+                      disabled={iaLoading || !iaAnotacoes.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {iaLoading ? "Gerando..." : "Gerar rascunho"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {geradoPorIa && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+              <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {BANNER_IA}
+            </div>
+          )}
+
           <div className="mt-3 space-y-3">
             {formato === "livre" ? (
               <textarea
@@ -444,6 +535,15 @@ export function PatientEvolucaoTab({
                     <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
                       <Mic className="h-3 w-3" />
                       Transcrição
+                    </span>
+                  )}
+                  {session.geradoPorIa && (
+                    <span
+                      title={BANNER_IA}
+                      className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      Rascunho com IA
                     </span>
                   )}
                 </div>

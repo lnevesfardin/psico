@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole } from "@/lib/auth/role";
+import { verificarIaAtivaNaOrg } from "@/lib/ia/guards";
 
 // Transcreve um trecho do áudio de uma sessão. Recebe um segmento por vez
 // (ver lib/audio/session-recorder.ts) em vez da sessão inteira: o limite de
@@ -46,6 +47,11 @@ export async function POST(request: Request) {
   const role = await fetchUserRole(supabase, user.id);
   if (role === "paciente") {
     return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
+  }
+
+  const iaError = await verificarIaAtivaNaOrg(supabase, user.id);
+  if (iaError) {
+    return NextResponse.json({ error: iaError.error }, { status: iaError.status });
   }
 
   let form: FormData;

@@ -30,6 +30,15 @@ create table if not exists organizations (
 -- sem restrição (comportamento que já existia antes desta coluna existir).
 alter table organizations add column if not exists prazo_cancelamento_horas int not null default 0;
 
+-- Fase 5 (módulo de IA): interruptor geral por organização. Todo route
+-- handler de IA (rascunho de evolução, resumo pré-sessão, temas recorrentes,
+-- assistente administrativo) consulta esta coluna antes de chamar o modelo —
+-- desligar aqui desliga a IA por completo pra organização inteira, sem
+-- depender de nenhuma outra trava. Default true: as funcionalidades de IA já
+-- existiam antes desta coluna (chat/extração de lançamento/transcrição) e
+-- não devem parar de funcionar silenciosamente pra quem já usa.
+alter table organizations add column if not exists ia_ativa boolean not null default true;
+
 -- =========================================================
 -- profiles — identidade genérica de QUALQUER usuário (psicólogo, secretária,
 -- admin de clínica ou paciente). Separada de "perfis", que continua sendo só
@@ -517,6 +526,16 @@ alter table sessoes_prontuario add column if not exists hash_conteudo text;
 -- consulta, não só por contagem). Nullable: nem toda evolução nasce de uma
 -- consulta específica marcada como realizada (ex.: nota avulsa).
 alter table sessoes_prontuario add column if not exists agendamento_id uuid references consultas(id) on delete set null;
+
+-- Fase 5 (módulo de IA): marca uma evolução cujo texto nasceu de um rascunho
+-- gerado por IA (estruturação DAP/SOAP a partir de anotações livres — ver
+-- api/gemini/rascunho-evolucao). Independente de "origem" (que distingue
+-- manual de transcrição de áudio): uma evolução pode nascer de transcrição E
+-- ainda assim não ter sido estruturada por IA, ou nascer manual e ter sido
+-- só reorganizada por IA — os dois eixos são ortogonais. Nunca marca sozinha
+-- a evolução como assinada: toda saída de IA nasce em status='rascunho'
+-- (default da coluna), a assinatura continua exclusivamente manual.
+alter table sessoes_prontuario add column if not exists gerado_por_ia boolean not null default false;
 
 do $$
 begin
@@ -3113,11 +3132,25 @@ create policy "psicologo_admin_ve_auditoria_da_org" on audit_log
     org_id = auth_org_id() and auth_role() in ('psicologo', 'admin_clinica')
   );
 
+-- p_ip/p_user_agent (Fase 5): ficam null nas chamadas via RPC direto do
+-- client (ex.: "leu_evolucao" em patient-evolucao-tab.tsx), preenchidos só
+-- quando quem chama é um route handler com request de verdade — é o caso do
+-- módulo de IA (ver src/lib/ia/guards.ts), que loga 'uso_ia' com IP/user
+-- agent de onde a chamada ao modelo partiu, igual ao padrão já usado em
+-- aceitar_consentimento/api/consentimentos/aceitar.
+-- drop explícito: acrescentar parâmetros via "create or replace" cria um
+-- SEGUNDO overload em vez de substituir o de 4 argumentos (Postgres
+-- identifica a função pela lista de tipos, não pelos defaults) — sem este
+-- drop, uma chamada com os 4 argumentos nomeados originais ficaria ambígua
+-- entre os dois overloads.
+drop function if exists registrar_auditoria(text, text, uuid, uuid);
 create or replace function registrar_auditoria(
   p_acao text,
   p_entidade text,
   p_entidade_id uuid default null,
-  p_paciente_id uuid default null
+  p_paciente_id uuid default null,
+  p_ip inet default null,
+  p_user_agent text default null
 )
 returns void
 language plpgsql
@@ -3125,12 +3158,12 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into audit_log (org_id, actor_id, acao, entidade, entidade_id, paciente_id)
-  values (auth_org_id(), auth.uid(), p_acao, p_entidade, p_entidade_id, p_paciente_id);
+  insert into audit_log (org_id, actor_id, acao, entidade, entidade_id, paciente_id, ip, user_agent)
+  values (auth_org_id(), auth.uid(), p_acao, p_entidade, p_entidade_id, p_paciente_id, p_ip, p_user_agent);
 end;
 $$;
 
-grant execute on function registrar_auditoria(text, text, uuid, uuid) to authenticated;
+grant execute on function registrar_auditoria(text, text, uuid, uuid, inet, text) to authenticated;
 
 -- =========================================================
 -- recibos (Fase 2) — numeração sequencial POR ORGANIZAÇÃO (não global),

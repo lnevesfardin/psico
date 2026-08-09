@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
+import { verificarIaAtivaNaOrg } from "@/lib/ia/guards";
 
 // Instrução fixa do usuário: extrair um lançamento financeiro descrito em
 // texto livre para os 4 campos do formulário "Novo Lançamento". O resultado
@@ -62,6 +63,11 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  const iaError = await verificarIaAtivaNaOrg(supabase, user.id);
+  if (iaError) {
+    return NextResponse.json({ error: iaError.error }, { status: iaError.status });
   }
 
   let body: unknown;

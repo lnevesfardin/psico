@@ -47,6 +47,28 @@ export async function updatePrazoCancelamentoHoras(
   if (error) throw new Error(error.message);
 }
 
+// Interruptor geral de IA da organização (trava obrigatória do módulo de
+// IA) — desligar aqui bloqueia os 4 route handlers de src/app/api/gemini/*
+// que dependem de patientId (ver src/lib/ia/guards.ts), além do chat
+// assistente e da extração de lançamento, que também checam esta coluna.
+export async function getIaAtiva(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase.from("organizations").select("ia_ativa").single();
+  if (error) throw new Error(error.message);
+  return data.ia_ativa as boolean;
+}
+
+export async function updateIaAtiva(
+  supabase: SupabaseClient,
+  orgId: string,
+  ativa: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from("organizations")
+    .update({ ia_ativa: ativa })
+    .eq("id", orgId);
+  if (error) throw new Error(error.message);
+}
+
 export async function getConfiguracaoNotificacoes(
   supabase: SupabaseClient
 ): Promise<ConfiguracaoNotificacoes> {

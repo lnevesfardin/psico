@@ -20,6 +20,10 @@ export type SessionNote = {
   status: StatusEvolucao;
   assinadoEm: string | null; // ISO string, null enquanto for rascunho
   agendamentoId: string | null;
+  // Rascunho estruturado por IA a partir de anotações livres (ver
+  // api/gemini/rascunho-evolucao) — nunca true numa evolução assinada
+  // automaticamente; a assinatura continua sempre manual.
+  geradoPorIa: boolean;
   adendos: Adendo[];
 };
 
