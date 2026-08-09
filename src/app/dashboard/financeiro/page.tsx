@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Wallet,
   CheckCircle2,
@@ -11,8 +11,11 @@ import {
   X,
   Sparkles,
   Loader2,
+  Download,
+  TrendingDown,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
+import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
 import { listPatients } from "@/lib/patients-client";
 import {
@@ -24,17 +27,58 @@ import {
   type Lancamento,
   type LancamentoRow,
 } from "@/lib/financeiro-client";
-import type { Patient, PaymentStatus } from "@/lib/dashboard-data";
+import type {
+  CategoriaLancamento,
+  FormaPagamento,
+  Patient,
+  PaymentStatus,
+  TipoLancamento,
+} from "@/lib/dashboard-data";
 import { formatCurrency, formatDateShort, todayIso } from "@/lib/format";
+import { AReceberTab } from "@/components/dashboard/financeiro-a-receber-tab";
+import { DashboardFinanceiroTab } from "@/components/dashboard/financeiro-dashboard-tab";
+import { RecibosTab } from "@/components/dashboard/financeiro-recibos-tab";
+
+const CATEGORIA_LABEL: Record<CategoriaLancamento, string> = {
+  sessao: "Sessão",
+  pacote: "Pacote",
+  aluguel: "Aluguel",
+  supervisao: "Supervisão",
+  software: "Software",
+  imposto: "Imposto",
+  outro: "Outro",
+};
+
+const CATEGORIAS_RECEITA: CategoriaLancamento[] = ["sessao", "pacote", "outro"];
+const CATEGORIAS_DESPESA: CategoriaLancamento[] = [
+  "aluguel",
+  "supervisao",
+  "software",
+  "imposto",
+  "outro",
+];
+
+type StatusFilter = "todos" | PaymentStatus;
+type TipoFilter = "todos" | TipoLancamento;
 
 export default function FinanceiroPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState<"lancamentos" | "a_receber" | "dashboard" | "recibos">(
+    "lancamentos"
+  );
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [loadingLancamentos, setLoadingLancamentos] = useState(true);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [periodoInicio, setPeriodoInicio] = useState("");
+  const [periodoFim, setPeriodoFim] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
+  const [patientFilter, setPatientFilter] = useState("");
+  const [categoriaFilter, setCategoriaFilter] = useState<CategoriaLancamento | "todas">("todas");
+  const [tipoFilter, setTipoFilter] = useState<TipoFilter>("todos");
 
   useEffect(() => {
     if (!user) return;
@@ -78,17 +122,27 @@ export default function FinanceiroPage() {
     };
   }, [user]);
 
-  const sortedLancamentos = [...lancamentos].sort((a, b) =>
-    a.data < b.data ? 1 : a.data > b.data ? -1 : 0
-  );
+  const filtered = useMemo(() => {
+    return lancamentos
+      .filter((l) => !periodoInicio || l.vencimento >= periodoInicio)
+      .filter((l) => !periodoFim || l.vencimento <= periodoFim)
+      .filter((l) => statusFilter === "todos" || l.status === statusFilter)
+      .filter((l) => !patientFilter || l.patientId === patientFilter)
+      .filter((l) => categoriaFilter === "todas" || l.categoria === categoriaFilter)
+      .filter((l) => tipoFilter === "todos" || l.tipo === tipoFilter)
+      .sort((a, b) => (a.vencimento < b.vencimento ? 1 : a.vencimento > b.vencimento ? -1 : 0));
+  }, [lancamentos, periodoInicio, periodoFim, statusFilter, patientFilter, categoriaFilter, tipoFilter]);
 
-  const totalRecebido = lancamentos
-    .filter((l) => l.status === "pago")
+  const totalRecebido = filtered
+    .filter((l) => l.tipo === "receita" && l.status === "pago")
     .reduce((sum, l) => sum + l.valor, 0);
-  const totalPendente = lancamentos
-    .filter((l) => l.status === "pendente")
+  const totalPendente = filtered
+    .filter((l) => l.tipo === "receita" && l.status === "pendente")
     .reduce((sum, l) => sum + l.valor, 0);
-  const totalGeral = totalRecebido + totalPendente;
+  const totalDespesas = filtered
+    .filter((l) => l.tipo === "despesa" && l.status !== "cancelado")
+    .reduce((sum, l) => sum + l.valor, 0);
+  const totalGeral = totalRecebido - totalDespesas;
 
   async function handleToggle(lancamento: Lancamento) {
     const nextStatus: PaymentStatus =
@@ -117,8 +171,9 @@ export default function FinanceiroPage() {
   }
 
   async function handleDelete(lancamento: Lancamento) {
+    const label = lancamento.tipo === "despesa" ? "a despesa" : "o lançamento";
     const confirmed = window.confirm(
-      `Excluir o lançamento de ${lancamento.patientName} (${formatCurrency(lancamento.valor)})? Essa ação não pode ser desfeita.`
+      `Excluir ${label} de ${lancamento.patientName ?? lancamento.descricao ?? "—"} (${formatCurrency(lancamento.valor)})? Essa ação não pode ser desfeita.`
     );
     if (!confirmed) return;
     setPendingIds((prev) => new Set(prev).add(lancamento.id));
@@ -135,6 +190,32 @@ export default function FinanceiroPage() {
     }
   }
 
+  function handleExportCsv() {
+    const header = ["Data", "Vencimento", "Tipo", "Categoria", "Paciente", "Valor", "Status", "Descrição"];
+    const rows = filtered.map((l) => [
+      l.data,
+      l.vencimento,
+      l.tipo,
+      CATEGORIA_LABEL[l.categoria],
+      l.patientName ?? "",
+      l.valor.toFixed(2).replace(".", ","),
+      l.status,
+      (l.descricao ?? "").replace(/[\r\n;]+/g, " "),
+    ]);
+    const csv = [header, ...rows]
+      .map((linha) => linha.map((campo) => `"${String(campo).replace(/"/g, '""')}"`).join(";"))
+      .join("\r\n");
+    // BOM: Excel no Windows (o que o contador provavelmente usa) só detecta
+    // UTF-8 sem isso mostrar "Recebido"/"Descrição" com acento quebrado.
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `financeiro_${periodoInicio || "todos"}_${periodoFim || todayIso()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -143,117 +224,231 @@ export default function FinanceiroPage() {
             Financeiro / Recibos
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Acompanhe recebimentos e pendências do consultório. Clique no
-            status de um lançamento para marcá-lo como pago ou pendente.
+            Acompanhe recebimentos, despesas e pendências do consultório.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Lançamento
-        </button>
+        {tab === "lancamentos" && (
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" />
+            Novo Lançamento
+          </button>
+        )}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            Recebido
-          </div>
-          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
-            {formatCurrency(totalRecebido)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            <Clock3 className="h-4 w-4 text-amber-500" />
-            Pendente
-          </div>
-          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
-            {formatCurrency(totalPendente)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            <PiggyBank className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-            Faturamento total
-          </div>
-          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
-            {formatCurrency(totalGeral)}
-          </p>
-        </div>
+      <div className="mt-6 inline-flex flex-wrap rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
+        {(["lancamentos", "a_receber", "dashboard", "recibos"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              tab === t
+                ? "bg-brand-600 text-white"
+                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+          >
+            {t === "lancamentos"
+              ? "Lançamentos"
+              : t === "a_receber"
+                ? "A Receber"
+                : t === "dashboard"
+                  ? "Dashboard"
+                  : "Recibos"}
+          </button>
+        ))}
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-          Lançamentos
-        </h2>
-        <div className="mt-3 space-y-2">
-          {loadingLancamentos && (
-            <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
-              Carregando...
-            </p>
-          )}
-
-          {!loadingLancamentos && sortedLancamentos.length === 0 && (
-            <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
-              Nenhum lançamento registrado ainda. Use o botão &quot;Novo
-              Lançamento&quot; para começar.
-            </p>
-          )}
-
-          {sortedLancamentos.map((lancamento) => {
-            const isPago = lancamento.status === "pago";
-            const isSaving = pendingIds.has(lancamento.id);
-            return (
-              <div
-                key={lancamento.id}
-                className="flex items-center gap-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
-                  <Wallet className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-zinc-900 dark:text-white">
-                    {lancamento.patientName}
-                  </p>
-                  <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
-                    {formatDateShort(lancamento.data)}
-                    {lancamento.descricao ? ` · ${lancamento.descricao}` : ""}
-                  </p>
-                </div>
-                <p className="shrink-0 font-semibold text-zinc-900 dark:text-white">
-                  {formatCurrency(lancamento.valor)}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleToggle(lancamento)}
-                  disabled={isSaving}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                    isPago
-                      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-                      : "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
-                  }`}
-                >
-                  {isSaving ? "Salvando..." : isPago ? "Pago" : "Pendente"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(lancamento)}
-                  disabled={isSaving}
-                  aria-label="Excluir lançamento"
-                  className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+      {tab === "lancamentos" && (
+        <>
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                Recebido
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
+                {formatCurrency(totalRecebido)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                <Clock3 className="h-4 w-4 text-amber-500" />
+                Pendente
+              </div>
+              <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
+                {formatCurrency(totalPendente)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                <TrendingDown className="h-4 w-4 text-rose-500" />
+                Despesas
+              </div>
+              <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
+                {formatCurrency(totalDespesas)}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900/60">
+            <PiggyBank className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+            <span className="text-zinc-600 dark:text-zinc-400">Faturamento líquido (recebido − despesas):</span>
+            <span className="font-semibold text-zinc-900 dark:text-white">
+              {formatCurrency(totalGeral)}
+            </span>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={periodoInicio}
+              onChange={(e) => setPeriodoInicio(e.target.value)}
+              className="rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+            />
+            <span className="text-sm text-zinc-400">até</span>
+            <input
+              type="date"
+              value={periodoFim}
+              onChange={(e) => setPeriodoFim(e.target.value)}
+              className="rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+            />
+            <select
+              value={tipoFilter}
+              onChange={(e) => setTipoFilter(e.target.value as TipoFilter)}
+              className="rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+            >
+              <option value="todos">Receita e despesa</option>
+              <option value="receita">Só receita</option>
+              <option value="despesa">Só despesa</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+            >
+              <option value="todos">Todos os status</option>
+              <option value="pago">Pago</option>
+              <option value="pendente">Pendente</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+            <select
+              value={patientFilter}
+              onChange={(e) => setPatientFilter(e.target.value)}
+              className="rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+            >
+              <option value="">Todos os pacientes</option>
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={categoriaFilter}
+              onChange={(e) => setCategoriaFilter(e.target.value as CategoriaLancamento | "todas")}
+              className="rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+            >
+              <option value="todas">Todas as categorias</option>
+              {Object.entries(CATEGORIA_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              <Download className="h-4 w-4" />
+              Exportar CSV
+            </button>
+          </div>
+
+          <div className="mt-6">
+            <div className="space-y-2">
+              {loadingLancamentos && (
+                <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
+                  Carregando...
+                </p>
+              )}
+
+              {!loadingLancamentos && filtered.length === 0 && (
+                <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
+                  Nenhum lançamento encontrado para esse filtro.
+                </p>
+              )}
+
+              {filtered.map((lancamento) => {
+                const isPago = lancamento.status === "pago";
+                const isDespesa = lancamento.tipo === "despesa";
+                const isSaving = pendingIds.has(lancamento.id);
+                return (
+                  <div
+                    key={lancamento.id}
+                    className="flex items-center gap-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                        isDespesa
+                          ? "bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-400"
+                          : "bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400"
+                      }`}
+                    >
+                      {isDespesa ? <TrendingDown className="h-5 w-5" /> : <Wallet className="h-5 w-5" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-zinc-900 dark:text-white">
+                        {lancamento.patientName ?? CATEGORIA_LABEL[lancamento.categoria]}
+                      </p>
+                      <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
+                        {formatDateShort(lancamento.vencimento)} · {CATEGORIA_LABEL[lancamento.categoria]}
+                        {lancamento.descricao ? ` · ${lancamento.descricao}` : ""}
+                      </p>
+                    </div>
+                    <p
+                      className={`shrink-0 font-semibold ${isDespesa ? "text-rose-600 dark:text-rose-400" : "text-zinc-900 dark:text-white"}`}
+                    >
+                      {isDespesa ? "− " : ""}
+                      {formatCurrency(lancamento.valor)}
+                    </p>
+                    {lancamento.status !== "cancelado" && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggle(lancamento)}
+                        disabled={isSaving}
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                          isPago
+                            ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                            : "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
+                        }`}
+                      >
+                        {isSaving ? "Salvando..." : isPago ? "Pago" : "Pendente"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(lancamento)}
+                      disabled={isSaving}
+                      aria-label="Excluir lançamento"
+                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab === "a_receber" && <AReceberTab lancamentos={lancamentos} />}
+      {tab === "dashboard" && <DashboardFinanceiroTab lancamentos={lancamentos} />}
+      {tab === "recibos" && <RecibosTab patients={patients} />}
 
       {modalOpen && user && (
         <NewLancamentoModal
@@ -278,10 +473,15 @@ function NewLancamentoModal({
   onClose: () => void;
   onCreated: (lancamento: Lancamento) => void;
 }) {
+  const { profile } = useProfile();
+  const [tipo, setTipo] = useState<TipoLancamento>("receita");
   const [patientId, setPatientId] = useState("");
   const [valor, setValor] = useState("");
+  const [categoria, setCategoria] = useState<CategoriaLancamento>("sessao");
   const [status, setStatus] = useState<PaymentStatus>("pendente");
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | "">("");
   const [data, setData] = useState(todayIso());
+  const [vencimento, setVencimento] = useState(todayIso());
   const [descricao, setDescricao] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -294,6 +494,18 @@ function NewLancamentoModal({
   // primeiro id no useState evita que o <select> mostre um paciente que o
   // estado não sabe que está selecionado.
   const selectedPatientId = patientId || patients[0]?.id || "";
+
+  function handlePatientChange(id: string) {
+    setPatientId(id);
+    // Pré-preenche o valor com o valor de sessão do paciente (ou o valor
+    // padrão do psicólogo) só se o campo ainda não foi digitado à mão —
+    // nunca sobrescreve o que o psicólogo já escreveu.
+    if (!valor) {
+      const patient = patients.find((p) => p.id === id);
+      const sugerido = patient?.valorSessao ?? profile.price ?? null;
+      if (sugerido) setValor(sugerido.toFixed(2).replace(".", ","));
+    }
+  }
 
   function encontrarPaciente(nome: string) {
     const alvo = nome
@@ -344,6 +556,7 @@ function NewLancamentoModal({
       }
       if (typeof result.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(result.data)) {
         setData(result.data);
+        setVencimento(result.data);
       }
       if (result.status === "pago" || result.status === "pendente") {
         setStatus(result.status);
@@ -361,8 +574,8 @@ function NewLancamentoModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const patient = patients.find((p) => p.id === selectedPatientId);
-    if (!patient) {
+    const patient = tipo === "receita" ? patients.find((p) => p.id === selectedPatientId) : null;
+    if (tipo === "receita" && !patient) {
       setError("Selecione um paciente.");
       return;
     }
@@ -376,11 +589,17 @@ function NewLancamentoModal({
         return;
       }
       const lancamento = await createLancamento(supabase, psicologoId, {
-        patientId: patient.id,
-        patientName: patient.name,
+        tipo,
+        patientId: patient?.id ?? null,
+        patientName: patient?.name ?? null,
         valor: valorNumerico,
         status,
+        categoria,
         data,
+        vencimento,
+        formaPagamento: status === "pago" && formaPagamento ? formaPagamento : null,
+        agendamentoId: null,
+        pacoteId: null,
         descricao,
       });
       onCreated(lancamento);
@@ -395,12 +614,14 @@ function NewLancamentoModal({
     }
   }
 
+  const categorias = tipo === "receita" ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
       >
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
@@ -415,7 +636,25 @@ function NewLancamentoModal({
           </button>
         </div>
 
-        {patients.length > 0 && (
+        <div className="mt-4 inline-flex w-full rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
+          {(["receita", "despesa"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setTipo(t);
+                setCategoria(t === "receita" ? "sessao" : "aluguel");
+              }}
+              className={`flex-1 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                tipo === t ? "bg-brand-600 text-white" : "text-zinc-600 dark:text-zinc-400"
+              }`}
+            >
+              {t === "receita" ? "Receita" : "Despesa"}
+            </button>
+          ))}
+        </div>
+
+        {tipo === "receita" && patients.length > 0 && (
           <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-3 dark:border-brand-900 dark:bg-brand-950">
             <label className="flex items-center gap-1.5 text-sm font-medium text-brand-700 dark:text-brand-300">
               <Sparkles className="h-4 w-4" />
@@ -462,27 +701,29 @@ function NewLancamentoModal({
           </div>
         )}
 
-        {patients.length === 0 ? (
+        {tipo === "receita" && patients.length === 0 ? (
           <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-            Cadastre um paciente antes de registrar um lançamento.
+            Cadastre um paciente antes de registrar uma receita.
           </p>
         ) : (
           <div className="mt-4 space-y-4">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Paciente
-              <select
-                value={selectedPatientId}
-                onChange={(e) => setPatientId(e.target.value)}
-                required
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              >
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {tipo === "receita" && (
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Paciente
+                <select
+                  value={selectedPatientId}
+                  onChange={(e) => handlePatientChange(e.target.value)}
+                  required
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                >
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -503,12 +744,39 @@ function NewLancamentoModal({
                 />
               </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Categoria
+                <select
+                  value={categoria}
+                  onChange={(e) => setCategoria(e.target.value as CategoriaLancamento)}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                >
+                  {categorias.map((c) => (
+                    <option key={c} value={c}>
+                      {CATEGORIA_LABEL[c]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Data
                 <input
                   type="date"
                   required
                   value={data}
                   onChange={(e) => setData(e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Vencimento
+                <input
+                  type="date"
+                  required
+                  value={vencimento}
+                  onChange={(e) => setVencimento(e.target.value)}
                   className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
                 />
               </label>
@@ -530,11 +798,28 @@ function NewLancamentoModal({
                         : "text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    {s === "pago" ? "Recebido" : "Pendente"}
+                    {s === "pago" ? (tipo === "receita" ? "Recebido" : "Pago") : "Pendente"}
                   </button>
                 ))}
               </div>
             </div>
+
+            {status === "pago" && (
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Forma de pagamento (opcional)
+                <select
+                  value={formaPagamento}
+                  onChange={(e) => setFormaPagamento(e.target.value as FormaPagamento | "")}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                >
+                  <option value="">—</option>
+                  <option value="pix">Pix</option>
+                  <option value="cartao">Cartão</option>
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="transferencia">Transferência</option>
+                </select>
+              </label>
+            )}
 
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Descrição (opcional)
@@ -542,7 +827,7 @@ function NewLancamentoModal({
                 type="text"
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Sessão individual, pacote mensal..."
+                placeholder={tipo === "receita" ? "Sessão individual, pacote mensal..." : "Aluguel de agosto..."}
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               />
             </label>
@@ -551,7 +836,7 @@ function NewLancamentoModal({
 
         <button
           type="submit"
-          disabled={saving || patients.length === 0}
+          disabled={saving || (tipo === "receita" && patients.length === 0)}
           className="mt-6 w-full rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? "Salvando..." : "Salvar lançamento"}

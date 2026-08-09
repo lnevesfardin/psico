@@ -82,7 +82,40 @@ export type AppointmentStatus =
 
 export type ModalidadeAtendimento = "presencial" | "online";
 
-export type PaymentStatus = "pago" | "pendente";
+export type PaymentStatus = "pago" | "pendente" | "cancelado";
+export type TipoLancamento = "receita" | "despesa";
+export type CategoriaLancamento =
+  | "sessao"
+  | "pacote"
+  | "aluguel"
+  | "supervisao"
+  | "software"
+  | "imposto"
+  | "outro";
+export type FormaPagamento = "pix" | "cartao" | "dinheiro" | "transferencia";
+
+export type PacoteSessao = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  quantidadeSessoes: number;
+  sessoesUsadas: number;
+  valorTotal: number;
+  validade: string | null; // yyyy-mm-dd
+};
+
+export type Recibo = {
+  id: string;
+  patientId: string;
+  numero: number;
+  competenciaInicio: string; // yyyy-mm-dd
+  competenciaFim: string;
+  valorTotal: number;
+  quantidadeSessoes: number;
+  pagadorNome: string;
+  pagadorCpf: string;
+  emitidoEm: string; // ISO string
+};
 
 export type PublicBookingDetails = {
   idade: number;

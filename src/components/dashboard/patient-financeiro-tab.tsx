@@ -4,14 +4,20 @@ import { useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { listLancamentosByPatient, type Lancamento } from "@/lib/financeiro-client";
+import type { PaymentStatus } from "@/lib/dashboard-data";
 import { formatCurrency, formatDateShort } from "@/lib/format";
 
-const STATUS_CLASS = {
+const STATUS_CLASS: Record<PaymentStatus, string> = {
   pago: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
   pendente: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  cancelado: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
 };
 
-const STATUS_LABEL = { pago: "Pago", pendente: "Pendente" };
+const STATUS_LABEL: Record<PaymentStatus, string> = {
+  pago: "Pago",
+  pendente: "Pendente",
+  cancelado: "Cancelado",
+};
 
 // Só leitura: lançar/editar continua sendo feito na tela Financeiro
 // principal — aqui é só o histórico deste paciente.

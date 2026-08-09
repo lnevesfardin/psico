@@ -652,17 +652,43 @@ create or replace trigger consultas_set_updated_at
   for each row execute function set_updated_at();
 
 -- =========================================================
+-- pacotes_sessao (Fase 2) — pacote de sessões pré-pagas de um paciente.
+-- "sessoes_usadas" incrementa quando o psicólogo escolhe "consumir sessão
+-- do pacote" no atalho da Agenda (ver 3.4 mais abaixo) em vez de lançar uma
+-- cobrança avulsa — nunca automático, mesmo motivo de lancamentos_financeiros.
+-- =========================================================
+create table if not exists pacotes_sessao (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  quantidade_sessoes int not null check (quantidade_sessoes > 0),
+  sessoes_usadas int not null default 0 check (sessoes_usadas >= 0),
+  valor_total numeric(10, 2) not null,
+  validade date,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists pacotes_sessao_paciente_id_idx
+  on pacotes_sessao (paciente_id);
+
+-- =========================================================
 -- lancamentos_financeiros — único lugar de onde o Financeiro lê dados.
 -- Toda entrada é criada manualmente pelo psicólogo (botão "Novo
--- Lançamento"); agendar/editar uma consulta nunca grava nada aqui.
+-- Lançamento" ou o atalho "Lançar cobrança" que aparece na Agenda depois de
+-- marcar uma consulta como realizada, ver 3.4 mais abaixo) — agendar/editar
+-- uma consulta NUNCA grava nada aqui sozinho, de propósito (ver comentário
+-- em consultas mais acima: já existiu um trigger fazendo isso e foi
+-- removido). tipo distingue receita de despesa; despesa não tem paciente.
 -- =========================================================
 create table if not exists lancamentos_financeiros (
   id uuid primary key default gen_random_uuid(),
   psicologo_id uuid not null references auth.users(id) on delete cascade,
-  paciente_id uuid not null references pacientes(id) on delete cascade,
+  paciente_id uuid references pacientes(id) on delete cascade,
   -- snapshot do nome (mesmo padrão de consultas.paciente_nome): evita joins
   -- e preserva o registro histórico legível caso o paciente seja renomeado.
-  paciente_nome text not null,
+  -- null em despesa (aluguel, supervisão etc. não têm paciente).
+  paciente_nome text,
   valor numeric(10, 2) not null,
   status_pagamento text not null default 'pendente'
     check (status_pagamento in ('pago', 'pendente')),
@@ -673,6 +699,54 @@ create table if not exists lancamentos_financeiros (
 );
 
 alter table lancamentos_financeiros add column if not exists org_id uuid references organizations(id);
+
+-- Fase 2: receita vs despesa, categoria, vencimento/pagamento separados de
+-- "data" (que era ambígua — hoje só marcava "a data do lançamento"),
+-- ligação opcional com a consulta/pacote que originou a cobrança (evita
+-- lançar duas vezes a mesma sessão pelo atalho da Agenda).
+alter table lancamentos_financeiros alter column paciente_id drop not null;
+alter table lancamentos_financeiros alter column paciente_nome drop not null;
+alter table lancamentos_financeiros add column if not exists tipo text not null default 'receita';
+alter table lancamentos_financeiros add column if not exists categoria text not null default 'sessao';
+alter table lancamentos_financeiros add column if not exists vencimento date;
+update lancamentos_financeiros set vencimento = data where vencimento is null;
+alter table lancamentos_financeiros alter column vencimento set not null;
+alter table lancamentos_financeiros alter column vencimento set default current_date;
+alter table lancamentos_financeiros add column if not exists pago_em date;
+alter table lancamentos_financeiros add column if not exists forma_pagamento text;
+alter table lancamentos_financeiros add column if not exists agendamento_id uuid references consultas(id) on delete set null;
+alter table lancamentos_financeiros add column if not exists pacote_id uuid references pacotes_sessao(id) on delete set null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'lancamentos_financeiros_tipo_check'
+  ) then
+    alter table lancamentos_financeiros add constraint lancamentos_financeiros_tipo_check
+      check (tipo in ('receita', 'despesa'));
+  end if;
+end $$;
+
+alter table lancamentos_financeiros drop constraint if exists lancamentos_financeiros_status_pagamento_check;
+alter table lancamentos_financeiros add constraint lancamentos_financeiros_status_pagamento_check
+  check (status_pagamento in ('pago', 'pendente', 'cancelado'));
+
+-- Despesa não tem paciente; receita sempre tem (garante que a coluna
+-- nullable acima não vire "esqueci de preencher" em receita).
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'lancamentos_financeiros_paciente_por_tipo_check'
+  ) then
+    alter table lancamentos_financeiros add constraint lancamentos_financeiros_paciente_por_tipo_check
+      check (tipo = 'despesa' or paciente_id is not null);
+  end if;
+end $$;
+
+-- Idempotência do atalho "Lançar cobrança" da Agenda: no máximo um
+-- lançamento por consulta.
+create unique index if not exists lancamentos_financeiros_agendamento_id_idx
+  on lancamentos_financeiros (agendamento_id) where agendamento_id is not null;
 
 create index if not exists lancamentos_financeiros_psicologo_data_idx
   on lancamentos_financeiros (psicologo_id, data desc);
@@ -794,6 +868,7 @@ alter table pacientes enable row level security;
 alter table sessoes_prontuario enable row level security;
 alter table consultas enable row level security;
 alter table lancamentos_financeiros enable row level security;
+alter table pacotes_sessao enable row level security;
 alter table notificacoes enable row level security;
 -- app_secrets fica com RLS ligada e SEM NENHUMA POLICY de propósito: assim
 -- nem a anon key (que vai pro bundle JS) nem um usuário logado conseguem ler
@@ -1084,6 +1159,50 @@ create policy "acesso_lancamentos_update" on lancamentos_financeiros
 drop policy if exists "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros;
 drop policy if exists "acesso_lancamentos_delete" on lancamentos_financeiros;
 create policy "acesso_lancamentos_delete" on lancamentos_financeiros
+  for delete using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
+
+-- "pacotes_sessao": mesmo padrão de "lancamentos_financeiros".
+drop policy if exists "acesso_pacotes_select" on pacotes_sessao;
+create policy "acesso_pacotes_select" on pacotes_sessao
+  for select using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
+drop policy if exists "acesso_pacotes_insert" on pacotes_sessao;
+create policy "acesso_pacotes_insert" on pacotes_sessao
+  for insert with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
+drop policy if exists "acesso_pacotes_update" on pacotes_sessao;
+create policy "acesso_pacotes_update" on pacotes_sessao
+  for update using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  ) with check (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
+drop policy if exists "acesso_pacotes_delete" on pacotes_sessao;
+create policy "acesso_pacotes_delete" on pacotes_sessao
   for delete using (
     org_id = auth_org_id()
     and (
@@ -2253,6 +2372,9 @@ create or replace trigger habitos_paciente_set_org_id
 create or replace trigger notificacoes_set_org_id
   before insert on notificacoes
   for each row execute function set_org_id_from_consulta();
+create or replace trigger pacotes_sessao_set_org_id
+  before insert on pacotes_sessao
+  for each row execute function set_org_id_from_caller();
 
 -- =========================================================
 -- audit_log — trilha de acesso a dado clínico (Res. CFP / LGPD). Criada na
@@ -2308,3 +2430,95 @@ end;
 $$;
 
 grant execute on function registrar_auditoria(text, text, uuid, uuid) to authenticated;
+
+-- =========================================================
+-- recibos (Fase 2) — numeração sequencial POR ORGANIZAÇÃO (não global),
+-- texto adequado pra dedução no Imposto de Renda. Escrita só via
+-- emitir_recibo() abaixo: calcular "próximo número" e inserir precisam
+-- acontecer juntos, e a unique(org_id, numero) é quem garante que uma
+-- corrida entre duas emissões simultâneas nunca produz número repetido —
+-- a segunda simplesmente falha e tenta de novo (uso real de consultório
+-- pequeno, corrida é rara o bastante pra não precisar de retry automático
+-- no servidor).
+-- =========================================================
+create table if not exists recibos (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  numero int not null,
+  competencia_inicio date not null,
+  competencia_fim date not null,
+  valor_total numeric(10, 2) not null,
+  quantidade_sessoes int not null,
+  -- pode ser o responsável legal (paciente menor de idade), não o paciente.
+  pagador_nome text not null,
+  pagador_cpf text not null,
+  emitido_em timestamptz not null default now(),
+  unique (org_id, numero)
+);
+
+create index if not exists recibos_paciente_id_idx on recibos (paciente_id);
+
+alter table recibos enable row level security;
+
+drop policy if exists "acesso_recibos_select" on recibos;
+create policy "acesso_recibos_select" on recibos
+  for select using (
+    org_id = auth_org_id()
+    and (
+      auth_role() in ('secretaria', 'admin_clinica')
+      or (auth_role() = 'psicologo' and psicologo_id = auth.uid())
+    )
+  );
+-- Sem policy de insert/update/delete pra "authenticated": só a função
+-- abaixo escreve (numeração sequencial não pode passar por um insert cru
+-- que um cliente poderia repetir/pular). Sem policy de update/delete
+-- nenhuma — recibo emitido é documento fiscal, não se edita.
+
+create or replace function emitir_recibo(
+  p_paciente_id uuid,
+  p_competencia_inicio date,
+  p_competencia_fim date,
+  p_valor_total numeric,
+  p_quantidade_sessoes int,
+  p_pagador_nome text,
+  p_pagador_cpf text
+)
+returns recibos
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org_id uuid;
+  v_proximo_numero int;
+  v_recibo recibos;
+begin
+  if not exists (
+    select 1 from pacientes where id = p_paciente_id and psicologo_id = auth.uid()
+  ) then
+    raise exception 'Paciente não encontrado';
+  end if;
+
+  v_org_id := auth_org_id();
+
+  select coalesce(max(numero), 0) + 1 into v_proximo_numero
+  from recibos where org_id = v_org_id;
+
+  insert into recibos (
+    org_id, psicologo_id, paciente_id, numero, competencia_inicio, competencia_fim,
+    valor_total, quantidade_sessoes, pagador_nome, pagador_cpf
+  ) values (
+    v_org_id, auth.uid(), p_paciente_id, v_proximo_numero, p_competencia_inicio, p_competencia_fim,
+    p_valor_total, p_quantidade_sessoes, p_pagador_nome, p_pagador_cpf
+  )
+  returning * into v_recibo;
+
+  perform registrar_auditoria('emitiu_recibo', 'recibos', v_recibo.id, p_paciente_id);
+
+  return v_recibo;
+end;
+$$;
+
+grant execute on function emitir_recibo(uuid, date, date, numeric, int, text, text) to authenticated;

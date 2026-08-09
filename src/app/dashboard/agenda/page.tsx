@@ -20,9 +20,11 @@ import {
   Repeat,
   CalendarClock,
   ClipboardEdit,
+  Wallet,
 } from "lucide-react";
-import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
+import type { Appointment, AppointmentStatus, PacoteSessao, Patient } from "@/lib/dashboard-data";
 import {
+  formatCurrency,
   formatDateLabel,
   formatDateShort,
   todayIso,
@@ -36,6 +38,8 @@ import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { listAgendamentoIdsComEvolucao, listPatients } from "@/lib/patients-client";
 import { createRecorrenciaComOcorrencias, deactivateRecorrencia } from "@/lib/recorrencias-client";
+import { listPacotesAtivos, consumirSessaoPacote } from "@/lib/pacotes-client";
+import { createLancamento, lancamentoExistePorAgendamento } from "@/lib/financeiro-client";
 import { TimeSelect } from "@/components/ui/time-select";
 
 type MonthCell = { iso: string; day: number; inMonth: boolean };
@@ -88,6 +92,13 @@ export default function AgendaPage() {
     patientId: string;
     patientName: string;
   } | null>(null);
+  const [financeiroPrompt, setFinanceiroPrompt] = useState<{
+    appointment: Appointment;
+    pacote: PacoteSessao | null;
+    valorSugerido: number | null;
+  } | null>(null);
+  const [pacotesAtivos, setPacotesAtivos] = useState<PacoteSessao[]>([]);
+  const [lancandoCobranca, setLancandoCobranca] = useState(false);
   const [reschedulingItem, setReschedulingItem] = useState<Appointment | null>(
     null
   );
@@ -110,6 +121,7 @@ export default function AgendaPage() {
     const supabase = createClient();
     listPatients(supabase, user.id).then(setPatients);
     listAgendamentoIdsComEvolucao(supabase).then(setAgendamentosComEvolucao);
+    listPacotesAtivos(supabase, user.id).then(setPacotesAtivos);
   }, [user]);
 
   function getPhone(item: Appointment): string | undefined {
@@ -269,6 +281,65 @@ export default function AgendaPage() {
     // a evolução" — só faz sentido se já tiver um paciente vinculado.
     if (status === "realizada" && item.patientId) {
       setEvolucaoPrompt({ patientId: item.patientId, patientName: item.patientName });
+
+      // Financeiro continua 100% desvinculado da agenda por padrão (nada é
+      // criado sozinho) — isto é só uma sugestão que o psicólogo aceita ou
+      // ignora, mesmo espírito do atalho de evolução acima.
+      const patient = patients.find((p) => p.id === item.patientId);
+      const jaLancado = await lancamentoExistePorAgendamento(createClient(), item.id);
+      if (!jaLancado) {
+        const pacote = pacotesAtivos.find((p) => p.patientId === item.patientId) ?? null;
+        const valorSugerido = patient?.valorSessao ?? profile.price ?? null;
+        setFinanceiroPrompt({ appointment: item, pacote, valorSugerido });
+      }
+    }
+  }
+
+  async function handleConsumirPacote() {
+    if (!financeiroPrompt?.pacote) return;
+    setLancandoCobranca(true);
+    try {
+      const supabase = createClient();
+      await consumirSessaoPacote(
+        supabase,
+        financeiroPrompt.pacote.id,
+        financeiroPrompt.pacote.sessoesUsadas
+      );
+      setPacotesAtivos((prev) =>
+        prev.map((p) =>
+          p.id === financeiroPrompt.pacote!.id
+            ? { ...p, sessoesUsadas: p.sessoesUsadas + 1 }
+            : p
+        )
+      );
+      setFinanceiroPrompt(null);
+    } finally {
+      setLancandoCobranca(false);
+    }
+  }
+
+  async function handleLancarCobranca() {
+    if (!financeiroPrompt || !user || financeiroPrompt.valorSugerido == null) return;
+    setLancandoCobranca(true);
+    try {
+      const supabase = createClient();
+      await createLancamento(supabase, user.id, {
+        tipo: "receita",
+        patientId: financeiroPrompt.appointment.patientId,
+        patientName: financeiroPrompt.appointment.patientName,
+        valor: financeiroPrompt.valorSugerido,
+        status: "pendente",
+        categoria: "sessao",
+        data: financeiroPrompt.appointment.date,
+        vencimento: financeiroPrompt.appointment.date,
+        formaPagamento: null,
+        agendamentoId: financeiroPrompt.appointment.id,
+        pacoteId: null,
+        descricao: "",
+      });
+      setFinanceiroPrompt(null);
+    } finally {
+      setLancandoCobranca(false);
     }
   }
 
@@ -718,6 +789,55 @@ export default function AgendaPage() {
           <button
             type="button"
             onClick={() => setEvolucaoPrompt(null)}
+            aria-label="Dispensar"
+            className="shrink-0 rounded-full p-1 hover:bg-white/10 dark:hover:bg-zinc-900/10"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {financeiroPrompt && (
+        <div
+          className={`fixed left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-zinc-900 py-2.5 pl-4 pr-2 text-sm font-medium text-white shadow-lg dark:bg-white dark:text-zinc-900 ${
+            evolucaoPrompt ? "bottom-20" : "bottom-6"
+          }`}
+        >
+          <Wallet className="h-4 w-4 shrink-0" />
+          {financeiroPrompt.pacote ? (
+            <>
+              <span>
+                {financeiroPrompt.pacote.patientName} tem pacote ativo (
+                {financeiroPrompt.pacote.quantidadeSessoes - financeiroPrompt.pacote.sessoesUsadas}{" "}
+                sessão(ões) restante(s)).
+              </span>
+              <button
+                type="button"
+                onClick={handleConsumirPacote}
+                disabled={lancandoCobranca}
+                className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold transition-colors hover:bg-white/20 disabled:opacity-60 dark:bg-zinc-900/10 dark:hover:bg-zinc-900/20"
+              >
+                Consumir sessão do pacote
+              </button>
+            </>
+          ) : (
+            <>
+              <span>Lançar cobrança desta sessão no financeiro?</span>
+              <button
+                type="button"
+                onClick={handleLancarCobranca}
+                disabled={lancandoCobranca || financeiroPrompt.valorSugerido == null}
+                className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold transition-colors hover:bg-white/20 disabled:opacity-60 dark:bg-zinc-900/10 dark:hover:bg-zinc-900/20"
+              >
+                {financeiroPrompt.valorSugerido != null
+                  ? `Lançar ${formatCurrency(financeiroPrompt.valorSugerido)}`
+                  : "Sem valor cadastrado"}
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setFinanceiroPrompt(null)}
             aria-label="Dispensar"
             className="shrink-0 rounded-full p-1 hover:bg-white/10 dark:hover:bg-zinc-900/10"
           >
