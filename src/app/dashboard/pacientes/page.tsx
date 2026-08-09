@@ -21,6 +21,7 @@ const STATUS_LABEL: Record<PatientStatus, string> = {
 };
 
 type StatusFilter = "todos" | PatientStatus;
+type SortBy = "nome" | "primeira_consulta";
 
 export default function PacientesPage() {
   const { user } = useAuth();
@@ -28,6 +29,7 @@ export default function PacientesPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
+  const [sortBy, setSortBy] = useState<SortBy>("nome");
   const [showArchived, setShowArchived] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -44,10 +46,18 @@ export default function PacientesPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return patients
+    const list = patients
       .filter((p) => !q || p.name.toLowerCase().includes(q))
       .filter((p) => statusFilter === "todos" || p.status === statusFilter);
-  }, [patients, query, statusFilter]);
+    return [...list].sort((a, b) =>
+      sortBy === "primeira_consulta"
+        // Sem data cai pro fim da lista, não pro início.
+        ? (b.firstAppointmentDate || "0000-00-00").localeCompare(
+            a.firstAppointmentDate || "0000-00-00"
+          )
+        : a.name.localeCompare(b.name)
+    );
+  }, [patients, query, statusFilter, sortBy]);
 
   function handleCreated(patient: Patient) {
     setPatients((prev) => [...prev, patient].sort((a, b) => a.name.localeCompare(b.name)));
@@ -97,6 +107,14 @@ export default function PacientesPage() {
               {STATUS_LABEL[s]}
             </option>
           ))}
+        </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortBy)}
+          className="shrink-0 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+        >
+          <option value="nome">Ordenar: nome (A-Z)</option>
+          <option value="primeira_consulta">Ordenar: 1ª consulta (recente)</option>
         </select>
         <button
           type="button"

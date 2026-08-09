@@ -77,7 +77,7 @@ export default function AgendaPage() {
     dismissCancellationAlert,
   } = useAppointments();
   const { profile } = useProfile();
-  const [view, setView] = useState<"hoje" | "semana" | "mes">("hoje");
+  const [view, setView] = useState<"hoje" | "semana" | "mes">("semana");
   const [modalOpen, setModalOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
