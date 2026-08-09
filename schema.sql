@@ -1307,70 +1307,120 @@ create policy "psicologo_ve_proprias_notificacoes" on notificacoes
   );
 
 -- =========================================================
--- View pública (usada pela página /agendar/[psicologoId])
--- Expõe só as colunas seguras de "perfis" — nunca o whatsapp, já que RLS é
--- por linha, não por coluna, e essa view roda com o privilégio de quem a
--- criou (contorna a RLS de "perfis" de propósito, só para estas colunas).
+-- Acesso público a "perfis"/"disponibilidades"/"consultas" (usado pela
+-- página /agendar/[psicologoId] e por telas autenticadas de paciente que
+-- não têm RLS em "perfis", ver meu_psicologo_contato) — funções security
+-- definer, não views.
+--
+-- Isto ERA implementado como 3 views ("perfis_publico" etc.) rodando com o
+-- privilégio de quem as criou pra contornar a RLS de propósito, só devolvendo
+-- colunas seguras. Funciona, mas o Security Advisor do Supabase acusa
+-- "Security Definer View" como CRITICAL pra qualquer view nessa situação —
+-- é a mesma mecânica (bypass de RLS por dono), só que numa view por padrão
+-- é um bypass IMPLÍCITO e não documentado no próprio objeto (por isso o
+-- Postgres 15+ criou security_invoker=true como opt-out), enquanto numa
+-- função security definer o bypass é EXPLÍCITO na própria assinatura — é
+-- o padrão que o resto deste arquivo já usa sempre que uma policy precisa
+-- "espiar" outra tabela (convite_info, escala_info, eh_meu_paciente etc.),
+-- e não aciona aquele lint. Trocar pra security_invoker=true nas views
+-- NÃO seria a correção certa aqui: quebraria a página pública inteira, já
+-- que anon não tem (e não deve ter) nenhuma policy de RLS em "perfis" —
+-- security_invoker faria a view herdar exatamente essa ausência de acesso.
+--
+-- Ganho extra da troca: as views antigas não tinham filtro nenhum (um
+-- SELECT sem WHERE em perfis_publico devolvia o perfil de TODOS os
+-- psicólogos da plataforma pra quem consultasse a API REST direto, não só
+-- quem passa pela tela). As funções abaixo exigem o(s) id(s) do psicólogo
+-- como parâmetro — só devolvem o que o chamador já pediu meio de nome,
+-- igual ao padrão de link único usado em convite/escala.
+--
+-- drop view if exists: remove os objetos antigos de bancos que já rodaram
+-- uma versão anterior deste arquivo (idempotente).
 -- =========================================================
--- drop explícito antes do create: "create or replace view" não pode
--- renomear/reordenar colunas de uma view já existente (ex.: bancos
--- provisionados antes da coluna "uf" existir tinham view sem essa coluna
--- no meio, e o replace falha com "cannot change name of view column").
--- Sem outras views/objetos dependendo desta no schema, então o CASCADE só
--- derruba os GRANTs abaixo, que são recriados na sequência.
 drop view if exists perfis_publico cascade;
-
-create or replace view perfis_publico as
-select
-  id,
-  nome,
-  titulo,
-  crp,
-  uf,
-  cidade,
-  foto_url,
-  bio,
-  valor_consulta,
-  especialidades,
-  abordagens,
-  faixas_etarias,
-  tem_consultorio,
-  consultorio_rua,
-  consultorio_numero,
-  consultorio_bairro,
-  consultorio_cidade,
-  consultorio_uf,
-  consultorio_maps_url
-from perfis;
-
-grant select on perfis_publico to anon, authenticated;
-
--- View pública de "disponibilidades" — a página /agendar/[psicologoId]
--- precisa saber os blocos de horário do psicólogo pra montar os dias e
--- horários disponíveis, sem exigir login. Mesmas colunas da tabela: nada
--- sensível aqui (só dia/horário/modalidade).
 drop view if exists disponibilidades_publico cascade;
-
-create or replace view disponibilidades_publico as
-select id, psicologo_id, dia_semana, horario_inicio, horario_fim, modalidade
-from disponibilidades;
-
-grant select on disponibilidades_publico to anon, authenticated;
-
--- View pública de "consultas" — a página /agendar/[psicologoId] precisa
--- saber quais horários já estão ocupados para um psicólogo, mas a RLS de
--- "consultas" só permite o dono ler suas próprias linhas (auth.uid() =
--- psicologo_id), o que bloquearia completamente um visitante anônimo. Esta
--- view expõe só o essencial pra checar disponibilidade — nunca nome,
--- telefone ou qualquer outro dado do paciente.
--- mesmo motivo do drop de perfis_publico acima; sem dependentes no schema.
 drop view if exists consultas_publico cascade;
 
-create or replace view consultas_publico as
-select psicologo_id, data, horario, status
-from consultas;
+-- Aceita uma lista de ids (não só um) porque client-appointments-client.ts
+-- resolve o nome/foto de vários psicólogos de uma vez (histórico de
+-- agendamentos do cliente pode ter mais de um profissional).
+create or replace function perfis_publico(p_ids uuid[])
+returns table (
+  id uuid,
+  nome text,
+  titulo text,
+  crp text,
+  uf text,
+  cidade text,
+  foto_url text,
+  bio text,
+  valor_consulta numeric,
+  especialidades text[],
+  abordagens text[],
+  faixas_etarias text[],
+  tem_consultorio boolean,
+  consultorio_rua text,
+  consultorio_numero text,
+  consultorio_bairro text,
+  consultorio_cidade text,
+  consultorio_uf text,
+  consultorio_maps_url text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    id, nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta,
+    especialidades, abordagens, faixas_etarias, tem_consultorio,
+    consultorio_rua, consultorio_numero, consultorio_bairro,
+    consultorio_cidade, consultorio_uf, consultorio_maps_url
+  from perfis
+  where id = any(p_ids);
+$$;
 
-grant select on consultas_publico to anon, authenticated;
+grant execute on function perfis_publico(uuid[]) to anon, authenticated;
+
+create or replace function disponibilidades_publico(p_psicologo_id uuid)
+returns table (
+  id uuid,
+  dia_semana int,
+  horario_inicio time,
+  horario_fim time,
+  modalidade text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select id, dia_semana, horario_inicio, horario_fim, modalidade
+  from disponibilidades
+  where psicologo_id = p_psicologo_id;
+$$;
+
+grant execute on function disponibilidades_publico(uuid) to anon, authenticated;
+
+-- p_data_inicio: mesmo corte que o client já fazia com .gte("data",
+-- todayIso()) — só interessa saber ocupação de hoje em diante.
+create or replace function consultas_publico(p_psicologo_id uuid, p_data_inicio date)
+returns table (
+  data date,
+  horario time,
+  status text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select data, horario, status
+  from consultas
+  where psicologo_id = p_psicologo_id and data >= p_data_inicio;
+$$;
+
+grant execute on function consultas_publico(uuid, date) to anon, authenticated;
 
 -- =========================================================
 -- Agendamento público (RPC) — único caminho de escrita para visitantes

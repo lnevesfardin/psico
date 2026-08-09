@@ -13,7 +13,7 @@ type PsicologoInfo = { nome: string; titulo: string; crp: string };
 // Mesmo padrão de impressão do prontuário/recibo do lado do psicólogo (ver
 // src/app/dashboard/financeiro/recibos/[id]/page.tsx) — mas o paciente não
 // tem acesso ao ProfileProvider do psicólogo (contextos diferentes por
-// layout), então busca o nome/CRP via a view pública perfis_publico.
+// layout), então busca o nome/CRP via a função pública perfis_publico.
 export default function MeuReciboPage({
   params,
 }: {
@@ -29,12 +29,8 @@ export default function MeuReciboPage({
     getRecibo(supabase, id).then(async (r) => {
       setRecibo(r);
       if (r) {
-        const { data } = await supabase
-          .from("perfis_publico")
-          .select("nome, titulo, crp")
-          .eq("id", r.psicologoId)
-          .single();
-        setPsicologo(data as PsicologoInfo | null);
+        const { data } = await supabase.rpc("perfis_publico", { p_ids: [r.psicologoId] });
+        setPsicologo((data?.[0] as PsicologoInfo | undefined) ?? null);
       }
       setLoading(false);
     });

@@ -51,10 +51,7 @@ export async function listClientAppointments(
   if (rows.length === 0) return [];
 
   const psicologoIds = [...new Set(rows.map((r) => r.psicologo_id))];
-  const { data: perfis } = await supabase
-    .from("perfis_publico")
-    .select("id, nome, titulo, foto_url")
-    .in("id", psicologoIds);
+  const { data: perfis } = await supabase.rpc("perfis_publico", { p_ids: psicologoIds });
 
   const perfisById = new Map(
     ((perfis ?? []) as PerfilPublicoRow[]).map((p) => [p.id, p])
