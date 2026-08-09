@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
 import { autorizarUsoIA, isIAGuardError, registrarUsoIA } from "@/lib/ia/guards";
+import { decryptProntuario } from "@/lib/crypto/prontuario-crypto";
 import { listObjetivosAbertosByPatient } from "@/lib/planos-terapeuticos-client";
 import { listTarefasByPatient } from "@/lib/tarefas-client";
 import { REGRAS_CLINICAS_IA, MODEL } from "@/lib/ia/prompts";
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
 
   const contexto = [
     "Últimas evoluções (mais recente primeiro):",
-    ...evolucoes.map((e, i) => `${i + 1}. ${e.conteudo}`),
+    ...evolucoes.map((e, i) => `${i + 1}. ${decryptProntuario(e.conteudo)}`),
     "",
     "Objetivos terapêuticos em aberto:",
     objetivos.length > 0 ? objetivos.map((o) => `- ${o.descricao}`).join("\n") : "(nenhum)",

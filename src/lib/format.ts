@@ -1,7 +1,27 @@
+// Datas de consulta são sempre horário de Brasília (consultas.data é um
+// `date` sem fuso). toISOString() devolve UTC, então entre 21h e meia-noite
+// ele já apontava para o dia seguinte — a "Agenda de Hoje" mostrava o dia
+// errado e o formulário de nova consulta nascia com a data trocada.
+// "en-CA" é usado só porque formata como yyyy-mm-dd.
+const FUSO_BR = "America/Sao_Paulo";
+
+// timeZone explícito nas três funções abaixo (não confiar no fuso padrão do
+// runtime): campos timestamptz (data_hora de evolução, emitido_em de
+// recibo/documento, created_at de audit_log etc.) chegam do Supabase como
+// instante UTC — sem fixar America/Sao_Paulo aqui, o horário renderizado
+// dependeria do fuso do processo que roda o código. Isso é inofensivo num
+// navegador já configurado pra Brasília, mas todo Client Component do Next
+// ainda passa por uma primeira renderização NO SERVIDOR (SSR) antes de
+// hidratar — e o runtime do servidor (Vercel) roda em UTC por padrão. Sem
+// timeZone fixo, a versão renderizada no servidor mostrava a hora em UTC
+// (3h adiantada) só até a hidratação trocar pelo horário do navegador —
+// exatamente o tipo de "agendamento/evolução exibido com a hora errada" que
+// destrói a confiança no app, ainda que por uma fração de segundo.
 export function formatDateLabel(iso: string): string {
   const [year, month, day] = iso.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   const label = date.toLocaleDateString("pt-BR", {
+    timeZone: FUSO_BR,
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -11,13 +31,14 @@ export function formatDateLabel(iso: string): string {
 
 export function formatDateShort(iso: string): string {
   const [year, month, day] = iso.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("pt-BR");
+  return new Date(year, month - 1, day).toLocaleDateString("pt-BR", { timeZone: FUSO_BR });
 }
 
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
-  const datePart = date.toLocaleDateString("pt-BR");
+  const datePart = date.toLocaleDateString("pt-BR", { timeZone: FUSO_BR });
   const timePart = date.toLocaleTimeString("pt-BR", {
+    timeZone: FUSO_BR,
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -31,13 +52,7 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-// Datas de consulta são sempre horário de Brasília (consultas.data é um
-// `date` sem fuso). toISOString() devolve UTC, então entre 21h e meia-noite
-// ele já apontava para o dia seguinte — a "Agenda de Hoje" mostrava o dia
-// errado e o formulário de nova consulta nascia com a data trocada.
 // "en-CA" é usado só porque formata como yyyy-mm-dd.
-const FUSO_BR = "America/Sao_Paulo";
-
 function isoNoFusoBr(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO_BR }).format(date);
 }

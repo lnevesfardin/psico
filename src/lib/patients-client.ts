@@ -6,55 +6,49 @@ import type {
   PatientAddress,
   PatientStatus,
   SessionNote,
-  StatusEvolucao,
 } from "@/lib/dashboard-data";
 
-type SessaoRow = {
-  id: string;
-  conteudo: string;
-  data_hora: string;
-  origem: SessionNote["origem"];
-  formato: FormatoEvolucao;
-  status: StatusEvolucao;
-  assinado_em: string | null;
-  agendamento_id: string | null;
-  gerado_por_ia: boolean;
-};
-
-const SESSAO_COLUMNS =
-  "id, conteudo, data_hora, origem, formato, status, assinado_em, agendamento_id, gerado_por_ia";
-
-function rowToSessionNote(row: SessaoRow, adendos: Adendo[] = []): SessionNote {
-  return {
-    id: row.id,
-    content: row.conteudo,
-    dateTime: row.data_hora,
-    origem: row.origem ?? "manual",
-    formato: row.formato ?? "livre",
-    status: row.status ?? "rascunho",
-    assinadoEm: row.assinado_em,
-    agendamentoId: row.agendamento_id,
-    geradoPorIa: row.gerado_por_ia ?? false,
-    adendos,
-  };
+// addSessionNote/updateSessionNoteContent/signSessionNote/addAdendo abaixo
+// não gravam mais direto na tabela — "conteudo"/"texto" são dado clínico
+// sigiloso e agora passam por criptografia de aplicação (chave fora do
+// Supabase, ver src/lib/crypto/prontuario-crypto.ts), que só pode rodar no
+// servidor. Por isso essas funções viraram chamadas fetch() pras rotas em
+// src/app/api/prontuario/*, que fazem a cifra/decifra e escrevem usando o
+// client do servidor (cookie da sessão — RLS continua valendo, só muda
+// ONDE a chamada acontece).
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error ?? "Não foi possível carregar os dados.");
+  }
+  return data as T;
 }
 
-type AdendoRow = {
-  id: string;
-  evolucao_id: string;
-  texto: string;
-  motivo: string | null;
-  created_at: string;
-};
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error ?? "Não foi possível completar a solicitação.");
+  }
+  return data as T;
+}
 
-function rowToAdendo(row: AdendoRow): Adendo {
-  return {
-    id: row.id,
-    evolucaoId: row.evolucao_id,
-    texto: row.texto,
-    motivo: row.motivo,
-    createdAt: row.created_at,
-  };
+async function patchJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error ?? "Não foi possível completar a solicitação.");
+  }
+  return data as T;
 }
 
 type PacienteRow = {
@@ -186,32 +180,14 @@ export async function getPatientWithSessions(
     .single();
   if (error || !paciente) return null;
 
-  const { data: sessoes } = await supabase
-    .from("sessoes_prontuario")
-    .select(SESSAO_COLUMNS)
-    .eq("paciente_id", patientId)
-    .order("data_hora", { ascending: false });
-
-  const sessaoRows = (sessoes ?? []) as SessaoRow[];
-  const sessaoIds = sessaoRows.map((s) => s.id);
-
-  const { data: adendoRows } = sessaoIds.length
-    ? await supabase
-        .from("adendos_evolucao")
-        .select("id, evolucao_id, texto, motivo, created_at")
-        .in("evolucao_id", sessaoIds)
-        .order("created_at")
-    : { data: [] as AdendoRow[] };
-
-  const adendosPorEvolucao = new Map<string, Adendo[]>();
-  for (const a of (adendoRows ?? []) as AdendoRow[]) {
-    const lista = adendosPorEvolucao.get(a.evolucao_id) ?? [];
-    lista.push(rowToAdendo(a));
-    adendosPorEvolucao.set(a.evolucao_id, lista);
-  }
-
-  const sessions: SessionNote[] = sessaoRows.map((s) =>
-    rowToSessionNote(s, adendosPorEvolucao.get(s.id) ?? [])
+  // Via rota (não select direto): "conteudo"/"texto" chegam cifrados no
+  // banco, só a rota (servidor, com a chave) consegue decifrar — ver
+  // src/app/api/prontuario/pacientes/[id]/sessoes/route.ts. Propositalmente
+  // NÃO engole erro aqui (nada de "cair" pra lista vazia): se a rota falhar
+  // (ex.: chave de criptografia mal configurada), é melhor a tela mostrar
+  // "paciente não encontrado" do que fingir que não há nenhuma evolução.
+  const { sessions } = await getJson<{ sessions: SessionNote[] }>(
+    `/api/prontuario/pacientes/${patientId}/sessoes`
   );
 
   return rowToPatient(paciente as PacienteRow, sessions);
@@ -394,7 +370,6 @@ export type SessionNoteOrigin =
 // opcional: liga esta nota a uma consulta "realizada" específica, usado
 // pro alerta de "sessões sem evolução" (ver listAgendamentoIdsComEvolucao).
 export async function addSessionNote(
-  supabase: SupabaseClient,
   patientId: string,
   content: string,
   formato: FormatoEvolucao,
@@ -402,99 +377,42 @@ export async function addSessionNote(
   agendamentoId: string | null = null,
   geradoPorIa: boolean = false
 ): Promise<SessionNote> {
-  const { data, error } = await supabase
-    .from("sessoes_prontuario")
-    .insert({
-      paciente_id: patientId,
-      conteudo: content,
-      formato,
-      agendamento_id: agendamentoId,
-      origem: origin.origem,
-      gerado_por_ia: geradoPorIa,
-      ...(origin.origem === "transcricao"
-        ? {
-            consentimento_em: origin.consentimentoEm,
-            duracao_segundos: origin.duracaoSegundos,
-          }
-        : {}),
-    })
-    .select(SESSAO_COLUMNS)
-    .single();
-  if (error) throw new Error(error.message);
-  return rowToSessionNote(data as SessaoRow);
+  const { session } = await postJson<{ session: SessionNote }>("/api/prontuario/sessoes", {
+    patientId,
+    content,
+    formato,
+    origin,
+    agendamentoId,
+    geradoPorIa,
+  });
+  return session;
 }
 
 // Autosave do rascunho — só funciona enquanto status='rascunho'; o gatilho
 // sessoes_prontuario_imutavel no banco bloqueia update depois de assinada
 // (a RLS por si só permitiria, é o trigger que trava de verdade).
-export async function updateSessionNoteContent(
-  supabase: SupabaseClient,
-  sessionId: string,
-  content: string
-): Promise<void> {
-  const { error } = await supabase
-    .from("sessoes_prontuario")
-    .update({ conteudo: content })
-    .eq("id", sessionId);
-  if (error) throw new Error(error.message);
+export async function updateSessionNoteContent(sessionId: string, content: string): Promise<void> {
+  await patchJson(`/api/prontuario/sessoes/${sessionId}`, { content });
 }
 
-async function sha256Hex(text: string): Promise<string> {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-// Congela o conteúdo, grava o hash SHA-256 e passa status -> assinada.
-// Depois disso o trigger de imutabilidade bloqueia qualquer update/delete
-// nesta linha, inclusive pelo próprio autor — correção só via adendo.
+// Congela o conteúdo, grava o hash SHA-256 (do texto em claro, calculado no
+// servidor antes de cifrar) e passa status -> assinada. Depois disso o
+// trigger de imutabilidade bloqueia qualquer update/delete nesta linha,
+// inclusive pelo próprio autor — correção só via adendo.
 export async function signSessionNote(
-  supabase: SupabaseClient,
   sessionId: string,
   content: string
 ): Promise<{ assinadoEm: string; hash: string }> {
-  const hash = await sha256Hex(content);
-  const assinadoEm = new Date().toISOString();
-  const { error } = await supabase
-    .from("sessoes_prontuario")
-    .update({
-      conteudo: content,
-      status: "assinada",
-      assinado_em: assinadoEm,
-      hash_conteudo: hash,
-    })
-    .eq("id", sessionId);
-  if (error) throw new Error(error.message);
-
-  await supabase.rpc("registrar_auditoria", {
-    p_acao: "assinou_evolucao",
-    p_entidade: "sessoes_prontuario",
-    p_entidade_id: sessionId,
-  });
-
-  return { assinadoEm, hash };
+  return postJson(`/api/prontuario/sessoes/${sessionId}/assinar`, { content });
 }
 
-export async function addAdendo(
-  supabase: SupabaseClient,
-  evolucaoId: string,
-  texto: string,
-  motivo: string
-): Promise<Adendo> {
-  const { data, error } = await supabase
-    .from("adendos_evolucao")
-    .insert({
-      evolucao_id: evolucaoId,
-      autor_id: (await supabase.auth.getUser()).data.user?.id,
-      texto,
-      motivo: motivo || null,
-    })
-    .select("id, evolucao_id, texto, motivo, created_at")
-    .single();
-  if (error) throw new Error(error.message);
-  return rowToAdendo(data as AdendoRow);
+export async function addAdendo(evolucaoId: string, texto: string, motivo: string): Promise<Adendo> {
+  const { adendo } = await postJson<{ adendo: Adendo }>("/api/prontuario/adendos", {
+    evolucaoId,
+    texto,
+    motivo,
+  });
+  return adendo;
 }
 
 // Draft ainda pode ser apagado (o trigger só bloqueia quando status já é

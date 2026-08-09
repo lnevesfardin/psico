@@ -143,9 +143,7 @@ export function PatientEvolucaoTab({
     const content = currentContent();
     if (!content) return null;
     if (draftId) return draftId;
-    const supabase = createClient();
     const note = await addSessionNote(
-      supabase,
       patientId,
       content,
       formato,
@@ -170,8 +168,7 @@ export function PatientEvolucaoTab({
       try {
         const id = draftId ?? (await ensureDraft());
         if (id && content !== lastSaved.current) {
-          const supabase = createClient();
-          await updateSessionNoteContent(supabase, id, content);
+          await updateSessionNoteContent(id, content);
           lastSaved.current = content;
           updateSessions(
             sessions.map((s) => (s.id === id ? { ...s, content } : s))
@@ -225,13 +222,12 @@ export function PatientEvolucaoTab({
     if (!content) return;
     setSigning(true);
     try {
-      const supabase = createClient();
       const id = draftId ?? (await ensureDraft());
       if (!id) return;
       if (content !== lastSaved.current) {
-        await updateSessionNoteContent(supabase, id, content);
+        await updateSessionNoteContent(id, content);
       }
-      const { assinadoEm } = await signSessionNote(supabase, id, content);
+      const { assinadoEm } = await signSessionNote(id, content);
       updateSessions(
         sessions.map((s) =>
           s.id === id
@@ -281,8 +277,7 @@ export function PatientEvolucaoTab({
     if (!adendoTexto.trim()) return;
     setSavingAdendo(true);
     try {
-      const supabase = createClient();
-      const adendo = await addAdendo(supabase, evolucaoId, adendoTexto.trim(), adendoMotivo.trim());
+      const adendo = await addAdendo(evolucaoId, adendoTexto.trim(), adendoMotivo.trim());
       updateSessions(
         sessions.map((s) =>
           s.id === evolucaoId ? { ...s, adendos: [...s.adendos, adendo] } : s
@@ -637,14 +632,11 @@ export function PatientEvolucaoTab({
           patientName={patientName}
           onClose={() => setTranscribeOpen(false)}
           onSave={async ({ texto, duracaoSegundos, consentimentoEm }) => {
-            const supabase = createClient();
-            const note = await addSessionNote(
-              supabase,
-              patientId,
-              texto,
-              "livre",
-              { origem: "transcricao", consentimentoEm, duracaoSegundos }
-            );
+            const note = await addSessionNote(patientId, texto, "livre", {
+              origem: "transcricao",
+              consentimentoEm,
+              duracaoSegundos,
+            });
             updateSessions([note, ...sessions]);
             setTranscribeOpen(false);
           }}

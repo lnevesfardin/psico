@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
 import { autorizarUsoIA, isIAGuardError, registrarUsoIA } from "@/lib/ia/guards";
+import { decryptProntuario } from "@/lib/crypto/prontuario-crypto";
 import { REGRAS_CLINICAS_IA, MODEL } from "@/lib/ia/prompts";
 
 const MAX_EVOLUCOES = 20;
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
 
   const contexto = [...evolucoes]
     .reverse()
-    .map((e, i) => `Evolução ${i + 1}:\n${e.conteudo}`)
+    .map((e, i) => `Evolução ${i + 1}:\n${decryptProntuario(e.conteudo)}`)
     .join("\n\n");
 
   const ai = new GoogleGenAI({ apiKey });
