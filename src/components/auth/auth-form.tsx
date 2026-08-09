@@ -97,6 +97,8 @@ export function AuthForm({
   const [code, setCode] = useState("");
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -184,6 +186,38 @@ export function AuthForm({
     setTimeout(() => setResent(false), 4000);
   }
 
+  // "shouldCreateUser: false": magic link é só uma forma alternativa de
+  // entrar em conta que já existe, nunca cria conta nova — o cadastro de
+  // psicólogo sempre passa por /cadastro (CRP/UF obrigatórios) e conta de
+  // paciente só nasce por convite (/convite/[token]). Sem essa flag, o
+  // Supabase criaria um profiles órfão (sem role) pra qualquer e-mail digitado.
+  async function handleMagicLink() {
+    if (!email) {
+      setError("Digite seu e-mail para receber o link de acesso.");
+      return;
+    }
+    setError(null);
+    setMagicLinkLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    setMagicLinkLoading(false);
+    if (error) {
+      setError(
+        error.message.includes("Signups not allowed")
+          ? "Não encontramos uma conta com esse e-mail. Crie uma conta gratuita primeiro."
+          : traduzErro(error.message)
+      );
+      return;
+    }
+    setMagicLinkSent(true);
+  }
+
   async function handleGoogle() {
     setError(null);
     const supabase = createClient();
@@ -192,6 +226,27 @@ export function AuthForm({
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) setError(traduzErro(error.message));
+  }
+
+  if (magicLinkSent) {
+    return (
+      <div>
+        <h2 className="text-center text-lg font-semibold text-zinc-900 dark:text-white">
+          Verifique seu e-mail
+        </h2>
+        <p className="mt-2 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          Enviamos um link de acesso para <strong>{email}</strong>. Abra o
+          e-mail e clique no link para entrar — sem senha.
+        </p>
+        <button
+          type="button"
+          onClick={() => setMagicLinkSent(false)}
+          className="mt-5 block w-full text-center text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+        >
+          Voltar
+        </button>
+      </div>
+    );
   }
 
   if (awaitingCode) {
@@ -359,12 +414,22 @@ export function AuthForm({
       )}
 
       {mode === "login" && (
-        <Link
-          href="/recuperar-senha"
-          className="block text-right text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-        >
-          Esqueci minha senha
-        </Link>
+        <div className="flex items-center justify-between text-xs font-medium">
+          <button
+            type="button"
+            onClick={handleMagicLink}
+            disabled={magicLinkLoading}
+            className="text-brand-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-brand-400"
+          >
+            {magicLinkLoading ? "Enviando..." : "Entrar sem senha (link mágico)"}
+          </button>
+          <Link
+            href="/recuperar-senha"
+            className="text-brand-600 hover:underline dark:text-brand-400"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
       )}
 
       <button
