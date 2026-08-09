@@ -90,6 +90,25 @@ export function PatientEvolucaoTab({
   const [adendoOpenFor, setAdendoOpenFor] = useState<string | null>(null);
   const [adendoTexto, setAdendoTexto] = useState("");
   const [adendoMotivo, setAdendoMotivo] = useState("");
+  const loggedRead = useRef(false);
+
+  // "Toda leitura de evolução grava em audit_log" — este componente só
+  // monta quando a aba Evolução é de fato aberta (ver o `tab === "evolucao"
+  // && <PatientEvolucaoTab ...>` na página do paciente), então o mount é o
+  // sinal certo de leitura. Só loga se já existe algo pra ler — abrir a aba
+  // vazia num paciente novo não é "acesso a dado clínico" de ninguém ainda.
+  useEffect(() => {
+    if (loggedRead.current || initialSessions.length === 0) return;
+    loggedRead.current = true;
+    const supabase = createClient();
+    supabase.rpc("registrar_auditoria", {
+      p_acao: "leu_evolucao",
+      p_entidade: "sessoes_prontuario",
+      p_entidade_id: null,
+      p_paciente_id: patientId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [savingAdendo, setSavingAdendo] = useState(false);
 
   const lastSaved = useRef("");

@@ -133,6 +133,18 @@ $$;
 grant execute on function auth_org_id() to authenticated;
 grant execute on function auth_role() to authenticated;
 
+-- RLS de "organizations" — ficou faltando quando a tabela foi criada lá em
+-- cima (antes de auth_org_id existir). Sem isso, o grant padrão do Supabase
+-- pra "authenticated"/"anon" deixaria qualquer usuário logado ler ou
+-- renomear a organização de qualquer clínica, não só a própria. Só leitura
+-- da própria org: escrita é exclusivamente pelas funções abaixo
+-- (criar_organizacao_para_psicologo e o backfill), sempre security definer.
+alter table organizations enable row level security;
+
+drop policy if exists "membro_ve_propria_organizacao" on organizations;
+create policy "membro_ve_propria_organizacao" on organizations
+  for select using (id = auth_org_id());
+
 -- =========================================================
 -- Preenchimento automático de org_id — a maior parte das tabelas é
 -- inserida direto do Client Component via supabase-js (ver src/lib/*-client.ts),
