@@ -624,6 +624,36 @@ $$;
 revoke execute on function checar_rate_limit(text, int, interval) from public;
 
 -- =========================================================
+-- client_ip — IP de quem chamou a RPC via PostgREST, lido do cabeçalho
+-- x-forwarded-for que a infra do Supabase repassa (current_setting(
+-- 'request.headers', true) é exposto pelo próprio PostgREST em toda
+-- chamada via API REST/RPC — comportamento padrão, não uma opção que
+-- precisa ser ligada no painel). Usado para complementar o rate limit por
+-- alvo (agendamento:<psicologo_id> etc.): aquele freia flood contra UM
+-- psicólogo, este freia um único IP varrendo VÁRIOS psicólogos/e-mails
+-- diferentes rápido demais.
+--
+-- "true" em current_setting = não lança erro se a GUC não existir (ex.:
+-- chamada feita direto no SQL Editor, sem passar pelo PostgREST) — nesse
+-- caso devolve null, e quem chama trata como "sem IP disponível" em vez de
+-- quebrar. split_part pega só o primeiro IP da cadeia (o mais próximo do
+-- visitante) quando x-forwarded-for tem vários, separados por vírgula.
+-- =========================================================
+create or replace function client_ip()
+returns text
+language sql
+stable
+as $$
+  select nullif(
+    trim(split_part(
+      coalesce(current_setting('request.headers', true), '{}')::json ->> 'x-forwarded-for',
+      ',', 1
+    )),
+    ''
+  );
+$$;
+
+-- =========================================================
 -- Agendamento público (RPC) — único caminho de escrita para visitantes
 -- anônimos. Força status/origem no servidor e valida o horário antes de
 -- inserir (o índice único acima é a garantia final contra corrida).
@@ -664,6 +694,14 @@ begin
   end if;
 
   if not checar_rate_limit('agendamento:' || p_psicologo_id::text, 8, interval '5 minutes') then
+    raise exception 'Muitas tentativas de agendamento em pouco tempo. Aguarde alguns minutos e tente novamente.';
+  end if;
+
+  -- Camada extra: freia um único IP tentando agendar em vários psicólogos
+  -- diferentes rápido demais (o freio acima só olha um alvo por vez).
+  if client_ip() is not null
+    and not checar_rate_limit('agendamento_ip:' || client_ip(), 20, interval '5 minutes')
+  then
     raise exception 'Muitas tentativas de agendamento em pouco tempo. Aguarde alguns minutos e tente novamente.';
   end if;
 
@@ -857,6 +895,14 @@ set search_path = public
 as $$
 begin
   if not checar_rate_limit('email_existe:' || lower(trim(p_email)), 5, interval '10 minutes') then
+    raise exception 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  end if;
+
+  -- Camada extra: freia um único IP varrendo uma LISTA de e-mails
+  -- diferentes rápido (o freio acima só olha um e-mail por vez).
+  if client_ip() is not null
+    and not checar_rate_limit('email_existe_ip:' || client_ip(), 15, interval '10 minutes')
+  then
     raise exception 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
   end if;
 
@@ -1859,6 +1905,14 @@ begin
   end if;
 
   if not checar_rate_limit('escala:' || p_psicologo_id::text, 8, interval '5 minutes') then
+    raise exception 'Muitas respostas enviadas em pouco tempo. Aguarde alguns minutos e tente novamente.';
+  end if;
+
+  -- Camada extra: freia um único IP respondendo escalas de vários
+  -- psicólogos diferentes rápido demais (o freio acima só olha um alvo).
+  if client_ip() is not null
+    and not checar_rate_limit('escala_ip:' || client_ip(), 20, interval '5 minutes')
+  then
     raise exception 'Muitas respostas enviadas em pouco tempo. Aguarde alguns minutos e tente novamente.';
   end if;
 
