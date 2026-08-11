@@ -4,6 +4,28 @@ export const MATERIAIS_BUCKET = "materiais-paciente";
 /** Teto por arquivo. Áudio de meditação guiada cabe folgado em 25 MB. */
 export const MAX_MATERIAL_BYTES = 25 * 1024 * 1024;
 
+/**
+ * Mesma lista do allowed_mime_types do bucket "materiais-paciente" (ver
+ * schema.sql) — checar aqui só dá um erro amigável mais cedo; a barreira de
+ * verdade é a do Storage, que vale mesmo que este código seja contornado.
+ * De propósito sem HTML/SVG/executável: são vetores de XSS/malware se o
+ * paciente abrir um "material" enviado pelo psicólogo.
+ */
+export const MATERIAL_MIME_TYPES_PERMITIDOS = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/webm",
+  "audio/x-m4a",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
 export type Material = {
   id: string;
   titulo: string;
@@ -91,6 +113,11 @@ export async function enviarMaterial(
 ): Promise<Material> {
   if (arquivo.size > MAX_MATERIAL_BYTES) {
     throw new Error("Arquivo muito grande. O limite é 25 MB.");
+  }
+  if (!arquivo.type || !MATERIAL_MIME_TYPES_PERMITIDOS.includes(arquivo.type)) {
+    throw new Error(
+      "Tipo de arquivo não permitido. Envie PDF, imagem (PNG/JPEG/WEBP), áudio (MP3/WAV/OGG/M4A) ou documento Word."
+    );
   }
 
   // Primeira pasta = paciente_id: é assim que as policies de storage.objects

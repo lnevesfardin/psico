@@ -1586,9 +1586,33 @@ create policy "cliente_le_proprios_materiais" on materiais_paciente
 
 -- Bucket PRIVADO: material clínico nunca pode ficar em URL pública
 -- adivinhável. A leitura acontece por URL assinada, que expira.
-insert into storage.buckets (id, name, public)
-values ('materiais-paciente', 'materiais-paciente', false)
-on conflict (id) do nothing;
+--
+-- allowed_mime_types/file_size_limit são aplicados pelo próprio Storage do
+-- Supabase (não só RLS/app) — sem isso, o upload aceitava QUALQUER tipo de
+-- arquivo (inclusive HTML/SVG com script embutido, um vetor de XSS se o
+-- paciente abrir o "material" enviado por um psicólogo) e o limite de 25 MB
+-- só existia no código do cliente (src/lib/materiais-client.ts), fácil de
+-- contornar chamando a API do Storage direto. A lista precisa ficar igual à
+-- de MATERIAL_MIME_TYPES_PERMITIDOS nesse mesmo arquivo.
+-- "do update" (não "do nothing"): reexecutar este arquivo num bucket já
+-- existente precisa aplicar a restrição, não só na primeira vez.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'materiais-paciente',
+  'materiais-paciente',
+  false,
+  26214400, -- 25 MB em bytes
+  array[
+    'application/pdf',
+    'image/png', 'image/jpeg', 'image/webp',
+    'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/webm', 'audio/x-m4a',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]
+)
+on conflict (id) do update set
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 -- Policies do storage: a primeira pasta do caminho é o paciente_id, então
 -- dá pra decidir acesso sem consultar materiais_paciente. Compara como texto

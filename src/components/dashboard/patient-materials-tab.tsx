@@ -16,6 +16,7 @@ import {
   enviarMaterial,
   formatarTamanho,
   listMateriais,
+  MATERIAL_MIME_TYPES_PERMITIDOS,
   MAX_MATERIAL_BYTES,
   urlDoMaterial,
   type Material,
@@ -138,6 +139,7 @@ export function PatientMaterialsTab({
           <input
             ref={inputRef}
             type="file"
+            accept={MATERIAL_MIME_TYPES_PERMITIDOS.join(",")}
             required
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
