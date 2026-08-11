@@ -58,6 +58,25 @@ export async function listPatients(
   return (data as PacienteRow[]).map((row) => rowToPatient(row));
 }
 
+/**
+ * Trilha de auditoria (LGPD, ver acessos_prontuario no schema.sql):
+ * registra a abertura do prontuário. Fire-and-forget de propósito — falha
+ * ao gravar o log (ex.: schema.sql ainda não atualizado) não pode impedir
+ * o atendimento.
+ */
+async function registrarAcessoProntuario(
+  supabase: SupabaseClient,
+  patientId: string
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from("acessos_prontuario")
+    .insert({ psicologo_id: user.id, paciente_id: patientId });
+}
+
 export async function getPatientWithSessions(
   supabase: SupabaseClient,
   patientId: string
@@ -68,6 +87,8 @@ export async function getPatientWithSessions(
     .eq("id", patientId)
     .single();
   if (error || !paciente) return null;
+
+  registrarAcessoProntuario(supabase, patientId).catch(() => {});
 
   const { data: sessoes } = await supabase
     .from("sessoes_prontuario")

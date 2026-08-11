@@ -837,17 +837,33 @@ create or replace trigger on_auth_user_created
 -- enumeração de contas). Decisão consciente do produto: expor só um
 -- booleano (nunca nome, papel ou qualquer outro dado) — o cadastro já
 -- revela a mesma informação hoje via "Já existe uma conta com esse email".
+--
+-- Rate limit por e-mail consultado (5 a cada 10 min): freia quem martela o
+-- MESMO e-mail repetidamente. Não freia varrer uma LISTA de e-mails
+-- diferentes rápido — isso exigiria limitar por IP de quem chama, que
+-- depende de cabeçalho repassado pela infra do Supabase e não dá pra
+-- validar sem acesso ao projeto live (mesma ressalva de
+-- checar_rate_limit/RPCs públicas). auth-form.tsx já degrada bem se esta
+-- função der erro: cai na mensagem genérica de "email ou senha
+-- incorretos" em vez de quebrar o login.
+-- language plpgsql (não mais "sql") e sem "stable": checar_rate_limit faz
+-- insert/delete, incompatível com uma função declarada sem efeito colateral.
 -- =========================================================
 create or replace function email_existe(p_email text)
 returns boolean
-language sql
+language plpgsql
 security definer
 set search_path = public
-stable
 as $$
-  select exists (
+begin
+  if not checar_rate_limit('email_existe:' || lower(trim(p_email)), 5, interval '10 minutes') then
+    raise exception 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  end if;
+
+  return exists (
     select 1 from profiles where lower(email) = lower(p_email)
   );
+end;
 $$;
 
 grant execute on function email_existe(text) to anon, authenticated;
@@ -1856,3 +1872,45 @@ $$;
 
 grant execute on function responder_escala_publico(uuid, text, text, jsonb)
   to anon, authenticated;
+
+-- =========================================================
+-- acessos_prontuario — trilha de auditoria (LGPD): registra QUANDO o
+-- prontuário de um paciente foi acessado, complementando o RLS (que só
+-- controla QUEM pode acessar). Gravado pelo cliente logo após buscar as
+-- sessões (ver registrarAcessoProntuario em src/lib/patients-client.ts),
+-- porque Postgres não tem trigger de SELECT — não tem como registrar
+-- leitura só no banco.
+--
+-- De propósito NÃO tem policy de UPDATE/DELETE: um log que a própria
+-- pessoa auditada pode apagar deixa de ser confiável como log.
+-- =========================================================
+create table if not exists acessos_prontuario (
+  id bigint generated always as identity primary key,
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists acessos_prontuario_paciente_idx
+  on acessos_prontuario (paciente_id, created_at desc);
+
+alter table acessos_prontuario enable row level security;
+
+drop policy if exists "psicologo_registra_acesso_prontuario" on acessos_prontuario;
+create policy "psicologo_registra_acesso_prontuario" on acessos_prontuario
+  for insert with check (
+    auth.uid() = psicologo_id
+    and exists (
+      select 1 from pacientes p
+      where p.id = acessos_prontuario.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+drop policy if exists "psicologo_ve_proprios_acessos_prontuario" on acessos_prontuario;
+create policy "psicologo_ve_proprios_acessos_prontuario" on acessos_prontuario
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = acessos_prontuario.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
