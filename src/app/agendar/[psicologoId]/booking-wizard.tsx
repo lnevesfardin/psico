@@ -293,7 +293,9 @@ export function BookingWizard({
       setError(
         error.message.includes("indisponível")
           ? "Esse horário acabou de ser preenchido. Escolha outro."
-          : "Não foi possível concluir o agendamento. Tente novamente."
+          : error.message.includes("Muitas tentativas")
+            ? error.message
+            : "Não foi possível concluir o agendamento. Tente novamente."
       );
       setStep("horario");
       setSelectedTime(null);

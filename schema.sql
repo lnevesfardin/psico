@@ -560,6 +560,70 @@ from consultas;
 grant select on consultas_publico to anon, authenticated;
 
 -- =========================================================
+-- rate_limit_eventos / checar_rate_limit — freio simples contra abuso das
+-- RPCs públicas (agendamento e resposta de escala), sem precisar de serviço
+-- externo (Redis/Upstash etc.) nem mudar a arquitetura atual (o front chama
+-- a RPC direto com a anon key, sem passar por rota própria do Next).
+--
+-- Limita por ALVO (ex.: "agendamento:<psicologo_id>"), não por IP de quem
+-- chama: o objetivo aqui é impedir que a agenda ou a caixa de respostas de
+-- UM psicólogo seja floodada, não identificar o atacante. Isso tem uma
+-- limitação consciente — um atacante que espalhe requisições entre vários
+-- psicólogos-alvo não é pego por este freio — mas cobre o cenário real (bot
+-- floodando o link de uma pessoa) sem depender de cabeçalho de IP repassado
+-- pela infra do Supabase, que não dá pra validar sem acesso ao projeto live.
+-- =========================================================
+create table if not exists rate_limit_eventos (
+  id bigint generated always as identity primary key,
+  chave text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists rate_limit_eventos_chave_idx
+  on rate_limit_eventos (chave, created_at desc);
+
+-- Sem RLS/grant nenhum pra anon/authenticated: só funções security definer
+-- (chamadas abaixo) tocam esta tabela — ninguém lê nem escreve aqui direto.
+alter table rate_limit_eventos enable row level security;
+
+create or replace function checar_rate_limit(p_chave text, p_limite int, p_janela interval)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_contagem int;
+begin
+  -- Limpeza oportunista (a cada chamada) em vez de um cron dedicado: a
+  -- tabela não cresce sem limite mesmo sob tentativa de flood, já que cada
+  -- flood gera muitas chamadas — cada uma dispara essa faxina.
+  delete from rate_limit_eventos where created_at < now() - p_janela - interval '1 hour';
+
+  select count(*) into v_contagem
+  from rate_limit_eventos
+  where chave = p_chave and created_at > now() - p_janela;
+
+  if v_contagem >= p_limite then
+    return false;
+  end if;
+
+  insert into rate_limit_eventos (chave) values (p_chave);
+  return true;
+end;
+$$;
+
+-- Postgres concede EXECUTE a PUBLIC em função nova por padrão — sem este
+-- revoke, anon/authenticated poderiam chamar checar_rate_limit() direto via
+-- PostgREST (não só de dentro de criar_agendamento_publico/
+-- responder_escala_publico) e esgotar de propósito o contador de QUALQUER
+-- psicólogo-alvo, bloqueando agendamentos/respostas legítimos sem nunca
+-- passar pelo fluxo real. security definer preserva a chamada interna das
+-- outras funções (roda com o privilégio de quem é dono delas, não de quem
+-- chamou originalmente), então isto não quebra nada.
+revoke execute on function checar_rate_limit(text, int, interval) from public;
+
+-- =========================================================
 -- Agendamento público (RPC) — único caminho de escrita para visitantes
 -- anônimos. Força status/origem no servidor e valida o horário antes de
 -- inserir (o índice único acima é a garantia final contra corrida).
@@ -597,6 +661,10 @@ declare
 begin
   if not exists (select 1 from perfis where id = p_psicologo_id) then
     raise exception 'Psicólogo não encontrado';
+  end if;
+
+  if not checar_rate_limit('agendamento:' || p_psicologo_id::text, 8, interval '5 minutes') then
+    raise exception 'Muitas tentativas de agendamento em pouco tempo. Aguarde alguns minutos e tente novamente.';
   end if;
 
   if exists (
@@ -1748,6 +1816,10 @@ begin
 
   if p_escala not in ('cssrs', 'phq9', 'gad7', 'snap-iv') then
     raise exception 'Escala inválida';
+  end if;
+
+  if not checar_rate_limit('escala:' || p_psicologo_id::text, 8, interval '5 minutes') then
+    raise exception 'Muitas respostas enviadas em pouco tempo. Aguarde alguns minutos e tente novamente.';
   end if;
 
   insert into respostas_escala (psicologo_id, escala, paciente_nome, respostas)

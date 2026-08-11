@@ -217,8 +217,12 @@ export function EscalaWizard({
         respostas: escala.tipo === "likert" ? respostasLikert : respostasCssrs,
       });
       setSubmitted(true);
-    } catch {
-      setError("Não foi possível enviar suas respostas. Tente novamente em instantes.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.includes("Muitas respostas")
+          ? err.message
+          : "Não foi possível enviar suas respostas. Tente novamente em instantes."
+      );
     } finally {
       setSubmitting(false);
     }
