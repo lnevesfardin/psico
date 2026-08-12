@@ -81,11 +81,20 @@ export function PatientFormModal({
       });
       onSaved(patient);
     } catch (err) {
-      setError(
-        err instanceof Error && err.message.includes("duplicate")
-          ? "Já existe um paciente com esse CPF."
-          : "Não foi possível salvar o paciente."
-      );
+      // error.message do PostgREST é a mensagem genérica do Postgres (nome
+      // de coluna/constraint), não os valores da linha — os valores ficam em
+      // error.details, que nunca é lido aqui. Seguro mostrar: ajuda a
+      // diagnosticar problema de schema (ex.: coluna nova não aplicada) sem
+      // vazar CPF/dado de paciente.
+      if (err instanceof Error && err.message.includes("duplicate")) {
+        setError("Já existe um paciente com esse CPF.");
+      } else {
+        setError(
+          `Não foi possível salvar o paciente.${
+            err instanceof Error ? ` (${err.message})` : ""
+          }`
+        );
+      }
     } finally {
       setSaving(false);
     }
