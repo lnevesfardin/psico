@@ -30,6 +30,7 @@ import {
 import { TimeSelect } from "@/components/ui/time-select";
 import { CidadeSelect } from "@/components/ui/cidade-select";
 import { brStates } from "@/lib/br-states";
+import { maskCrp } from "@/lib/format";
 import {
   especialidadesOptions,
   abordagensOptions,
@@ -270,8 +271,9 @@ export default function PerfilPage() {
             </span>
             <input
               type="text"
+              inputMode="numeric"
               value={form.crp}
-              onChange={(e) => set("crp", e.target.value)}
+              onChange={(e) => set("crp", maskCrp(e.target.value))}
               required
               placeholder="06/123456"
               className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"

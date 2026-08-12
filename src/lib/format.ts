@@ -73,6 +73,15 @@ export function maskCpf(value: string): string {
     .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 }
 
+// "06/123456": 2 dígitos da região + até 6 do registro — cobre o formato
+// usual do CRP; quem tiver um número fora desse padrão ainda consegue
+// digitar a barra na mão, o input não é só dígitos.
+export function maskCrp(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
 export function maskPhone(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11);
   if (digits.length <= 10) {
