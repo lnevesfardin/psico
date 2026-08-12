@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Montserrat } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { RouteProgress } from "@/components/ui/route-progress";
 import "./globals.css";
 
-// Gotham é uma fonte paga (não está no Google Fonts) — Montserrat é a
-// substituta gratuita mais usada no lugar dela, com a mesma construção
-// geométrica. Aplicada em --font-sans, que é o que tanto o body quanto os
-// wrappers com classe "font-sans" nas páginas usam — cobre o site inteiro.
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
+// Aplicada em --font-sans, que é o que tanto o body quanto os wrappers com
+// classe "font-sans" nas páginas usam — cobre o site inteiro.
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
   subsets: ["latin"],
 });
 
@@ -28,7 +26,7 @@ export default function RootLayout({
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={`${montserrat.variable} h-full antialiased`}
+      className={`${plusJakartaSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Aplica a classe "dark" antes da primeira pintura, direto do
