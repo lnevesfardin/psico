@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
+import { maskPhone } from "@/lib/format";
 import { StepIndicator } from "@/components/auth/step-indicator";
 import { PasswordStrength, usePasswordStrength } from "@/components/ui/password-strength";
 
@@ -97,6 +98,7 @@ export function AuthForm({
   const [code, setCode] = useState("");
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [passwordTooWeak, setPasswordTooWeak] = useState(false);
   const passwordStrength = usePasswordStrength(password);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -104,9 +106,10 @@ export function AuthForm({
     setError(null);
 
     if (mode === "cadastro" && passwordStrength.score < MIN_SIGNUP_PASSWORD_SCORE) {
-      setError('A senha precisa ficar pelo menos "Boa" — veja as dicas abaixo do campo.');
+      setPasswordTooWeak(true);
       return;
     }
+    setPasswordTooWeak(false);
 
     setLoading(true);
     const supabase = createClient();
@@ -288,11 +291,13 @@ export function AuthForm({
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Telefone / WhatsApp
           <input
-            type="tel"
+            type="text"
+            inputMode="numeric"
             required
             value={telefone}
-            onChange={(e) => setTelefone(e.target.value)}
+            onChange={(e) => setTelefone(maskPhone(e.target.value))}
             placeholder="(11) 99999-9999"
+            maxLength={15}
             className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
           />
         </label>
@@ -318,7 +323,11 @@ export function AuthForm({
             minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 pr-10 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            className={`w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm text-zinc-900 focus:outline-none dark:bg-zinc-800 dark:text-white ${
+              passwordTooWeak && passwordStrength.score < MIN_SIGNUP_PASSWORD_SCORE
+                ? "border-rose-400 focus:border-rose-500 dark:border-rose-800"
+                : "border-zinc-200 focus:border-brand-500 dark:border-zinc-700"
+            }`}
           />
           <button
             type="button"
@@ -329,6 +338,14 @@ export function AuthForm({
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        {mode === "cadastro" &&
+          passwordTooWeak &&
+          passwordStrength.score < MIN_SIGNUP_PASSWORD_SCORE && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Precisa ficar pelo menos &quot;Boa&quot; — veja as dicas abaixo.
+            </p>
+          )}
       </label>
 
       {mode === "cadastro" && (
