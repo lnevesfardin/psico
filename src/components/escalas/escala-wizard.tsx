@@ -188,10 +188,13 @@ export function EscalaWizard({
   psicologoId,
   psicologoNome,
   escala,
+  token,
 }: {
   psicologoId: string;
   psicologoNome: string;
   escala: Escala;
+  /** Presente quando o link foi gerado para uma ficha específica. */
+  token?: string;
 }) {
   const [pacienteNome, setPacienteNome] = useState("");
   const [respostasLikert, setRespostasLikert] = useState<RespostaLikert>({});
@@ -215,6 +218,7 @@ export function EscalaWizard({
         escala: escala.slug,
         pacienteNome,
         respostas: escala.tipo === "likert" ? respostasLikert : respostasCssrs,
+        token,
       });
       setSubmitted(true);
     } catch (err) {

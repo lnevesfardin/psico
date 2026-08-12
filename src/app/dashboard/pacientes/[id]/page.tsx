@@ -36,9 +36,19 @@ import { PatientFormModal } from "@/components/patient-form-modal";
 import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
 import { PatientDocumentsTab } from "@/components/dashboard/patient-documents-tab";
 import { PatientMaterialsTab } from "@/components/dashboard/patient-materials-tab";
+import { RespostasEscalaList } from "@/components/dashboard/respostas-escala-list";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
+
+const TAB_LABELS = {
+  dados: "Dados Pessoais",
+  evolucao: "Evolução / Prontuário",
+  humor: "Acompanhamento",
+  rastreio: "Rastreio",
+  materiais: "Materiais",
+  documentos: "Documentos",
+} as const;
 
 export default function PatientDetailPage({
   params,
@@ -52,7 +62,7 @@ export default function PatientDetailPage({
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<
-    "dados" | "evolucao" | "humor" | "materiais" | "documentos"
+    "dados" | "evolucao" | "humor" | "materiais" | "documentos" | "rastreio"
   >("dados");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -279,7 +289,14 @@ export default function PatientDetailPage({
 
       <div className="mt-6 inline-flex flex-wrap rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
         {(
-          ["dados", "evolucao", "humor", "materiais", "documentos"] as const
+          [
+            "dados",
+            "evolucao",
+            "humor",
+            "rastreio",
+            "materiais",
+            "documentos",
+          ] as const
         ).map((t) => (
           <button
             key={t}
@@ -291,15 +308,7 @@ export default function PatientDetailPage({
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
-            {t === "dados"
-              ? "Dados Pessoais"
-              : t === "evolucao"
-                ? "Evolução / Prontuário"
-                : t === "humor"
-                  ? "Acompanhamento"
-                  : t === "materiais"
-                    ? "Materiais"
-                    : "Documentos"}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -539,6 +548,19 @@ export default function PatientDetailPage({
             setPatient((prev) => (prev ? { ...prev, clienteUserId: null } : prev))
           }
         />
+      )}
+
+      {tab === "rastreio" && (
+        <div className="mt-6">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Respostas de escalas de rastreio enviadas por link vinculado a esta
+            ficha. Para gerar um link, vá em Meu Link e escolha &quot;Paciente
+            cadastrado&quot;. São instrumentos de triagem, não de diagnóstico.
+          </p>
+          <div className="mt-4">
+            <RespostasEscalaList pacienteId={patient.id} />
+          </div>
+        </div>
       )}
 
       {tab === "materiais" && (

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   apagarRespostaEscala,
   listRespostasEscala,
+  listRespostasEscalaPaciente,
   type RespostaEscala,
 } from "@/lib/respostas-escala-client";
 import {
@@ -110,7 +111,18 @@ function DetalheResposta({ resposta }: { resposta: RespostaEscala }) {
   );
 }
 
-export function RespostasEscalaList({ psicologoId }: { psicologoId: string }) {
+/**
+ * Duas visões da mesma lista: todas as respostas recebidas pelo psicólogo
+ * (psicologoId) ou só o histórico de uma ficha (pacienteId, aba Rastreio).
+ * Exatamente um dos dois é informado.
+ */
+export function RespostasEscalaList({
+  psicologoId,
+  pacienteId,
+}: {
+  psicologoId?: string;
+  pacienteId?: string;
+}) {
   const [respostas, setRespostas] = useState<RespostaEscala[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -118,10 +130,16 @@ export function RespostasEscalaList({ psicologoId }: { psicologoId: string }) {
 
   useEffect(() => {
     const supabase = createClient();
-    listRespostasEscala(supabase, psicologoId)
+    const busca = pacienteId
+      ? listRespostasEscalaPaciente(supabase, pacienteId)
+      : psicologoId
+        ? listRespostasEscala(supabase, psicologoId)
+        : Promise.resolve([]);
+    busca
       .then(setRespostas)
+      .catch(() => setRespostas([]))
       .finally(() => setLoading(false));
-  }, [psicologoId]);
+  }, [psicologoId, pacienteId]);
 
   async function handleDelete(id: string) {
     const confirmed = window.confirm("Apagar esta resposta? Não pode ser desfeito.");
@@ -145,7 +163,9 @@ export function RespostasEscalaList({ psicologoId }: { psicologoId: string }) {
   if (respostas.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-8 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
-        Nenhuma resposta recebida ainda.
+        {pacienteId
+          ? "Nenhuma escala respondida por este paciente ainda."
+          : "Nenhuma resposta recebida ainda."}
       </p>
     );
   }
@@ -180,7 +200,14 @@ export function RespostasEscalaList({ psicologoId }: { psicologoId: string }) {
                 </div>
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                   <User className="h-3 w-3" />
-                  {resposta.pacienteNome || "Não identificado"} ·{" "}
+                  {/* Na ficha, repetir o nome do paciente em toda linha é
+                      ruído — só aparece se quem respondeu digitou outro nome
+                      (ex.: responsável preenchendo o SNAP-IV pela criança). */}
+                  {pacienteId
+                    ? resposta.pacienteNome
+                      ? `Respondido por ${resposta.pacienteNome} · `
+                      : ""
+                    : `${resposta.pacienteNome || "Não identificado"} · `}
                   {formatDateTime(resposta.createdAt)}
                 </p>
               </div>

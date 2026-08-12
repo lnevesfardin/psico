@@ -1857,8 +1857,19 @@ create table if not exists respostas_escala (
   created_at timestamptz not null default now()
 );
 
+-- Preenchido só quando a escala foi enviada por um convite vinculado a uma
+-- ficha (ver convites_escala abaixo). Continua nulo no link genérico, em que
+-- quem responde não tem cadastro — os dois fluxos convivem na mesma tabela.
+-- "on delete set null": apagar a ficha do paciente não pode apagar em
+-- silêncio o histórico de rastreio já coletado.
+alter table respostas_escala
+  add column if not exists paciente_id uuid references pacientes(id) on delete set null;
+
 create index if not exists respostas_escala_psicologo_id_idx
   on respostas_escala (psicologo_id, created_at desc);
+
+create index if not exists respostas_escala_paciente_idx
+  on respostas_escala (paciente_id, created_at desc) where paciente_id is not null;
 
 alter table respostas_escala enable row level security;
 
@@ -1875,18 +1886,115 @@ create policy "psicologo_apaga_proprias_respostas_escala" on respostas_escala
 -- cru na tabela.
 
 -- =========================================================
+-- convites_escala — liga uma escala a uma ficha de paciente já cadastrada.
+-- Sem isto, o link de escala é anônimo: chega uma resposta com um nome
+-- digitado à mão, que ninguém garante ser de quem diz ser, e sem histórico
+-- por paciente. Com o convite, a resposta cai direto na ficha certa.
+--
+-- Token aleatório (não paciente_id) pelo mesmo motivo de convites_paciente:
+-- a página que consome o link é pública, e id na URL permitiria enumerar
+-- pacientes — "fulano faz rastreio de depressão com o psicólogo X" é dado
+-- sensível de saúde (LGPD).
+--
+-- NÃO é de uso único de propósito: reaplicar a mesma escala em intervalos
+-- (PHQ-9 a cada poucas semanas, por exemplo) é uso clínico normal, e cada
+-- resposta vira uma linha nova em respostas_escala. respondido_em guarda a
+-- última vez que o link foi usado, só como referência na tela.
+-- =========================================================
+create table if not exists convites_escala (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  escala text not null check (escala in ('cssrs', 'phq9', 'gad7', 'snap-iv')),
+  token text not null unique,
+  criado_em timestamptz not null default now(),
+  respondido_em timestamptz,
+  unique (paciente_id, escala)
+);
+
+create index if not exists convites_escala_paciente_idx
+  on convites_escala (paciente_id);
+
+alter table convites_escala enable row level security;
+
+-- Mesma lógica de convites_paciente: só o dono da ficha enxerga o convite.
+-- O acesso público ao token não passa por policy — vai pela função
+-- security definer de resposta, que nunca devolve dado do paciente.
+drop policy if exists "psicologo_ve_proprios_convites_escala" on convites_escala;
+create policy "psicologo_ve_proprios_convites_escala" on convites_escala
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = convites_escala.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+-- =========================================================
+-- gerar_convite_escala — cria (ou reaproveita) o convite de uma escala para
+-- um paciente e devolve o token. Reaproveitar mantém o link estável: o
+-- psicólogo pode reenviar o mesmo endereço para uma reaplicação sem
+-- invalidar o que já mandou antes.
+-- =========================================================
+create or replace function gerar_convite_escala(
+  p_paciente_id uuid,
+  p_escala text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_token text;
+begin
+  if not exists (
+    select 1 from pacientes
+    where id = p_paciente_id and psicologo_id = auth.uid()
+  ) then
+    raise exception 'Paciente não encontrado';
+  end if;
+
+  if p_escala not in ('cssrs', 'phq9', 'gad7', 'snap-iv') then
+    raise exception 'Escala inválida';
+  end if;
+
+  select token into v_token
+  from convites_escala
+  where paciente_id = p_paciente_id and escala = p_escala;
+
+  if v_token is null then
+    v_token := encode(gen_random_bytes(24), 'hex');
+    insert into convites_escala (paciente_id, escala, token)
+    values (p_paciente_id, p_escala, v_token);
+  end if;
+
+  return v_token;
+end;
+$$;
+
+grant execute on function gerar_convite_escala(uuid, text) to authenticated;
+
+-- =========================================================
 -- responder_escala_publico — único caminho de escrita para o link público
 -- de escala. security definer para o visitante anônimo (sem policy de
 -- INSERT em respostas_escala, ver acima) conseguir gravar; valida só que o
 -- psicólogo existe e que a escala é uma das implementadas — a validação de
 -- formato/obrigatoriedade de cada item é feita no cliente (src/lib/
 -- escalas.ts), então "respostas" chega aqui como jsonb livre.
+--
+-- p_token é opcional: presente, amarra a resposta à ficha do paciente (link
+-- gerado em convites_escala); ausente, mantém o fluxo anônimo de antes.
 -- =========================================================
+-- drop explícito da assinatura antiga (sem p_token): "create or replace"
+-- criaria uma segunda função sobrecarregada em vez de substituir, e a
+-- chamada do PostgREST ficaria ambígua entre as duas.
+drop function if exists responder_escala_publico(uuid, text, text, jsonb);
+
 create or replace function responder_escala_publico(
   p_psicologo_id uuid,
   p_escala text,
   p_paciente_nome text,
-  p_respostas jsonb
+  p_respostas jsonb,
+  p_token text default null
 )
 returns uuid
 language plpgsql
@@ -1895,9 +2003,27 @@ set search_path = public
 as $$
 declare
   v_id uuid;
+  v_paciente_id uuid;
 begin
   if not exists (select 1 from perfis where id = p_psicologo_id) then
     raise exception 'Psicólogo não encontrado';
+  end if;
+
+  -- Token inválido/trocado falha alto em vez de gravar como anônimo: uma
+  -- resposta que deveria entrar na ficha e some dela é pior que um erro.
+  -- A checagem amarra token, escala e psicólogo — link de um paciente não
+  -- serve para responder outra escala nem para outro profissional.
+  if p_token is not null and p_token <> '' then
+    select ce.paciente_id into v_paciente_id
+    from convites_escala ce
+    join pacientes p on p.id = ce.paciente_id
+    where ce.token = p_token
+      and ce.escala = p_escala
+      and p.psicologo_id = p_psicologo_id;
+
+    if v_paciente_id is null then
+      raise exception 'Link inválido ou expirado.';
+    end if;
   end if;
 
   if p_escala not in ('cssrs', 'phq9', 'gad7', 'snap-iv') then
@@ -1916,15 +2042,19 @@ begin
     raise exception 'Muitas respostas enviadas em pouco tempo. Aguarde alguns minutos e tente novamente.';
   end if;
 
-  insert into respostas_escala (psicologo_id, escala, paciente_nome, respostas)
-  values (p_psicologo_id, p_escala, nullif(trim(p_paciente_nome), ''), p_respostas)
+  insert into respostas_escala (psicologo_id, escala, paciente_nome, respostas, paciente_id)
+  values (p_psicologo_id, p_escala, nullif(trim(p_paciente_nome), ''), p_respostas, v_paciente_id)
   returning id into v_id;
+
+  if v_paciente_id is not null then
+    update convites_escala set respondido_em = now() where token = p_token;
+  end if;
 
   return v_id;
 end;
 $$;
 
-grant execute on function responder_escala_publico(uuid, text, text, jsonb)
+grant execute on function responder_escala_publico(uuid, text, text, jsonb, text)
   to anon, authenticated;
 
 -- =========================================================

@@ -7,6 +7,8 @@ export type RespostaEscala = {
   pacienteNome: string | null;
   respostas: Record<string, unknown>;
   createdAt: string;
+  /** Preenchido só quando a resposta veio de um link vinculado a uma ficha. */
+  pacienteId: string | null;
 };
 
 type RespostaRow = {
@@ -15,7 +17,11 @@ type RespostaRow = {
   paciente_nome: string | null;
   respostas: Record<string, unknown>;
   created_at: string;
+  paciente_id: string | null;
 };
+
+const RESPOSTA_COLUMNS =
+  "id, escala, paciente_nome, respostas, created_at, paciente_id";
 
 function rowToResposta(row: RespostaRow): RespostaEscala {
   return {
@@ -24,6 +30,7 @@ function rowToResposta(row: RespostaRow): RespostaEscala {
     pacienteNome: row.paciente_nome,
     respostas: row.respostas,
     createdAt: row.created_at,
+    pacienteId: row.paciente_id,
   };
 }
 
@@ -39,6 +46,8 @@ export async function enviarRespostaEscala(
     escala: EscalaSlug;
     pacienteNome: string;
     respostas: Record<string, unknown>;
+    /** Vem do link vinculado a uma ficha; ausente no link genérico. */
+    token?: string;
   }
 ): Promise<void> {
   const { error } = await supabase.rpc("responder_escala_publico", {
@@ -46,6 +55,7 @@ export async function enviarRespostaEscala(
     p_escala: input.escala,
     p_paciente_nome: input.pacienteNome,
     p_respostas: input.respostas,
+    p_token: input.token ?? null,
   });
   if (error) throw new Error(error.message);
 }
@@ -56,11 +66,39 @@ export async function listRespostasEscala(
 ): Promise<RespostaEscala[]> {
   const { data, error } = await supabase
     .from("respostas_escala")
-    .select("id, escala, paciente_nome, respostas, created_at")
+    .select(RESPOSTA_COLUMNS)
     .eq("psicologo_id", psicologoId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data as RespostaRow[]).map(rowToResposta);
+}
+
+/** Histórico de rastreio de uma ficha — só respostas vindas de link vinculado. */
+export async function listRespostasEscalaPaciente(
+  supabase: SupabaseClient,
+  pacienteId: string
+): Promise<RespostaEscala[]> {
+  const { data, error } = await supabase
+    .from("respostas_escala")
+    .select(RESPOSTA_COLUMNS)
+    .eq("paciente_id", pacienteId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as RespostaRow[]).map(rowToResposta);
+}
+
+/** Gera (ou reaproveita) o link daquela escala para aquele paciente. */
+export async function gerarConviteEscala(
+  supabase: SupabaseClient,
+  pacienteId: string,
+  escala: EscalaSlug
+): Promise<string> {
+  const { data, error } = await supabase.rpc("gerar_convite_escala", {
+    p_paciente_id: pacienteId,
+    p_escala: escala,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
 }
 
 export async function apagarRespostaEscala(
