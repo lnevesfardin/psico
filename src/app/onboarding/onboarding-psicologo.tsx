@@ -555,7 +555,7 @@ function OnboardingContent() {
           <div>
             <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-white">
               <CalendarClock className="h-4 w-4 text-zinc-400" />
-              Disponibilidade para Agendamento Online
+              Disponibilidade para Agendamento
             </h2>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               Obrigatório: adicione pelo menos um horário. Dá pra ter dias e
