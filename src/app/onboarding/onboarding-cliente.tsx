@@ -43,7 +43,7 @@ function OnboardingClienteContent() {
         </div>
 
         <div className="mt-6 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
-          <StepIndicator current={2} />
+          <StepIndicator current={3} />
 
           <div className="text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">

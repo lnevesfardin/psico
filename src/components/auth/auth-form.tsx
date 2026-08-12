@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
 import { brStates } from "@/lib/br-states";
@@ -93,10 +93,8 @@ export function AuthForm({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
-  // Só aparece se o projeto ainda tiver "Confirm email" ligado no Supabase
-  // (signUp não devolve sessão nesse caso) — sem tela de código própria: a
-  // pessoa confirma clicando no link do e-mail (ver /auth/callback).
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState("");
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
 
@@ -127,11 +125,11 @@ export function AuthForm({
       password,
       options: {
         data: { name, role: "psychologist", telefone, crp, uf },
-        // Só é usada se "Confirm email" estiver ligado no Supabase. Mesma
-        // rota do login com Google (não /auth/confirmado, usada só pelo
-        // convite de paciente): troca o código por sessão e já manda pro
-        // onboarding sozinho, sem depender de uma tela própria aqui.
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // Rota própria (não /auth/callback) — só usada se o template de
+        // e-mail do projeto ainda incluir o link de confirmação; o fluxo
+        // principal agora é o código de 6 dígitos verificado abaixo, sem
+        // sair desta tela.
+        emailRedirectTo: `${window.location.origin}/auth/confirmado`,
       },
     });
     setLoading(false);
@@ -141,15 +139,38 @@ export function AuthForm({
     }
     if (data.session) {
       // E-mail já confirmado automaticamente (projeto Supabase sem
-      // confirmação obrigatória): pula direto pro passo 2.
+      // confirmação obrigatória): pula direto pro passo 3, sem passar
+      // pela tela de código.
       router.push("/onboarding");
       router.refresh();
     } else {
-      setAwaitingConfirmation(true);
+      setAwaitingCode(true);
     }
   }
 
-  async function handleResendConfirmation() {
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "signup",
+    });
+    setLoading(false);
+    if (error) {
+      setError(traduzErro(error.message));
+      return;
+    }
+    if (!data.session || !data.user) return;
+    // Passo 3: /onboarding resolve o papel sozinho e decide o que mostrar
+    // (formulário completo pro psicólogo, confirmação simples pro cliente).
+    router.push("/onboarding");
+    router.refresh();
+  }
+
+  async function handleResendCode() {
     setError(null);
     setResending(true);
     const supabase = createClient();
@@ -173,36 +194,57 @@ export function AuthForm({
     if (error) setError(traduzErro(error.message));
   }
 
-  if (awaitingConfirmation) {
-    // Só aparece se "Confirm email" ainda estiver ligado no Supabase — não
-    // faz parte da numeração de passos (não é um passo do cadastro, é uma
-    // espera pontual até a pessoa clicar no link do e-mail).
+  if (awaitingCode) {
     return (
-      <div className="text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-          <MailCheck className="h-6 w-6" />
-        </div>
-        <h2 className="mt-4 text-lg font-semibold text-zinc-900 dark:text-white">
-          Confirme seu e-mail
+      <div>
+        <StepIndicator current={2} />
+        <h2 className="text-center text-lg font-semibold text-zinc-900 dark:text-white">
+          Digite o código de verificação
         </h2>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Enviamos um link de confirmação para <strong>{email}</strong>. Clique
-          nele para ativar sua conta e continuar o cadastro.
+        <p className="mt-2 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          Enviamos um código de 6 dígitos para <strong>{email}</strong>.
+          Digite abaixo para ativar sua conta.
         </p>
 
-        {error && (
-          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
-            {error}
-          </div>
-        )}
+        <form onSubmit={handleVerifyCode} className="mt-5 space-y-4">
+          {error && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+              {error}
+            </div>
+          )}
+
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Código de verificação
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-center text-lg font-semibold tracking-[0.4em] text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={loading || code.length < 6}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Verificar código
+          </button>
+        </form>
 
         <button
           type="button"
-          onClick={handleResendConfirmation}
+          onClick={handleResendCode}
           disabled={resending}
-          className="mt-5 text-sm font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-brand-400"
+          className="mt-4 block w-full text-center text-sm font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-brand-400"
         >
-          {resending ? "Reenviando..." : resent ? "E-mail reenviado!" : "Reenviar e-mail"}
+          {resending ? "Reenviando..." : resent ? "Código reenviado!" : "Reenviar código"}
         </button>
       </div>
     );

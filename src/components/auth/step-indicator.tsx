@@ -1,13 +1,9 @@
-const STEPS = ["Criar conta", "Finalizar cadastro"] as const;
+const STEPS = ["Criar conta", "Confirmar e-mail", "Finalizar cadastro"] as const;
 
-/** Indicador de progresso do cadastro (criar conta → finalizar cadastro),
- *  igual para psicólogo e cliente — só o conteúdo do passo 2 muda por papel
- *  (ver onboarding-psicologo.tsx / onboarding-cliente.tsx). Sem passo de
- *  confirmar e-mail: com "Confirm email" desligado no Supabase, a conta já
- *  nasce com sessão; se estiver ligado, a pessoa confirma pelo link do
- *  e-mail (ver auth-form.tsx / convite-signup.tsx), sem precisar de uma
- *  tela própria aqui. */
-export function StepIndicator({ current }: { current: 1 | 2 }) {
+/** Indicador de progresso do cadastro (criar conta → confirmar e-mail →
+ *  finalizar cadastro), igual para psicólogo e cliente — só o conteúdo do
+ *  passo 3 muda por papel (ver onboarding-psicologo.tsx / onboarding-cliente.tsx). */
+export function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
   return (
     <div className="mb-6">
       <p className="text-xs font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
