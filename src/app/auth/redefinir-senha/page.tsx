@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
 
 export default function RedefinirSenhaPage() {
   const { user, loading: authLoading } = useAuth();
@@ -14,6 +13,7 @@ export default function RedefinirSenhaPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     // O link do e-mail já passou por /auth/callback e trocou o código por
@@ -42,16 +42,38 @@ export default function RedefinirSenhaPage() {
       );
       return;
     }
-    if (!user) return;
-    const role = await fetchUserRole(supabase, user.id);
-    router.push(dashboardPathForRole(role));
-    router.refresh();
+    setDone(true);
   }
 
   if (authLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
         <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+      </div>
+    );
+  }
+
+  // Quem clica no link de redefinição normalmente está numa aba nova (a do
+  // e-mail), separada da aba onde tentou entrar antes — por isso, ao
+  // terminar, mostramos uma confirmação em vez de já levar pro painel: essa
+  // aba nova não é necessariamente onde a pessoa quer continuar navegando.
+  if (done) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-zinc-950">
+        <div className="w-full max-w-sm">
+          <div className="rounded-2xl border border-zinc-100 bg-white p-6 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <h1 className="mt-4 text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
+              Senha alterada com sucesso
+            </h1>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              Pode voltar para a aba onde você estava tentando entrar e fazer
+              login com a nova senha.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
