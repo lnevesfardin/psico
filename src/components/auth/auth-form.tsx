@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
-import { brStates } from "@/lib/br-states";
 import { StepIndicator } from "@/components/auth/step-indicator";
-import { PasswordStrength } from "@/components/ui/password-strength";
+import { PasswordStrength, usePasswordStrength } from "@/components/ui/password-strength";
+
+// "Boa" é o 4º rótulo (índice 3) em defaultLabels — ver password-strength.tsx.
+const MIN_SIGNUP_PASSWORD_SCORE = 3;
 
 type Mode = "login" | "cadastro";
 
@@ -86,8 +88,6 @@ export function AuthForm({
   const router = useRouter();
   const [name, setName] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [crp, setCrp] = useState("");
-  const [uf, setUf] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -97,10 +97,17 @@ export function AuthForm({
   const [code, setCode] = useState("");
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const passwordStrength = usePasswordStrength(password);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (mode === "cadastro" && passwordStrength.score < MIN_SIGNUP_PASSWORD_SCORE) {
+      setError('A senha precisa ficar pelo menos "Boa" — veja as dicas abaixo do campo.');
+      return;
+    }
+
     setLoading(true);
     const supabase = createClient();
 
@@ -124,7 +131,11 @@ export function AuthForm({
       email,
       password,
       options: {
-        data: { name, role: "psychologist", telefone, crp, uf },
+        // CRP e UF não são pedidos aqui — ficam pro passo de onboarding
+        // (obrigatórios lá antes de liberar o painel), pra não sobrecarregar
+        // o cadastro inicial com campo que o próprio psicólogo pode não ter
+        // à mão na hora (número do CRP, por exemplo).
+        data: { name, role: "psychologist", telefone },
         // Rota própria (não /auth/callback) — só usada se o template de
         // e-mail do projeto ainda incluir o link de confirmação; o fluxo
         // principal agora é o código de 6 dígitos verificado abaixo, sem
@@ -285,40 +296,6 @@ export function AuthForm({
             className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
           />
         </label>
-      )}
-
-      {mode === "cadastro" && (
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Número do CRP
-            <input
-              type="text"
-              required
-              value={crp}
-              onChange={(e) => setCrp(e.target.value)}
-              placeholder="06/123456"
-              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-            />
-          </label>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            UF
-            <select
-              required
-              value={uf}
-              onChange={(e) => setUf(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {brStates.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
       )}
 
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
