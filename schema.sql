@@ -764,6 +764,16 @@ alter table profiles add column if not exists cpf text;
 alter table profiles add column if not exists bio text;
 alter table profiles add column if not exists whatsapp text;
 
+-- A constraint dentro do "create table if not exists" acima só se aplica
+-- quando a tabela é criada do zero — bancos já provisionados antes desta
+-- linha existir (ou mexidos por fora, ex.: o incidente de "org_id") ficam
+-- com a constraint velha/errada ao reexecutar o arquivo, sem erro nenhum
+-- avisando disso. Drop + add explícitos garantem que a constraint em vigor
+-- é sempre esta, não a que existia antes.
+alter table profiles drop constraint if exists profiles_role_check;
+alter table profiles add constraint profiles_role_check
+  check (role in ('client', 'psychologist') or role is null);
+
 alter table profiles enable row level security;
 
 drop policy if exists "usuario_ve_proprio_profile" on profiles;
