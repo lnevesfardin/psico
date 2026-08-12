@@ -13,6 +13,7 @@ import {
 } from "@/lib/document-templates";
 import { DocumentTemplateFormModal } from "@/components/dashboard/document-template-form-modal";
 import { DocumentTemplatePresetPicker } from "@/components/dashboard/document-template-preset-picker";
+import { ensureHtml } from "@/lib/rich-text";
 
 export default function DocumentosPage() {
   const { user } = useAuth();
@@ -165,7 +166,13 @@ export default function DocumentosPage() {
           onPick={async (preset) => {
             if (!user) return;
             const supabase = createClient();
-            const created = await createDocumentTemplate(supabase, user.id, preset);
+            // Presets são texto puro; convertidos pra HTML aqui pra já
+            // nascerem prontos pro editor rico, sem depender de ensureHtml
+            // toda vez que a ficha for aberta.
+            const created = await createDocumentTemplate(supabase, user.id, {
+              ...preset,
+              conteudo: ensureHtml(preset.conteudo),
+            });
             setTemplates((prev) => [...prev, created]);
           }}
         />

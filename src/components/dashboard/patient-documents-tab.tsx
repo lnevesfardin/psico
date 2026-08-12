@@ -18,6 +18,8 @@ import {
   type DocumentoEmitido,
 } from "@/lib/documentos-emitidos-client";
 import { formatDateTime } from "@/lib/format";
+import { ensureHtml } from "@/lib/rich-text";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 export function PatientDocumentsTab({ patient }: { patient: Patient }) {
   const { user } = useAuth();
@@ -32,6 +34,10 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
     modeloNome: string;
     conteudo: string;
   } | null>(null);
+  // Muda a cada novo rascunho carregado — usado como key do editor pra
+  // forçar ele a remontar com o conteúdo novo (o TipTap só lê "content" na
+  // primeira montagem, ver rich-text-editor.tsx).
+  const [rascunhoVersion, setRascunhoVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,8 +63,11 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
     setRascunho({
       tipo: template.tipo,
       modeloNome: template.nome,
-      conteudo: fillPlaceholders(template.conteudo, patient, profile, new Date()),
+      conteudo: ensureHtml(
+        fillPlaceholders(template.conteudo, patient, profile, new Date())
+      ),
     });
+    setRascunhoVersion((v) => v + 1);
   }
 
   function imprimirConteudo(conteudo: string, id: string) {
@@ -167,14 +176,15 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
             Revise e complete o texto antes de salvar — campos entre colchetes
             precisam ser preenchidos manualmente.
           </p>
-          <textarea
-            value={rascunho.conteudo}
-            onChange={(e) =>
-              setRascunho((prev) => (prev ? { ...prev, conteudo: e.target.value } : prev))
-            }
-            rows={16}
-            className="mt-3 w-full resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm leading-6 text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-          />
+          <div className="mt-3">
+            <RichTextEditor
+              key={rascunhoVersion}
+              content={rascunho.conteudo}
+              onChange={(html) =>
+                setRascunho((prev) => (prev ? { ...prev, conteudo: html } : prev))
+              }
+            />
+          </div>
 
           {error && (
             <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
@@ -252,9 +262,14 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
 
       {conteudoParaImprimir && (
         <div id="documento-para-impressao" className="hidden print:block">
-          <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-black">
-            {conteudoParaImprimir}
-          </pre>
+          {/* Conteúdo é HTML gerado pelo próprio editor rico (rich-text-editor.tsx)
+              do psicólogo dono da conta — nunca de terceiros — mesmo padrão de
+              confiança já usado nos outros campos que ele preenche sobre si
+              mesmo/seus pacientes. */}
+          <div
+            className="rich-doc text-sm leading-6 text-black"
+            dangerouslySetInnerHTML={{ __html: ensureHtml(conteudoParaImprimir) }}
+          />
         </div>
       )}
     </div>

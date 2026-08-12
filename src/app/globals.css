@@ -74,3 +74,54 @@ body {
   font-family: var(--font-sans);
   font-weight: bold;
 }
+
+/* Conteúdo gerado pelo editor rico (ver rich-text-editor.tsx) — modelos e
+   documentos de paciente. Sempre em tom "papel" (preto sobre branco),
+   independente do tema do app, tanto na prévia de edição quanto na
+   impressão: Tailwind zera o estilo padrão de título/lista/citação, então
+   isso precisa ser declarado explicitamente. */
+.rich-doc h1 {
+  margin: 1.25em 0 0.5em;
+  font-size: 1.5em;
+  font-weight: 700;
+}
+.rich-doc h2 {
+  margin: 1.1em 0 0.5em;
+  font-size: 1.25em;
+  font-weight: 700;
+}
+.rich-doc h3 {
+  margin: 1em 0 0.4em;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+.rich-doc p {
+  margin: 0.6em 0;
+}
+.rich-doc ul,
+.rich-doc ol {
+  margin: 0.6em 0;
+  padding-left: 1.5em;
+}
+.rich-doc ul {
+  list-style: disc;
+}
+.rich-doc ol {
+  list-style: decimal;
+}
+.rich-doc li p {
+  margin: 0;
+}
+.rich-doc blockquote {
+  margin: 0.75em 0;
+  border-left: 3px solid #d4d4d8;
+  padding-left: 1em;
+  color: #52525b;
+  font-style: italic;
+}
+.rich-doc strong {
+  font-weight: 700;
+}
+.rich-doc em {
+  font-style: italic;
+}
