@@ -13,7 +13,6 @@ import {
   ArrowRight,
   ShieldCheck,
   ShieldAlert,
-  Star,
   Check,
   ChevronDown,
   Menu,
@@ -72,26 +71,27 @@ const features = [
   },
 ];
 
-// Depoimentos ilustrativos — trocar por relatos reais de clientes (e fotos
-// com autorização, no lugar das iniciais) antes de publicar em produção.
-const testimonials = [
+// Plataforma nova, sem base de clientes ainda — em vez de depoimentos
+// inventados, o argumento de venda da fase early access é o que muda de
+// verdade para quem entra agora.
+const earlyAccessPerks = [
   {
-    quote:
-      "O Psi Rob organizou minha agenda e meus prontuários em um só lugar. Deixei de perder tempo com planilha e caderno.",
-    name: "Mariana T.",
-    role: "Psicóloga Clínica",
+    icon: Sparkles,
+    title: "Prioridade no que vem a seguir",
+    description:
+      "O roteiro do produto é moldado pelo que os primeiros psicólogos pedem — quem entra agora ajuda a decidir as próximas funcionalidades.",
   },
   {
-    quote:
-      "Meus pacientes marcam consulta sozinhos pelo link e eu só confirmo pelo WhatsApp. Reduziu bastante as faltas.",
-    name: "Carlos E.",
-    role: "Psicólogo · Terapia Cognitivo-Comportamental",
+    icon: BellRing,
+    title: "Suporte direto",
+    description:
+      "Sem central de atendimento nem fila de ticket: dúvida ou problema, você fala direto com quem constrói a plataforma.",
   },
   {
-    quote:
-      "A parte financeira me mostra rapidinho quem já pagou e quem está pendente, sem precisar abrir planilha nenhuma.",
-    name: "Ana Paula R.",
-    role: "Psicóloga · Consultório Particular",
+    icon: Check,
+    title: "Sem letra miúda",
+    description:
+      "Sem número inflado de usuários pra impressionar. Você testa, decide se faz sentido pro seu consultório, e cancela quando quiser.",
   },
 ];
 
@@ -148,7 +148,7 @@ const navLinks = [
   { href: "#como-funciona", label: "Como Funciona" },
   { href: "#recursos", label: "Recursos" },
   { href: "#sobre", label: "Sobre" },
-  { href: "#depoimentos", label: "Depoimentos" },
+  { href: "#acesso-antecipado", label: "Acesso Antecipado" },
   { href: "#planos", label: "Planos" },
   { href: "#faq", label: "FAQ" },
 ];
@@ -371,25 +371,14 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.45 }}
-              className="mt-10 flex flex-col items-center gap-3 sm:flex-row"
+              className="mt-10 flex items-center gap-2.5"
             >
-              <div className="flex -space-x-2">
-                {["MT", "CE", "AP", "LF"].map((iniciais, i) => (
-                  <span
-                    key={iniciais}
-                    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-brand-800 dark:border-ink-950 ${
-                      ["bg-brand-200", "bg-brand-300", "bg-brand-100", "bg-brand-200"][i]
-                    }`}
-                  >
-                    {iniciais}
-                  </span>
-                ))}
-              </div>
+              <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-brand-100 px-3 text-xs font-bold uppercase tracking-wide text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+                <Sparkles className="h-3.5 w-3.5" />
+                Acesso antecipado
+              </span>
               <p className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
-                <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                  +1.000 psicólogos
-                </span>{" "}
-                já simplificaram a rotina clínica
+                Plataforma nova, grupo pequeno de psicólogos usando agora.
               </p>
             </motion.div>
           </div>
@@ -652,19 +641,17 @@ export default function Home() {
           </Reveal>
           <Reveal delay={0.15} className="grid grid-cols-2 gap-5">
             {[
-              { value: "1.000+", label: "Profissionais ativos" },
-              { value: "50 mil+", label: "Sessões registradas" },
-              { value: "99,9%", label: "Disponibilidade" },
-              { value: "100%", label: "Dados criptografados" },
+              { icon: ShieldCheck, label: "Criptografia em trânsito e em repouso" },
+              { icon: Users, label: "Dados isolados por psicólogo" },
+              { icon: FileText, label: "Trilha de auditoria de acesso ao prontuário" },
+              { icon: Check, label: "Alinhado ao Código de Ética do psicólogo" },
             ].map((stat) => (
               <div
                 key={stat.label}
                 className={`${cardBase} ${cardHover} p-8 text-center`}
               >
-                <div className="text-3xl font-bold text-brand-600 dark:text-brand-400">
-                  {stat.value}
-                </div>
-                <div className="mt-1 text-sm font-normal text-zinc-600 dark:text-zinc-400">
+                <stat.icon className="mx-auto h-7 w-7 text-brand-600 dark:text-brand-400" />
+                <div className="mt-3 text-sm font-normal text-zinc-600 dark:text-zinc-400">
                   {stat.label}
                 </div>
               </div>
@@ -673,54 +660,33 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Depoimentos */}
-      <section id="depoimentos" className="px-6 py-24 lg:py-32">
+      {/* Acesso antecipado */}
+      <section id="acesso-antecipado" className="px-6 py-24 lg:py-32">
         <div className="mx-auto max-w-6xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Quem usa, recomenda
+              Ainda no começo — e por escolha
             </h2>
             <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-              Psicólogos que trocaram planilha e caderno pelo Psi Rob.
+              Sem números inflados de usuários: isto é o que muda de verdade
+              para quem entra agora.
             </p>
           </Reveal>
           <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {testimonials.map((t, i) => (
-              <Reveal key={t.name} delay={i * 0.1}>
+            {earlyAccessPerks.map(({ icon: Icon, title, description }, i) => (
+              <Reveal key={title} delay={i * 0.1}>
                 <div
-                  className={`${cardBase} ${cardHover} relative flex h-full flex-col overflow-hidden p-8`}
+                  className={`${cardBase} ${cardHover} flex h-full flex-col p-8`}
                 >
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute -right-2 -top-6 select-none text-[7rem] leading-none text-brand-500/10 dark:text-brand-400/10"
-                  >
-                    &rdquo;
-                  </span>
-                  <div className="flex gap-0.5 text-amber-400">
-                    {Array.from({ length: 5 }).map((_, starIndex) => (
-                      <Star key={starIndex} className="h-4 w-4 fill-current" />
-                    ))}
+                  <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                    <Icon className="h-6 w-6" />
                   </div>
-                  <p className="relative mt-5 flex-1 text-base font-normal leading-relaxed text-zinc-600 dark:text-zinc-300">
-                    {t.quote}
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-sm font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    {description}
                   </p>
-                  <div className="mt-8 flex items-center gap-3 border-t border-zinc-100 pt-5 dark:border-white/10">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                      {t.name
-                        .split(" ")
-                        .slice(0, 2)
-                        .map((n) => n[0])
-                        .join("")}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
-                        {t.name}
-                      </p>
-                      <p className="truncate text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                        {t.role}
-                      </p>
-                    </div>
-                  </div>
                 </div>
               </Reveal>
             ))}
@@ -881,18 +847,18 @@ export default function Home() {
               <ShieldAlert className="h-3.5 w-3.5" />
               {safetyLink.label}
             </a>
-            <a
-              href="#"
+            <Link
+              href="/termos"
               className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white"
             >
               Termos de Uso
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
+              href="/privacidade"
               className="transition-colors duration-300 ease-in-out hover:text-zinc-900 dark:hover:text-white"
             >
               Privacidade
-            </a>
+            </Link>
           </nav>
           <p className="text-sm font-normal text-zinc-500 dark:text-zinc-500">
             © {new Date().getFullYear()} Psi Rob. Todos os direitos reservados.
