@@ -1139,7 +1139,13 @@ begin
   limit 1;
 
   if v_token is null then
-    v_token := encode(gen_random_bytes(24), 'hex');
+    -- gen_random_uuid() (núcleo do Postgres, sem extensão) em vez de
+    -- encode(gen_random_bytes(...), 'hex') do pgcrypto — este quebrou neste
+    -- projeto em algum momento ("function gen_random_bytes(integer) does
+    -- not exist"), provavelmente mesma bagunça externa que mexeu em
+    -- org_id/triggers/constraints. gen_random_uuid() já é usado em toda
+    -- coluna "id" deste arquivo e comprovadamente funciona aqui.
+    v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
     insert into convites_paciente (paciente_id, token)
     values (p_paciente_id, v_token);
   end if;
@@ -1972,7 +1978,9 @@ begin
   where paciente_id = p_paciente_id and escala = p_escala;
 
   if v_token is null then
-    v_token := encode(gen_random_bytes(24), 'hex');
+    -- Mesmo motivo do token em gerar_convite_paciente: gen_random_uuid() no
+    -- lugar de gen_random_bytes (pgcrypto), que não existe neste projeto.
+    v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
     insert into convites_escala (paciente_id, escala, token)
     values (p_paciente_id, p_escala, v_token);
   end if;
