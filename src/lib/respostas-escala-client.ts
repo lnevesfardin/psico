@@ -60,6 +60,12 @@ export async function enviarRespostaEscala(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Só respostas do link genérico ("qualquer pessoa"). As vinculadas a uma
+ * ficha (paciente_id preenchido) aparecem só na aba Rastreio daquele
+ * paciente (ver listRespostasEscalaPaciente) — mostrar nos dois lugares
+ * duplicaria a mesma resposta na tela.
+ */
 export async function listRespostasEscala(
   supabase: SupabaseClient,
   psicologoId: string
@@ -68,6 +74,7 @@ export async function listRespostasEscala(
     .from("respostas_escala")
     .select(RESPOSTA_COLUMNS)
     .eq("psicologo_id", psicologoId)
+    .is("paciente_id", null)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data as RespostaRow[]).map(rowToResposta);
