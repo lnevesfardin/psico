@@ -203,10 +203,18 @@ export function EscalaWizard({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sem token, ninguém sabe quem respondeu além do que a própria pessoa
+  // digitar aqui — por isso o nome vira obrigatório nesse caso. Com token, a
+  // resposta já cai na ficha certa (ver responder_escala_publico no
+  // schema.sql), então perguntar de novo só duplica informação.
+  const vinculadoAPaciente = Boolean(token);
+  const nomeValido = vinculadoAPaciente || pacienteNome.trim() !== "";
+
   const completo =
-    escala.tipo === "likert"
+    nomeValido &&
+    (escala.tipo === "likert"
       ? escala.itens.every((item) => respostasLikert[item.id] !== undefined)
-      : cssrsCompleto(escala, respostasCssrs);
+      : cssrsCompleto(escala, respostasCssrs));
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -271,19 +279,19 @@ export function EscalaWizard({
 
       <SafetyBanner />
 
-      <label className="mt-6 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Seu nome{" "}
-        <span className="text-xs font-normal text-zinc-400 dark:text-zinc-600">
-          (opcional)
-        </span>
-        <input
-          type="text"
-          value={pacienteNome}
-          onChange={(e) => setPacienteNome(e.target.value)}
-          placeholder="Não é obrigatório preencher"
-          className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-        />
-      </label>
+      {!vinculadoAPaciente && (
+        <label className="mt-6 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Seu nome
+          <input
+            type="text"
+            required
+            value={pacienteNome}
+            onChange={(e) => setPacienteNome(e.target.value)}
+            placeholder="Digite seu nome"
+            className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+          />
+        </label>
+      )}
 
       {escala.tipo === "likert" ? (
         <LikertForm
