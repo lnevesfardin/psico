@@ -17,15 +17,13 @@ import {
   ChevronDown,
   Menu,
   X,
-  Sparkles,
+  ListChecks,
   Search,
   UserPlus,
   BellRing,
   MonitorSmartphone,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
-import { SmokyText } from "@/components/motion/smoky-text";
-import { SnowFall } from "@/components/motion/snow-fall";
 
 /** Superfície padrão dos cards: sutil no claro, translúcida no escuro. */
 const cardBase =
@@ -76,7 +74,7 @@ const features = [
 // verdade para quem entra agora.
 const earlyAccessPerks = [
   {
-    icon: Sparkles,
+    icon: ListChecks,
     title: "Prioridade no que vem a seguir",
     description:
       "O roteiro do produto é moldado pelo que os primeiros psicólogos pedem — quem entra agora ajuda a decidir as próximas funcionalidades.",
@@ -312,9 +310,7 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative overflow-hidden px-6 py-20 sm:py-28 lg:py-32">
-        <Glow className="left-1/2 top-[-8rem] h-[34rem] w-[34rem] -translate-x-1/2 bg-brand-300/40 dark:bg-brand-500/15" />
-        <Glow className="right-[-6rem] top-[10rem] h-[22rem] w-[22rem] bg-sky-200/30 dark:bg-sky-500/10" />
-        <SnowFall className="text-brand-400/45 dark:text-white/20" />
+        <Glow className="left-1/2 top-[-8rem] h-[34rem] w-[34rem] -translate-x-1/2 bg-brand-300/30 dark:bg-brand-500/10" />
 
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2 lg:gap-12">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
@@ -322,18 +318,19 @@ export default function Home() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="mb-8 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/80 px-4 py-1.5 text-sm font-medium text-brand-700 backdrop-blur-sm dark:border-brand-500/25 dark:bg-brand-500/10 dark:text-brand-300"
+              className="mb-8 inline-flex items-center rounded-full border border-brand-200 bg-brand-50/80 px-4 py-1.5 text-sm font-medium text-brand-700 dark:border-brand-500/25 dark:bg-brand-500/10 dark:text-brand-300"
             >
-              <Sparkles className="h-4 w-4" />
-              A plataforma simples para psicólogos focarem no que importa: pessoas.
+              Feito para consultórios de psicologia
             </motion.span>
 
-            <h1 className="text-4xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-6xl dark:text-white">
-              <SmokyText
-                text="Gestão de consultório de psicologia sem complicação"
-                delay={0.1}
-              />
-            </h1>
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-4xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-6xl dark:text-white"
+            >
+              Gestão de consultório de psicologia sem complicação
+            </motion.h1>
 
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -373,8 +370,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.45 }}
               className="mt-10 flex items-center gap-2.5"
             >
-              <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-brand-100 px-3 text-xs font-bold uppercase tracking-wide text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                <Sparkles className="h-3.5 w-3.5" />
+              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-brand-100 px-3 text-xs font-bold uppercase tracking-wide text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                 Acesso antecipado
               </span>
               <p className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
@@ -389,8 +385,6 @@ export default function Home() {
             transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
             className="relative mx-auto w-full max-w-md lg:max-w-none"
           >
-            <Glow className="left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 bg-brand-300/30 dark:bg-brand-500/10" />
-
             <div className="relative overflow-hidden rounded-[2rem] border border-zinc-200/80 shadow-2xl shadow-brand-950/10 dark:border-white/10 dark:shadow-black/30">
               <Image
                 src="/images/hero-autocuidado.webp"
@@ -583,11 +577,10 @@ export default function Home() {
 
       {/* Recursos */}
       <section id="recursos" className="relative overflow-hidden px-6 py-24 lg:py-32">
-        <Glow className="left-[-8rem] top-[6rem] h-[26rem] w-[26rem] bg-brand-200/40 dark:bg-brand-500/10" />
         <div className="mx-auto max-w-6xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Tudo que seu consultório precisa
+              Prontuário, agenda, pacientes e financeiro — juntos
             </h2>
             <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
               Quatro pilares que simplificam a rotina clínica e administrativa
@@ -699,7 +692,6 @@ export default function Home() {
         id="planos"
         className="relative overflow-hidden bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-ink-900/60"
       >
-        <Glow className="left-1/2 top-[4rem] h-[30rem] w-[30rem] -translate-x-1/2 bg-brand-300/30 dark:bg-brand-500/12" />
         <div className="mx-auto max-w-4xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
