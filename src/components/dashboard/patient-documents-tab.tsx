@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileSignature, Printer, Save, Trash2 } from "lucide-react";
+import { Download, FileSignature, Printer, Save, Trash2 } from "lucide-react";
 import type { Patient } from "@/lib/dashboard-data";
 import { useAuth } from "@/context/auth-context";
 import { useProfile } from "@/context/profile-context";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/documentos-emitidos-client";
 import { formatDateTime } from "@/lib/format";
 import { ensureHtml } from "@/lib/rich-text";
+import { downloadAsWord } from "@/lib/download-doc";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 export function PatientDocumentsTab({ patient }: { patient: Patient }) {
@@ -68,6 +69,21 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
       ),
     });
     setRascunhoVersion((v) => v + 1);
+  }
+
+  function nomeArquivo(modeloNome: string): string {
+    // Sem acento/caractere especial: alguns sistemas de arquivo (e o
+    // Explorer no Windows) lidam mal com eles em downloads automáticos.
+    const base = `${modeloNome} - ${patient.name}`
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "") // marcas de acento pós-NFD
+      .replace(/[^a-zA-Z0-9 -]/g, "")
+      .trim();
+    return `${base}.doc`;
+  }
+
+  function baixarConteudo(conteudo: string, modeloNome: string) {
+    downloadAsWord(ensureHtml(conteudo), nomeArquivo(modeloNome));
   }
 
   function imprimirConteudo(conteudo: string, id: string) {
@@ -239,8 +255,18 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
+                  onClick={() => baixarConteudo(documento.conteudo, documento.modeloNome)}
+                  aria-label="Baixar como Word"
+                  title="Baixar como Word (.doc)"
+                  className="rounded-full p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => imprimirConteudo(documento.conteudo, documento.id)}
                   aria-label="Imprimir"
+                  title="Imprimir ou salvar como PDF"
                   className="rounded-full p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 >
                   <Printer className="h-4 w-4" />
