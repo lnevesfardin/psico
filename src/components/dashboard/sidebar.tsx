@@ -169,8 +169,10 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* Desktop sidebar */}
-      <aside className="hidden w-72 shrink-0 border-r border-zinc-100 bg-white md:flex dark:border-zinc-900 dark:bg-zinc-950">
+      {/* Desktop sidebar: sticky pra continuar visível ao rolar o conteúdo
+          principal — sem isso ela rolava junto e sumia de tela em páginas
+          longas (ex.: ficha de paciente com várias abas). */}
+      <aside className="hidden w-72 shrink-0 self-start border-r border-zinc-100 bg-white md:sticky md:top-0 md:flex md:h-screen dark:border-zinc-900 dark:bg-zinc-950">
         <SidebarContent />
       </aside>
     </>
