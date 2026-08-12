@@ -203,7 +203,7 @@ function OnboardingContent() {
           Psi Rob
         </div>
         <div className="mt-6">
-          <StepIndicator current={3} />
+          <StepIndicator current={2} />
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
           Complete seu perfil para começar
