@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, FileSignature, Printer, Save, Trash2 } from "lucide-react";
+import { Download, FileSignature, HelpCircle, Printer, Save, Trash2 } from "lucide-react";
 import type { Patient } from "@/lib/dashboard-data";
 import { useAuth } from "@/context/auth-context";
 import { useProfile } from "@/context/profile-context";
@@ -21,6 +21,7 @@ import { formatDateTime } from "@/lib/format";
 import { ensureHtml } from "@/lib/rich-text";
 import { downloadAsWord } from "@/lib/download-doc";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { DocumentHowItWorksModal } from "@/components/dashboard/document-how-it-works-modal";
 
 export function PatientDocumentsTab({ patient }: { patient: Patient }) {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [imprimindo, setImprimindo] = useState<string | null>(null);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -141,6 +143,15 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
 
   return (
     <div className="mt-6 space-y-6">
+      <button
+        type="button"
+        onClick={() => setHowItWorksOpen(true)}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+      >
+        <HelpCircle className="h-4 w-4" />
+        Como funciona?
+      </button>
+
       {templates.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-8 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
           Nenhum modelo de documento cadastrado ainda. Crie modelos em{" "}
@@ -285,6 +296,10 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
           ))}
         </div>
       </div>
+
+      {howItWorksOpen && (
+        <DocumentHowItWorksModal onClose={() => setHowItWorksOpen(false)} />
+      )}
 
       {conteudoParaImprimir && (
         <div id="documento-para-impressao" className="hidden print:block">

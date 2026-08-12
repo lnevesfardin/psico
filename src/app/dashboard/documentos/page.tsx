@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FileText, LayoutTemplate, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import {
+  FileText,
+  HelpCircle,
+  LayoutTemplate,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -13,6 +21,7 @@ import {
 } from "@/lib/document-templates";
 import { DocumentTemplateFormModal } from "@/components/dashboard/document-template-form-modal";
 import { DocumentTemplatePresetPicker } from "@/components/dashboard/document-template-preset-picker";
+import { DocumentHowItWorksModal } from "@/components/dashboard/document-how-it-works-modal";
 import { ensureHtml } from "@/lib/rich-text";
 
 export default function DocumentosPage() {
@@ -21,6 +30,7 @@ export default function DocumentosPage() {
   const [loading, setLoading] = useState(true);
   const [presetOpen, setPresetOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [editing, setEditing] = useState<DocumentTemplate | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -69,9 +79,20 @@ export default function DocumentosPage() {
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            Modelos de Documentos
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+              Modelos de Documentos
+            </h1>
+            <button
+              type="button"
+              onClick={() => setHowItWorksOpen(true)}
+              aria-label="Como funciona"
+              title="Como funciona"
+              className="rounded-full p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </button>
+          </div>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Customize modelos de atestado, laudo, contrato e outros documentos
             para gerar rapidamente na ficha de cada paciente.
@@ -157,6 +178,10 @@ export default function DocumentosPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {howItWorksOpen && (
+        <DocumentHowItWorksModal onClose={() => setHowItWorksOpen(false)} />
       )}
 
       {presetOpen && (
