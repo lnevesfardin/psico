@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-export type Plano = "mensal" | "anual";
+export type Plano = "mensal" | "trimestral" | "anual";
 
 let cached: Stripe | null = null;
 
@@ -21,14 +21,10 @@ export function getStripe(): Stripe {
 }
 
 export function priceIdFor(plano: Plano): string {
-  const id =
-    plano === "mensal"
-      ? process.env.STRIPE_PRICE_MENSAL
-      : process.env.STRIPE_PRICE_ANUAL;
+  const envVar = `STRIPE_PRICE_${plano.toUpperCase()}`;
+  const id = process.env[envVar];
   if (!id) {
-    throw new Error(
-      `STRIPE_PRICE_${plano.toUpperCase()} não configurada no ambiente do servidor.`
-    );
+    throw new Error(`${envVar} não configurada no ambiente do servidor.`);
   }
   return id;
 }

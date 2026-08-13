@@ -96,7 +96,7 @@ const earlyAccessPerks = [
 const plans = [
   {
     name: "Mensal",
-    price: "R$ 59",
+    price: "R$ 49",
     period: "/mês",
     badge: "",
     billedNote: "",
@@ -104,11 +104,20 @@ const plans = [
     highlighted: false,
   },
   {
-    name: "Anual",
-    price: "R$ 49",
+    name: "Trimestral",
+    price: "R$ 45",
     period: "/mês",
-    badge: "-17%",
-    billedNote: "R$ 588 cobrado uma vez por ano.",
+    badge: "-8%",
+    billedNote: "R$ 135 cobrado a cada 3 meses.",
+    description: "O mesmo plano, mais barato pagando o trimestre todo de uma vez.",
+    highlighted: false,
+  },
+  {
+    name: "Anual",
+    price: "R$ 39",
+    period: "/mês",
+    badge: "-20%",
+    billedNote: "R$ 468 cobrado uma vez por ano.",
     description: "O mesmo plano, mais barato pagando o ano todo de uma vez.",
     highlighted: true,
   },
@@ -695,7 +704,7 @@ export default function Home() {
         id="planos"
         className="relative overflow-hidden bg-zinc-50 px-6 py-24 lg:py-32 dark:bg-ink-900/60"
       >
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-5xl">
           <Reveal className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Planos para todo tamanho de consultório
@@ -704,7 +713,7 @@ export default function Home() {
               Comece grátis, sem cartão de crédito. Cancele quando quiser.
             </p>
           </Reveal>
-          <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="mt-20 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {plans.map((plan, i) => (
               <Reveal key={plan.name} delay={i * 0.1}>
                 <div

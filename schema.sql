@@ -2136,7 +2136,7 @@ create table if not exists assinaturas (
   psicologo_id uuid primary key references auth.users(id) on delete cascade,
   stripe_customer_id text not null,
   stripe_subscription_id text,
-  plano text check (plano in ('mensal', 'anual')),
+  plano text check (plano in ('mensal', 'trimestral', 'anual')),
   status text not null
     check (status in (
       'incomplete', 'incomplete_expired', 'trialing', 'active',
@@ -2147,6 +2147,13 @@ create table if not exists assinaturas (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- create table if not exists é no-op numa tabela que já existe: quando o
+-- plano "trimestral" foi adicionado depois, o constraint antigo (só
+-- mensal/anual) só é corrigido de fato reaplicando-o aqui.
+alter table assinaturas drop constraint if exists assinaturas_plano_check;
+alter table assinaturas add constraint assinaturas_plano_check
+  check (plano in ('mensal', 'trimestral', 'anual'));
 
 create unique index if not exists assinaturas_stripe_customer_idx
   on assinaturas (stripe_customer_id);

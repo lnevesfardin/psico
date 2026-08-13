@@ -29,12 +29,18 @@ const TOM_CLASSES = {
 };
 
 const PLANOS: { valor: Plano; nome: string; preco: string; nota: string }[] = [
-  { valor: "mensal", nome: "Mensal", preco: "R$ 59/mês", nota: "Cobrado mês a mês." },
+  { valor: "mensal", nome: "Mensal", preco: "R$ 49/mês", nota: "Cobrado mês a mês." },
+  {
+    valor: "trimestral",
+    nome: "Trimestral",
+    preco: "R$ 45/mês",
+    nota: "R$ 135 cobrado a cada 3 meses (8% mais barato).",
+  },
   {
     valor: "anual",
     nome: "Anual",
-    preco: "R$ 49/mês",
-    nota: "R$ 588 cobrado uma vez por ano (17% mais barato).",
+    preco: "R$ 39/mês",
+    nota: "R$ 468 cobrado uma vez por ano (20% mais barato).",
   },
 ];
 
@@ -104,7 +110,11 @@ export function SubscriptionCard({ psicologoId }: { psicologoId: string }) {
       {assinatura && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-zinc-900 dark:text-white">
-            {assinatura.plano === "anual" ? "Plano Anual" : "Plano Mensal"}
+            {assinatura.plano === "anual"
+              ? "Plano Anual"
+              : assinatura.plano === "trimestral"
+                ? "Plano Trimestral"
+                : "Plano Mensal"}
           </span>
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TOM_CLASSES[STATUS_LABEL[assinatura.status]?.tom ?? "neutro"]}`}
@@ -137,7 +147,7 @@ export function SubscriptionCard({ psicologoId }: { psicologoId: string }) {
             3 dias grátis pra testar, depois cobrança automática no cartão cadastrado.
             Cancele quando quiser pelo botão de gerenciar.
           </p>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {PLANOS.map((p) => (
               <div
                 key={p.valor}

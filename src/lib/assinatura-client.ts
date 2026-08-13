@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // Duplicado do tipo em lib/stripe.ts de propósito: aquele arquivo importa o
 // SDK do Stripe (server-only) — um Client Component importando só o tipo de
 // lá arriscaria empacotar o SDK inteiro no bundle do navegador.
-export type Plano = "mensal" | "anual";
+export type Plano = "mensal" | "trimestral" | "anual";
 
 export type Assinatura = {
   plano: Plano | null;

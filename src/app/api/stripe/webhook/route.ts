@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, type Plano } from "@/lib/stripe";
 
 /**
  * Único caminho de escrita em "assinaturas" (ver schema.sql — sem policy de
@@ -66,7 +66,9 @@ export async function POST(request: Request) {
       // gravar. Não é erro do webhook, só não é uma assinatura nossa.
       return;
     }
-    const plano = subscription.metadata?.plano === "anual" ? "anual" : "mensal";
+    const planoMeta = subscription.metadata?.plano;
+    const plano: Plano =
+      planoMeta === "anual" || planoMeta === "trimestral" ? planoMeta : "mensal";
     const item = subscription.items.data[0];
 
     const { error } = await admin.from("assinaturas").upsert(

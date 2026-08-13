@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, priceIdFor, TRIAL_DIAS, type Plano } from "@/lib/stripe";
 
 function isPlano(value: unknown): value is Plano {
-  return value === "mensal" || value === "anual";
+  return value === "mensal" || value === "trimestral" || value === "anual";
 }
 
 /**
