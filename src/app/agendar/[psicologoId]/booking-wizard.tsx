@@ -156,7 +156,7 @@ export function BookingWizard({
       });
   }, [psicologoId]);
 
-  // Se quem está agendando já tem conta no Psi Rob, pré-preenche nome e
+  // Se quem está agendando já tem conta no Psico, pré-preenche nome e
   // WhatsApp com o perfil dela e vincula a consulta à conta (ver RPC) pra
   // aparecer em "Meus Agendamentos" sem precisar digitar tudo de novo.
   useEffect(() => {
@@ -321,7 +321,7 @@ export function BookingWizard({
           <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
-            Psi Rob
+            Psico
           </Link>
           <Link
             href="/"

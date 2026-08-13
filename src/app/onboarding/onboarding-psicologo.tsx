@@ -201,7 +201,7 @@ function OnboardingContent() {
         <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-          Psi Rob
+          Psico
         </div>
         <div className="mt-6">
           <StepIndicator current={3} />

@@ -45,7 +45,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex items-center gap-2 text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-          Psi Rob
+          Psico
         </div>
         <NotificationBell />
       </div>
@@ -132,7 +132,7 @@ export default function Sidebar() {
         <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
-          {activeItem?.label ?? "Psi Rob"}
+          {activeItem?.label ?? "Psico"}
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell />

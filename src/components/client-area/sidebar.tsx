@@ -41,7 +41,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex items-center gap-2 px-6 py-6 text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-        Psi Rob
+        Psico
       </div>
       <nav className="flex-1 space-y-1 px-3">
         {navItems.map(({ href, label, icon: Icon }) => {
@@ -116,7 +116,7 @@ export function ClientAreaSidebar() {
         <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
-          {activeItem?.label ?? "Psi Rob"}
+          {activeItem?.label ?? "Psico"}
         </div>
         <button
           type="button"

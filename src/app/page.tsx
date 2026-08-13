@@ -131,7 +131,7 @@ const faq = [
   {
     question: "Preciso instalar algum programa?",
     answer:
-      "Não. O Psi Rob funciona direto no navegador, em qualquer computador ou celular, sem instalação.",
+      "Não. O Psico funciona direto no navegador, em qualquer computador ou celular, sem instalação.",
   },
   {
     question: "O agendamento online funciona para pacientes sem conta?",
@@ -263,7 +263,7 @@ export default function Home() {
             <div className="flex items-center gap-2 text-lg font-bold tracking-tight sm:text-xl">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-              Psi Rob
+              Psico
             </div>
           </div>
 
@@ -341,7 +341,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="mt-8 max-w-xl text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400"
             >
-              O Psi Rob une prontuário eletrônico, agenda, pacientes e financeiro
+              O Psico une prontuário eletrônico, agenda, pacientes e financeiro
               em um só sistema, para que você cuide dos seus pacientes e não da
               planilha.
             </motion.p>
@@ -493,7 +493,7 @@ export default function Home() {
               Como funciona
             </h2>
             <p className="mt-4 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-              O Psi Rob funciona de um jeito para quem atende e de outro para
+              O Psico funciona de um jeito para quem atende e de outro para
               quem busca atendimento. Escolha o seu lado.
             </p>
           </Reveal>
@@ -618,13 +618,13 @@ export default function Home() {
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
           <Reveal>
             <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-              Sobre o Psi Rob
+              Sobre o Psico
             </span>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
               Construído por quem entende a rotina clínica
             </h2>
             <p className="mt-6 text-lg font-normal leading-relaxed text-zinc-600 dark:text-zinc-400">
-              O Psi Rob nasceu para resolver um problema real: psicólogos
+              O Psico nasceu para resolver um problema real: psicólogos
               perdendo tempo com burocracia em vez de atendimento. Nossa
               plataforma une segurança, simplicidade e conformidade com o
               Código de Ética do psicólogo em cada funcionalidade.
@@ -830,7 +830,7 @@ export default function Home() {
           <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="" className="h-5 w-5 dark:invert" />
-            Psi Rob
+            Psico
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-6 text-sm font-normal text-zinc-600 dark:text-zinc-400">
             <a
@@ -866,7 +866,7 @@ export default function Home() {
             </Link>
           </nav>
           <p className="text-sm font-normal text-zinc-500 dark:text-zinc-500">
-            © {new Date().getFullYear()} Psi Rob. Todos os direitos reservados.
+            © {new Date().getFullYear()} Psico. Todos os direitos reservados.
           </p>
         </div>
       </footer>

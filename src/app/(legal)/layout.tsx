@@ -13,7 +13,7 @@ export default function LegalLayout({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-            Psi Rob
+            Psico
           </Link>
           <Link
             href="/"
@@ -27,7 +27,7 @@ export default function LegalLayout({
         <div className="mx-auto max-w-3xl">{children}</div>
       </main>
       <footer className="border-t border-zinc-100 px-6 py-8 text-center text-sm text-zinc-500 dark:border-white/5 dark:text-zinc-500">
-        © {new Date().getFullYear()} Psi Rob. Todos os direitos reservados.
+        © {new Date().getFullYear()} Psico. Todos os direitos reservados.
       </footer>
     </div>
   );

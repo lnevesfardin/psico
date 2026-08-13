@@ -166,7 +166,7 @@ export default function PerfilPage() {
       </h1>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         Essas informações aparecem na sua Agenda, nos Prontuários e na página
-        pública do Psi Rob.
+        pública do Psico.
       </p>
 
       {user && (

@@ -13,7 +13,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Psi Rob",
+  title: "Psico",
   description: "Gestão de consultório de psicologia sem complicação.",
 };
 

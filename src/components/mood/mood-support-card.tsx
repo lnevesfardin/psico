@@ -40,7 +40,7 @@ export function MoodSupportCard({ severe }: { severe: boolean }) {
           <a
             href={toWhatsappLink(
               contato.whatsapp,
-              `Olá, ${contato.nome}. Registrei um dia difícil no Psi Rob e gostaria de conversar.`
+              `Olá, ${contato.nome}. Registrei um dia difícil no Psico e gostaria de conversar.`
             )}
             target="_blank"
             rel="noopener noreferrer"

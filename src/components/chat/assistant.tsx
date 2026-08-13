@@ -8,9 +8,9 @@ type ChatMessage = { role: "user" | "model"; text: string };
 
 const GREETING: Record<Role, string> = {
   psychologist:
-    "Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a plataforma — agenda, pacientes & prontuários, financeiro, link de agendamento e mais. Como posso ajudar?",
+    "Olá! Sou o assistente do Psico. Posso ajudar você a usar a plataforma — agenda, pacientes & prontuários, financeiro, link de agendamento e mais. Como posso ajudar?",
   client:
-    "Olá! Sou o assistente do Psi Rob. Posso ajudar você a usar a plataforma — buscar psicólogo, seus agendamentos e seu perfil. Como posso ajudar?",
+    "Olá! Sou o assistente do Psico. Posso ajudar você a usar a plataforma — buscar psicólogo, seus agendamentos e seu perfil. Como posso ajudar?",
 };
 
 export function ChatAssistant({ role }: { role: Role }) {
@@ -69,7 +69,7 @@ export function ChatAssistant({ role }: { role: Role }) {
                 alt=""
                 className="h-4 w-4 brightness-0 invert"
               />
-              Assistente Psi Rob
+              Assistente Psico
             </div>
             <button
               type="button"

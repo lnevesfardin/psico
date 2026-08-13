@@ -1,4 +1,4 @@
--- Schema do Psi Rob (multi-tenant): cada psicólogo é um usuário do Supabase
+-- Schema do Psico (multi-tenant): cada psicólogo é um usuário do Supabase
 -- Auth (auth.users) e só enxerga/edita as próprias linhas via Row Level
 -- Security. Execute no SQL Editor do Supabase de um projeto novo.
 

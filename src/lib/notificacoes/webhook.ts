@@ -14,7 +14,7 @@ export function webhookUrl(): string {
  * decidir o que fazer — WhatsApp, SMS, planilha etc.
  *
  * Quando NOTIFICACOES_WEBHOOK_SECRET está definida, assina o corpo com
- * HMAC-SHA256 em "X-Psirob-Signature" para o destino confirmar que a
+ * HMAC-SHA256 em "X-Psico-Signature" para o destino confirmar que a
  * chamada veio mesmo daqui.
  */
 export async function enviarWebhook(
@@ -26,7 +26,7 @@ export async function enviarWebhook(
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (secret) {
-    headers["X-Psirob-Signature"] = createHmac("sha256", secret)
+    headers["X-Psico-Signature"] = createHmac("sha256", secret)
       .update(corpo)
       .digest("hex");
   }

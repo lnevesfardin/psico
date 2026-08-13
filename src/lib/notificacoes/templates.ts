@@ -64,7 +64,7 @@ export function montarLembrete(payload: LembretePayload): Mensagem {
     "",
     ...itens.map((i) => `${i.label}: ${i.url ?? i.valor}`),
     "",
-    "— Psi Rob",
+    "— Psico",
   ].join("\n");
 
   const html = `<!doctype html>
@@ -88,7 +88,7 @@ export function montarLembrete(payload: LembretePayload): Mensagem {
           .join("")}
       </table>
       <p style="margin:28px 0 0;font-size:13px;color:#a1a1aa;">
-        Você recebeu este e-mail porque tem uma consulta agendada no Psi Rob.
+        Você recebeu este e-mail porque tem uma consulta agendada no Psico.
       </p>
     </div>
   </body>
@@ -108,7 +108,7 @@ export function montarCancelamento(payload: CancelamentoPayload): Mensagem {
     "",
     `Motivo informado: ${payload.motivo}`,
     "",
-    "— Psi Rob",
+    "— Psico",
   ].join("\n");
 
   const html = `<!doctype html>
@@ -124,7 +124,7 @@ export function montarCancelamento(payload: CancelamentoPayload): Mensagem {
         <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">${escapeHtml(payload.motivo)}</p>
       </div>
       <p style="margin:28px 0 0;font-size:13px;color:#a1a1aa;">
-        Você recebeu este e-mail porque tem uma consulta agendada no Psi Rob.
+        Você recebeu este e-mail porque tem uma consulta agendada no Psico.
       </p>
     </div>
   </body>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidade — Psi Rob",
+  title: "Política de Privacidade — Psico",
 };
 
 const h2 = "mt-10 text-xl font-bold tracking-tight text-zinc-900 dark:text-white";
@@ -21,7 +21,7 @@ export default function PoliticaDePrivacidadePage() {
       </p>
 
       <p className={p}>
-        Esta Política explica como o Psi Rob (&quot;nós&quot;,
+        Esta Política explica como o Psico (&quot;nós&quot;,
         &quot;Plataforma&quot;) trata dados pessoais de psicólogos e
         pacientes que usam a Plataforma, em conformidade com a Lei Geral de
         Proteção de Dados (LGPD — Lei 13.709/2018).
@@ -32,14 +32,14 @@ export default function PoliticaDePrivacidadePage() {
         <li>
           <strong className={strong}>Dados de cadastro do psicólogo</strong>{" "}
           (nome, e-mail, CRP, telefone, endereço do consultório, foto de
-          perfil): o Psi Rob é o controlador desses dados, usados para
+          perfil): o Psico é o controlador desses dados, usados para
           operar sua conta.
         </li>
         <li>
           <strong className={strong}>Dados de pacientes inseridos pelo psicólogo</strong>{" "}
           (nome, CPF, contato, prontuário, dados de saúde): o{" "}
           <strong className={strong}>psicólogo é o controlador</strong> desses
-          dados; o Psi Rob atua como <strong className={strong}>operador</strong>,
+          dados; o Psico atua como <strong className={strong}>operador</strong>,
           processando-os apenas para viabilizar a Plataforma (armazenar,
           exibir, permitir agendamento), sob as instruções e
           responsabilidade do profissional.

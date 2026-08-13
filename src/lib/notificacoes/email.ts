@@ -20,7 +20,7 @@ export async function enviarEmail(
 ): Promise<ResultadoEnvio> {
   const apiKey = process.env.BREVO_API_KEY;
   const fromEmail = process.env.BREVO_FROM_EMAIL;
-  const fromName = process.env.BREVO_FROM_NAME || "Psi Rob";
+  const fromName = process.env.BREVO_FROM_NAME || "Psico";
 
   if (!apiKey || !fromEmail) {
     return {

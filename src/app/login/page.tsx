@@ -25,7 +25,7 @@ export default async function LoginPage({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-6 w-6 dark:invert" />
-          Psi Rob
+          Psico
         </Link>
         <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
           <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">

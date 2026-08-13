@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Termos de Uso — Psi Rob",
+  title: "Termos de Uso — Psico",
 };
 
 const h2 = "mt-10 text-xl font-bold tracking-tight text-zinc-900 dark:text-white";
@@ -20,8 +20,8 @@ export default function TermosDeUsoPage() {
       </p>
 
       <p className={p}>
-        Bem-vindo ao Psi Rob. Estes Termos de Uso regulam o acesso e o uso da
-        plataforma Psi Rob (&quot;Plataforma&quot;), disponibilizada em fase
+        Bem-vindo ao Psico. Estes Termos de Uso regulam o acesso e o uso da
+        plataforma Psico (&quot;Plataforma&quot;), disponibilizada em fase
         de acesso antecipado por{" "}
         <strong className="text-zinc-800 dark:text-zinc-200">
           [nome completo do responsável]
@@ -30,7 +30,7 @@ export default function TermosDeUsoPage() {
         (&quot;Usuário&quot;) concorda com estes termos.
       </p>
 
-      <h2 className={h2}>1. O que é o Psi Rob</h2>
+      <h2 className={h2}>1. O que é o Psico</h2>
       <p className={p}>
         Um software de gestão para consultórios e clínicas de psicologia:
         agendamento de consultas, prontuário eletrônico, controle financeiro
@@ -101,7 +101,7 @@ export default function TermosDeUsoPage() {
         </li>
       </ul>
       <p className={p}>
-        O Psi Rob atua como operador desses dados (fornece a infraestrutura
+        O Psico atua como operador desses dados (fornece a infraestrutura
         técnica), não como responsável pelo conteúdo clínico inserido.
       </p>
 
@@ -156,7 +156,7 @@ export default function TermosDeUsoPage() {
 
       <h2 className={h2}>9. Propriedade intelectual</h2>
       <p className={p}>
-        O software, a marca Psi Rob e os elementos visuais da Plataforma
+        O software, a marca Psico e os elementos visuais da Plataforma
         pertencem a [nome completo do responsável]. Os dados que você insere
         (pacientes, prontuários, agenda, financeiro) continuam sendo seus.
       </p>
