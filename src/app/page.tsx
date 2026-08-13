@@ -93,20 +93,23 @@ const earlyAccessPerks = [
   },
 ];
 
-// Valores ilustrativos — ajustar antes de publicar.
 const plans = [
   {
     name: "Mensal",
-    price: "R$ 49",
+    price: "R$ 59",
     period: "/mês",
-    description: "Ideal para começar sem compromisso.",
+    badge: "",
+    billedNote: "",
+    description: "Cobrado mês a mês, sem compromisso.",
     highlighted: false,
   },
   {
     name: "Anual",
-    price: "R$ 39",
+    price: "R$ 49",
     period: "/mês",
-    description: "Equivalente a 2 meses grátis, cobrado uma vez por ano.",
+    badge: "-17%",
+    billedNote: "R$ 588 cobrado uma vez por ano.",
+    description: "O mesmo plano, mais barato pagando o ano todo de uma vez.",
     highlighted: true,
   },
 ];
@@ -722,14 +725,24 @@ export default function Home() {
                   <p className="mt-1 text-sm font-normal leading-relaxed text-zinc-500 dark:text-zinc-400">
                     {plan.description}
                   </p>
-                  <div className="mt-6 flex items-baseline gap-1">
+                  <div className="mt-6 flex items-baseline gap-2">
                     <span className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">
                       {plan.price}
                     </span>
                     <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
                       {plan.period}
                     </span>
+                    {plan.badge && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        {plan.badge}
+                      </span>
+                    )}
                   </div>
+                  {plan.billedNote && (
+                    <p className="mt-1 text-xs font-normal text-zinc-400 dark:text-zinc-500">
+                      {plan.billedNote}
+                    </p>
+                  )}
                   <ul className="mt-6 space-y-3">
                     {planFeatures.map((f) => (
                       <li

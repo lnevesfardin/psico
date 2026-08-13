@@ -2116,3 +2116,47 @@ create policy "psicologo_ve_proprios_acessos_prontuario" on acessos_prontuario
       where p.id = acessos_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
   );
+
+-- =========================================================
+-- assinaturas — status da assinatura Stripe de cada psicólogo. Uma linha
+-- por psicólogo; a fonte da verdade sobre cobrança é sempre o Stripe, isto
+-- é só um cache local pra saber "esse psicólogo tem assinatura ativa?" sem
+-- chamar a API do Stripe a cada carregamento de tela.
+--
+-- "status" usa o vocabulário do próprio Stripe (trialing/active/past_due/
+-- canceled/...), sem tradução — evita bug de mapeamento e fica fácil
+-- comparar com o painel do Stripe na hora de depurar.
+--
+-- Sem policy de insert/update/delete pra "authenticated" de propósito: só
+-- o webhook (service role, ver /api/stripe/webhook) escreve aqui. Se o
+-- psicólogo pudesse gravar a própria linha, daria pra se autoconceder
+-- status "active" direto pelo client, sem pagar nada.
+-- =========================================================
+create table if not exists assinaturas (
+  psicologo_id uuid primary key references auth.users(id) on delete cascade,
+  stripe_customer_id text not null,
+  stripe_subscription_id text,
+  plano text check (plano in ('mensal', 'anual')),
+  status text not null
+    check (status in (
+      'incomplete', 'incomplete_expired', 'trialing', 'active',
+      'past_due', 'canceled', 'unpaid', 'paused'
+    )),
+  trial_fim timestamptz,
+  periodo_atual_fim timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists assinaturas_stripe_customer_idx
+  on assinaturas (stripe_customer_id);
+
+alter table assinaturas enable row level security;
+
+drop policy if exists "psicologo_ve_propria_assinatura" on assinaturas;
+create policy "psicologo_ve_propria_assinatura" on assinaturas
+  for select using (auth.uid() = psicologo_id);
+
+create or replace trigger assinaturas_set_updated_at
+  before update on assinaturas
+  for each row execute function set_updated_at();

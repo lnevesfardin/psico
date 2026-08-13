@@ -20,7 +20,9 @@ import {
   Layers,
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
+import { useAuth } from "@/context/auth-context";
 import type { Profile } from "@/lib/profile-data";
+import { SubscriptionCard } from "@/components/dashboard/subscription-card";
 import { useDisponibilidade } from "@/context/disponibilidade-context";
 import {
   weekdayShort,
@@ -48,6 +50,7 @@ const modalidadeSelecaoOptions: {
 ];
 
 export default function PerfilPage() {
+  const { user } = useAuth();
   const { profile, updateProfile } = useProfile();
   const [draft, setDraft] = useState<Profile | null>(null);
   const [photoMode, setPhotoMode] = useState<"url" | "upload">("url");
@@ -165,6 +168,12 @@ export default function PerfilPage() {
         Essas informações aparecem na sua Agenda, nos Prontuários e na página
         pública do Psi Rob.
       </p>
+
+      {user && (
+        <div className="mt-6">
+          <SubscriptionCard psicologoId={user.id} />
+        </div>
+      )}
 
       <form
         onSubmit={handleSubmit}
