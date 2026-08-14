@@ -147,10 +147,7 @@ export function BookingWizard({
   useEffect(() => {
     const supabase = createClient();
     supabase
-      .from("consultas_publico")
-      .select("data, horario, status")
-      .eq("psicologo_id", psicologoId)
-      .gte("data", todayIso())
+      .rpc("consultas_publico", { p_psicologo_id: psicologoId, p_data_inicio: todayIso() })
       .then(({ data }) => {
         if (data) setOcupados(data as SlotOcupado[]);
       });

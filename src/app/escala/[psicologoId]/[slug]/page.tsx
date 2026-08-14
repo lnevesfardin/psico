@@ -19,11 +19,8 @@ export default async function ResponderEscalaPage({
   if (!escala) notFound();
 
   const supabase = await createClient();
-  const { data: perfil } = await supabase
-    .from("perfis_publico")
-    .select("id, nome")
-    .eq("id", psicologoId)
-    .single<{ id: string; nome: string }>();
+  const { data: perfis } = await supabase.rpc("perfis_publico", { p_ids: [psicologoId] });
+  const perfil = (perfis as { id: string; nome: string }[] | null)?.[0] ?? null;
 
   if (!perfil) notFound();
 

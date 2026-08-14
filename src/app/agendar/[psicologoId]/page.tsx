@@ -22,28 +22,19 @@ export default async function AgendarPage({
       : undefined;
   const supabase = await createClient();
 
-  const [{ data: perfil }, { data: disponibilidades }] = await Promise.all([
-    supabase
-      .from("perfis_publico")
-      .select(
-        "id, nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url"
-      )
-      .eq("id", psicologoId)
-      .single<PerfilPublico>(),
-    supabase
-      .from("disponibilidades_publico")
-      .select("id, dia_semana, horario_inicio, horario_fim, modalidade")
-      .eq("psicologo_id", psicologoId)
-      .returns<DisponibilidadePublica[]>(),
+  const [{ data: perfis }, { data: disponibilidades }] = await Promise.all([
+    supabase.rpc("perfis_publico", { p_ids: [psicologoId] }),
+    supabase.rpc("disponibilidades_publico", { p_psicologo_id: psicologoId }),
   ]);
 
+  const perfil = (perfis as PerfilPublico[] | null)?.[0] ?? null;
   if (!perfil) notFound();
 
   return (
     <BookingWizard
       psicologoId={psicologoId}
       perfil={perfil}
-      disponibilidades={disponibilidades ?? []}
+      disponibilidades={(disponibilidades as DisponibilidadePublica[] | null) ?? []}
       modalidadeFixa={modalidadeFixa}
     />
   );
