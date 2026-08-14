@@ -156,3 +156,78 @@ export async function createRecorrenciaComOcorrencias(
 
   return { recorrenciaId: recorrencia.id as string, criadas, conflitos };
 }
+
+export type ConverterEmRecorrenteInput = {
+  patientId: string;
+  patientName: string;
+  // Data/horário da consulta AVULSA já existente que está virando a
+  // primeira ocorrência da série — nunca recriada, só linkada (ver
+  // handleTornarRecorrente em agenda/page.tsx, que faz o update do
+  // recorrencia_id nela depois de chamar esta função).
+  data: string;
+  horario: string;
+  modalidade: ModalidadeAtendimento | null;
+  intervaloSemanas: 1 | 2;
+  fim: string | null;
+  maxOcorrenciasIniciais: number;
+};
+
+// Cria a recorrência a partir de uma consulta avulsa que já existe na
+// agenda (dia da semana derivado da própria data dela) e gera só as
+// ocorrências FUTURAS — a primeira (a consulta original) não é recriada
+// aqui, só teve o dia_semana/horário usados pra calcular o resto da série.
+export async function converterEmRecorrente(
+  supabase: SupabaseClient,
+  psicologoId: string,
+  input: ConverterEmRecorrenteInput
+): Promise<{ recorrenciaId: string; criadas: number; conflitos: number }> {
+  const [y, m, d] = input.data.split("-").map(Number);
+  const diaSemana = new Date(y, m - 1, d).getDay();
+
+  const { data: recorrencia, error } = await supabase
+    .from("recorrencias")
+    .insert({
+      psicologo_id: psicologoId,
+      paciente_id: input.patientId,
+      dia_semana: diaSemana,
+      horario: input.horario,
+      modalidade: input.modalidade,
+      intervalo_semanas: input.intervaloSemanas,
+      inicio: input.data,
+      fim: input.fim,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+
+  // +1 pra compensar o slice(1): a primeira data que proximasDatas() devolve
+  // é sempre a própria "inicio" (a consulta original), que descartamos aqui.
+  const datas = proximasDatas(
+    input.data,
+    diaSemana,
+    input.intervaloSemanas,
+    input.maxOcorrenciasIniciais + 1,
+    input.fim
+  ).slice(1);
+
+  let criadas = 0;
+  let conflitos = 0;
+  for (const data of datas) {
+    const { error: insertError } = await supabase.from("consultas").insert({
+      psicologo_id: psicologoId,
+      paciente_id: input.patientId,
+      paciente_nome: input.patientName,
+      recorrencia_id: recorrencia.id,
+      data,
+      horario: input.horario,
+      status: "confirmada",
+      tipo: "consulta",
+      origem: "manual",
+      modalidade: input.modalidade,
+    });
+    if (insertError) conflitos += 1;
+    else criadas += 1;
+  }
+
+  return { recorrenciaId: recorrencia.id as string, criadas, conflitos };
+}

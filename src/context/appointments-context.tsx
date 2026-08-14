@@ -97,6 +97,11 @@ type AppointmentsContextValue = {
   ) => Promise<{ patientCreated: boolean }>;
   rescheduleAppointment: (id: string, date: string, time: string) => Promise<void>;
   deleteAppointment: (id: string) => Promise<void>;
+  // Liga/desliga uma consulta a uma série recorrente sem apagar/recriar a
+  // linha — usado ao converter uma consulta avulsa em recorrente (liga) e ao
+  // parar a repetição a partir de uma ocorrência (desliga, ver
+  // handleTornarAvulsa em agenda/page.tsx).
+  setRecorrencia: (id: string, recorrenciaId: string | null) => Promise<void>;
   // Consultas que o próprio cliente cancelou, pra Agenda de Hoje avisar o
   // psicólogo com o motivo — populado só via o evento em tempo real abaixo
   // (não sobrevive a um refresh: sem tabela de notificações persistente,
@@ -322,6 +327,22 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     setAppointments((prev) => prev.filter((a) => a.id !== id));
   }
 
+  async function setRecorrencia(id: string, recorrenciaId: string | null) {
+    if (!user) return;
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("consultas")
+      .update({ recorrencia_id: recorrenciaId })
+      .eq("id", id)
+      .eq("psicologo_id", user.id);
+
+    if (error) throw new Error(error.message);
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, recorrenciaId } : a))
+    );
+  }
+
   function dismissCancellationAlert(key: string) {
     setCancellationAlerts((alerts) => alerts.filter((a) => a.key !== key));
   }
@@ -335,6 +356,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         updateStatus,
         rescheduleAppointment,
         deleteAppointment,
+        setRecorrencia,
         cancellationAlerts,
         dismissCancellationAlert,
       }}

@@ -37,7 +37,11 @@ import { useProfile } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { listAgendamentoIdsComEvolucao, listPatients } from "@/lib/patients-client";
-import { createRecorrenciaComOcorrencias, deactivateRecorrencia } from "@/lib/recorrencias-client";
+import {
+  converterEmRecorrente,
+  createRecorrenciaComOcorrencias,
+  deactivateRecorrencia,
+} from "@/lib/recorrencias-client";
 import { listPacotesAtivos, consumirSessaoPacote } from "@/lib/pacotes-client";
 import { createLancamento, lancamentoExistePorAgendamento } from "@/lib/financeiro-client";
 import { TimeSelect } from "@/components/ui/time-select";
@@ -77,6 +81,7 @@ export default function AgendaPage() {
     updateStatus,
     rescheduleAppointment,
     deleteAppointment,
+    setRecorrencia,
     cancellationAlerts,
     dismissCancellationAlert,
   } = useAppointments();
@@ -101,6 +106,10 @@ export default function AgendaPage() {
   const [lancandoCobranca, setLancandoCobranca] = useState(false);
   const [reschedulingItem, setReschedulingItem] = useState<Appointment | null>(
     null
+  );
+  const [convertingItem, setConvertingItem] = useState<Appointment | null>(null);
+  const [togglingRecorrenciaIds, setTogglingRecorrenciaIds] = useState<Set<string>>(
+    new Set()
   );
   const seenPendingIds = useRef<Set<string> | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => {
@@ -265,6 +274,76 @@ export default function AgendaPage() {
       window.alert(
         `Série criada: ${criadas} consulta(s) agendada(s). ${conflitos} data(s) já tinham outro horário marcado e foram puladas.`
       );
+    }
+  }
+
+  // Transforma uma consulta avulsa já existente na primeira ocorrência de
+  // uma série — pensado pro caso de agenda já preenchida (ex.: uma lista de
+  // pacientes de sexta lançada avulsa) que o psicólogo decide depois que
+  // precisa virar recorrente, sem reagendar nada na mão.
+  async function handleTornarRecorrente(input: {
+    intervaloSemanas: 1 | 2;
+    fim: string | null;
+  }) {
+    if (!user || !convertingItem) return;
+    const item = convertingItem;
+    const supabase = createClient();
+    const { recorrenciaId, criadas, conflitos } = await converterEmRecorrente(
+      supabase,
+      user.id,
+      {
+        patientId: item.patientId!,
+        patientName: item.patientName,
+        data: item.date,
+        horario: item.time,
+        modalidade: item.modalidade ?? null,
+        intervaloSemanas: input.intervaloSemanas,
+        fim: input.fim,
+        maxOcorrenciasIniciais: 12,
+      }
+    );
+    await setRecorrencia(item.id, recorrenciaId);
+    setConvertingItem(null);
+    if (conflitos > 0) {
+      window.alert(
+        `Série criada: ${criadas} consulta(s) futura(s) agendada(s). ${conflitos} data(s) já tinham outro horário marcado e foram puladas.`
+      );
+    }
+  }
+
+  // Para a repetição a partir desta ocorrência: desativa a recorrência,
+  // apaga as próximas já geradas (a atual fica intacta, só desvinculada) —
+  // simétrico ao "cancelar série" do handleDelete, mas sem apagar a consulta
+  // que está sendo convertida de volta pra avulsa.
+  async function handleTornarAvulsa(item: Appointment) {
+    if (!item.recorrenciaId) return;
+    const confirmed = window.confirm(
+      "Parar a repetição a partir daqui? As próximas ocorrências já criadas dessa série serão removidas — esta consulta continua, só deixa de fazer parte da série."
+    );
+    if (!confirmed) return;
+
+    const recorrenciaId = item.recorrenciaId;
+    setTogglingRecorrenciaIds((prev) => new Set(prev).add(item.id));
+    try {
+      const supabase = createClient();
+      const futuras = appointments.filter(
+        (a) => a.recorrenciaId === recorrenciaId && a.id !== item.id && a.date >= today
+      );
+      for (const futura of futuras) {
+        await deleteAppointment(futura.id);
+      }
+      await deactivateRecorrencia(supabase, recorrenciaId);
+      await setRecorrencia(item.id, null);
+    } catch (err) {
+      window.alert(
+        err instanceof Error ? err.message : "Não foi possível parar a repetição."
+      );
+    } finally {
+      setTogglingRecorrenciaIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
     }
   }
 
@@ -611,14 +690,34 @@ export default function AgendaPage() {
                           >
                             {isBlock && <Ban className="mr-1.5 inline h-4 w-4" />}
                             {item.patientName}
-                            {item.recorrenciaId && (
-                              <span
-                                className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                                title="Faz parte de uma série recorrente"
+                            {!isBlock && item.recorrenciaId && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleTornarAvulsa(item);
+                                }}
+                                disabled={togglingRecorrenciaIds.has(item.id)}
+                                title="Faz parte de uma série recorrente — clique para parar a repetição"
+                                className="ml-2 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-brand-950 dark:text-brand-300 dark:hover:bg-rose-950 dark:hover:text-rose-400"
                               >
                                 <Repeat className="h-3 w-3" />
                                 Série
-                              </span>
+                              </button>
+                            )}
+                            {!isBlock && !item.recorrenciaId && item.patientId && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setConvertingItem(item);
+                                }}
+                                title="Consulta avulsa — clique para transformar em série recorrente"
+                                className="ml-2 inline-flex items-center gap-1 rounded-full border border-dashed border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-500 transition-colors hover:border-brand-400 hover:text-brand-600 dark:border-zinc-700 dark:text-zinc-500 dark:hover:border-brand-500 dark:hover:text-brand-400"
+                              >
+                                <Repeat className="h-3 w-3" />
+                                Avulsa
+                              </button>
                             )}
                             {isPublic && (
                               <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
@@ -760,6 +859,14 @@ export default function AgendaPage() {
           item={reschedulingItem}
           onClose={() => setReschedulingItem(null)}
           onConfirm={handleReschedule}
+        />
+      )}
+
+      {convertingItem && (
+        <TornarRecorrenteModal
+          item={convertingItem}
+          onClose={() => setConvertingItem(null)}
+          onConfirm={handleTornarRecorrente}
         />
       )}
 
@@ -915,6 +1022,106 @@ function RescheduleModal({
           className="mt-6 w-full rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? "Remarcando..." : "Confirmar remarcação"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+const weekdayFullLabels = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+];
+
+function TornarRecorrenteModal({
+  item,
+  onClose,
+  onConfirm,
+}: {
+  item: Appointment;
+  onClose: () => void;
+  onConfirm: (input: { intervaloSemanas: 1 | 2; fim: string | null }) => Promise<void>;
+}) {
+  const [intervaloSemanas, setIntervaloSemanas] = useState<1 | 2>(1);
+  const [repetirAte, setRepetirAte] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const [y, m, d] = item.date.split("-").map(Number);
+  const diaSemana = weekdayFullLabels[new Date(y, m - 1, d).getDay()];
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onConfirm({ intervaloSemanas, fim: repetirAte || null });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <form
+        onSubmit={handleSubmit}
+        className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+            Tornar recorrente
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          {item.patientName} passa a ter consulta toda {diaSemana} às {item.time}, a
+          partir de {formatDateShort(item.date)}.
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            Frequência
+            <select
+              value={intervaloSemanas}
+              onChange={(e) => setIntervaloSemanas(Number(e.target.value) as 1 | 2)}
+              className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            >
+              <option value={1}>Semanal</option>
+              <option value={2}>Quinzenal</option>
+            </select>
+          </label>
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            Repetir até (opcional)
+            <input
+              type="date"
+              value={repetirAte}
+              onChange={(e) => setRepetirAte(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </label>
+        </div>
+        <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-600">
+          Cria de imediato as próximas ocorrências (até 12). Esta consulta continua
+          exatamente como está — só passa a fazer parte da série.
+        </p>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="mt-6 w-full rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Criando série..." : "Confirmar"}
         </button>
       </form>
     </div>
