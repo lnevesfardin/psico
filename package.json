@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "backup": "node scripts/backup.mjs",
-    "restore": "node scripts/restore.mjs"
+    "restore": "node scripts/restore.mjs",
+    "backup:storage": "node scripts/backup-storage.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",
