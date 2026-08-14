@@ -52,13 +52,20 @@ function LikertForm({
   return (
     <div className="mt-6 space-y-5">
       {escala.itens.map((item, i) => (
+        // "fieldset > legend" nativo faz o navegador cortar a borda de cima
+        // no meio do texto do legend (é assim que o HTML desenha legend por
+        // padrão) — feio demais com essa borda arredondada custom. Usar um
+        // <p> normal como "rótulo" em vez de <legend> evita esse corte;
+        // aria-label no fieldset mantém a acessibilidade (leitor de tela
+        // ainda anuncia a pergunta ao entrar no grupo de opções).
         <fieldset
           key={item.id}
+          aria-label={`${i + 1}. ${item.texto}`}
           className="rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
         >
-          <legend className="px-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
             {i + 1}. {item.texto}
-          </legend>
+          </p>
           <div className="mt-3 flex flex-col gap-2" role="radiogroup">
             {escala.opcoes.map((opcao) => (
               <OpcaoCard
@@ -73,11 +80,14 @@ function LikertForm({
       ))}
 
       {escala.itemExtra && (
-        <fieldset className="rounded-xl border border-dashed border-zinc-200 p-4 dark:border-zinc-800">
-          <legend className="px-1 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+        <fieldset
+          aria-label={escala.itemExtra.texto}
+          className="rounded-xl border border-dashed border-zinc-200 p-4 dark:border-zinc-800"
+        >
+          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
             {escala.itemExtra.texto}{" "}
             <span className="text-xs text-zinc-400 dark:text-zinc-600">(opcional)</span>
-          </legend>
+          </p>
           <div className="mt-3 flex flex-col gap-2" role="radiogroup">
             {escala.itemExtra.opcoes.map((opcao) => (
               <OpcaoCard
@@ -131,10 +141,11 @@ function YesNoQuestion({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <fieldset className="rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <legend className="px-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-        {texto}
-      </legend>
+    <fieldset
+      aria-label={texto}
+      className="rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+    >
+      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{texto}</p>
       <div className="mt-2 flex gap-2">
         {[
           { label: "Sim", v: true },
