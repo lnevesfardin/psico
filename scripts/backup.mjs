@@ -79,6 +79,22 @@ const TABELAS = [
 
 const PAGINA = 1000;
 
+/**
+ * Papel declarado no payload de uma chave em formato JWT (o formato antigo
+ * do Supabase, em que anon e service_role só se distinguem por este campo).
+ * Devolve null pro formato novo (sb_secret_/sb_publishable_), que não é JWT.
+ */
+function papelDoJwt(chave) {
+  const partes = chave.split(".");
+  if (partes.length !== 3) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(partes[1], "base64url").toString("utf8"));
+    return payload.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function baixarTabela(supabase, tabela) {
   const linhas = [];
   // Pagina de propósito: a API do Supabase corta em 1000 linhas por
@@ -143,6 +159,25 @@ async function main() {
         "(Supabase > Settings > API) antes de rodar o backup."
     );
   }
+  // Chave pública no lugar da secreta é o erro mais fácil de cometer (ficam
+  // lado a lado no painel) e o mais perigoso: ela respeita RLS, então o
+  // backup rodaria "com sucesso" e viria vazio, sem nenhum erro aparente.
+  //
+  // Dois formatos convivem hoje: o novo (sb_publishable_ / sb_secret_) e o
+  // antigo, em que anon e service_role são AMBOS JWT começando com "eyJ" —
+  // por isso o formato antigo precisa ser desempacotado pra saber o papel,
+  // em vez de olhar só o prefixo.
+  const publicaNova = chave.startsWith("sb_publishable_");
+  const publicaLegada =
+    chave.startsWith("eyJ") && papelDoJwt(chave) !== "service_role";
+  if (publicaNova || publicaLegada) {
+    throw new Error(
+      "A chave configurada em SUPABASE_SERVICE_ROLE_KEY não é a secreta.\n" +
+        "Ela respeita RLS, então o backup viria vazio sem dar erro.\n\n" +
+        'Use Supabase > Settings > API > "Secret keys" (sb_secret_...),\n' +
+        "clicando no olho pra revelar antes de copiar."
+    );
+  }
 
   const supabase = createClient(url, chave, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -170,6 +205,19 @@ async function main() {
   writeFileSync(caminho, JSON.stringify(backup, null, 2), "utf8");
 
   console.log(`\nPronto: ${caminho} (${total} linha(s) no total)`);
+
+  // Rede de segurança final: um banco em produção com usuário real nunca
+  // volta vazio. Se voltou, algo está errado (chave sem permissão, projeto
+  // errado na URL) — e um arquivo vazio guardado como "backup" é pior que
+  // não ter backup, porque passa uma sensação falsa de segurança.
+  if (backup.usuarios.length === 0 || total === 0) {
+    console.log(
+      "\n*** ATENÇÃO: o backup saiu VAZIO. ***\n" +
+        "Confira se a URL aponta pro projeto certo e se a chave é mesmo a\n" +
+        "secreta. NÃO trate este arquivo como um backup válido."
+    );
+    return;
+  }
   console.log(
     "\nATENÇÃO: isto salva os DADOS, não os arquivos do Storage.\n" +
       "Os materiais enviados aos pacientes (bucket materiais-paciente) precisam\n" +
