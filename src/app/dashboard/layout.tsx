@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/dashboard/sidebar";
 import { ChatAssistant } from "@/components/chat/assistant";
+import { SubscriptionBanner } from "@/components/dashboard/subscription-banner";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole } from "@/lib/auth/role";
+import { assinaturaEmDia, getAssinatura } from "@/lib/assinatura-client";
 import { ProfileProvider } from "@/context/profile-context";
 import { DisponibilidadeProvider } from "@/context/disponibilidade-context";
 import { AppointmentsProvider } from "@/context/appointments-context";
@@ -44,13 +46,21 @@ export default async function DashboardLayout({
     redirect("/onboarding");
   }
 
+  // Só decide se MOSTRA o aviso — quem realmente barra a escrita é a RLS
+  // (assinatura_ativa() no schema.sql). Não redireciona: o combinado é que
+  // leitura/exportação do prontuário continuem acessíveis mesmo inadimplente.
+  const emDia = assinaturaEmDia(await getAssinatura(supabase, user.id));
+
   return (
     <ProfileProvider>
       <DisponibilidadeProvider>
         <AppointmentsProvider>
           <div className="flex min-h-screen flex-col bg-zinc-50 md:flex-row dark:bg-zinc-950">
             <Sidebar />
-            <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
+            <main className="min-w-0 flex-1 overflow-x-hidden">
+              {!emDia && <SubscriptionBanner />}
+              {children}
+            </main>
           </div>
           <ChatAssistant role="psychologist" />
         </AppointmentsProvider>

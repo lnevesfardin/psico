@@ -10,6 +10,7 @@ export type Assinatura = {
   status: string;
   trialFim: string | null;
   periodoAtualFim: string | null;
+  isento: boolean;
 };
 
 type AssinaturaRow = {
@@ -17,6 +18,7 @@ type AssinaturaRow = {
   status: string;
   trial_fim: string | null;
   periodo_atual_fim: string | null;
+  isento: boolean;
 };
 
 export async function getAssinatura(
@@ -25,7 +27,7 @@ export async function getAssinatura(
 ): Promise<Assinatura | null> {
   const { data, error } = await supabase
     .from("assinaturas")
-    .select("plano, status, trial_fim, periodo_atual_fim")
+    .select("plano, status, trial_fim, periodo_atual_fim, isento")
     .eq("psicologo_id", psicologoId)
     .maybeSingle<AssinaturaRow>();
   if (error || !data) return null;
@@ -34,7 +36,23 @@ export async function getAssinatura(
     status: data.status,
     trialFim: data.trial_fim,
     periodoAtualFim: data.periodo_atual_fim,
+    isento: data.isento ?? false,
   };
+}
+
+/**
+ * Espelha exatamente a função assinatura_ativa() do schema.sql — a trava de
+ * verdade é a RLS no banco; isto aqui é só pra UI conseguir avisar ANTES de
+ * a pessoa preencher um formulário inteiro e tomar um erro seco de permissão.
+ * Se as duas divergirem, quem manda é o banco.
+ */
+export function assinaturaEmDia(assinatura: Assinatura | null): boolean {
+  if (!assinatura) return false;
+  return (
+    assinatura.isento ||
+    assinatura.status === "trialing" ||
+    assinatura.status === "active"
+  );
 }
 
 async function postParaUrl(caminho: string, body?: unknown): Promise<string> {

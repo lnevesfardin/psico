@@ -370,6 +370,47 @@ alter table notificacoes enable row level security;
 -- o segredo do cron. Só postgres (o próprio pg_cron) e a service_role key.
 alter table app_secrets enable row level security;
 
+-- =========================================================
+-- assinatura_ativa() — "este psicólogo pode CRIAR/EDITAR dados?". Usada nas
+-- policies de escrita logo abaixo (ver a tabela "assinaturas" mais adiante
+-- neste arquivo pra definição de status/isento e pro grandfather de quem já
+-- usava o app antes da cobrança existir).
+--
+-- trialing/active = em dia (o trial do Stripe já exige cartão cadastrado).
+-- Qualquer outro estado (past_due, canceled, unpaid, ou nenhuma linha)
+-- bloqueia ESCRITA. Leitura e exportação ficam livres de propósito: o
+-- prontuário é dado clínico sob guarda obrigatória (Res. CFP 01/2009 e
+-- 06/2019), e reter isso de um profissional inadimplente criaria um problema
+-- muito pior que a mensalidade atrasada.
+--
+-- security definer pelo motivo de sempre neste arquivo: a policy roda com a
+-- permissão de quem escreve, e "assinaturas" só tem policy de select da
+-- própria linha — a função devolve só um boolean, nunca a linha.
+--
+-- language plpgsql (não sql) de propósito: o corpo de uma função plpgsql não
+-- é resolvido contra o catálogo na hora do CREATE, então esta função pode
+-- ser declarada aqui, antes das policies que a usam, mesmo que a tabela
+-- "assinaturas" só seja criada mais abaixo. Trocar pra "language sql"
+-- quebraria a primeira execução do arquivo num banco vazio.
+-- =========================================================
+create or replace function assinatura_ativa()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+begin
+  return exists (
+    select 1 from assinaturas
+    where psicologo_id = auth.uid()
+      and (isento or status in ('trialing', 'active'))
+  );
+end;
+$$;
+
+grant execute on function assinatura_ativa() to authenticated;
+
 drop policy if exists "psicologo_ve_proprio_perfil" on perfis;
 create policy "psicologo_ve_proprio_perfil" on perfis
   for select using (auth.uid() = id);
@@ -398,13 +439,14 @@ create policy "psicologo_ve_proprios_pacientes" on pacientes
   for select using (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_cria_proprios_pacientes" on pacientes;
 create policy "psicologo_cria_proprios_pacientes" on pacientes
-  for insert with check (auth.uid() = psicologo_id);
+  for insert with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_edita_proprios_pacientes" on pacientes;
 create policy "psicologo_edita_proprios_pacientes" on pacientes
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+  for update using (auth.uid() = psicologo_id and assinatura_ativa())
+  with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_apaga_proprios_pacientes" on pacientes;
 create policy "psicologo_apaga_proprios_pacientes" on pacientes
-  for delete using (auth.uid() = psicologo_id);
+  for delete using (auth.uid() = psicologo_id and assinatura_ativa());
 
 drop policy if exists "psicologo_ve_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_ve_proprias_sessoes" on sessoes_prontuario
@@ -417,7 +459,7 @@ create policy "psicologo_ve_proprias_sessoes" on sessoes_prontuario
 drop policy if exists "psicologo_cria_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
   for insert with check (
-    exists (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -425,7 +467,7 @@ create policy "psicologo_cria_proprias_sessoes" on sessoes_prontuario
 drop policy if exists "psicologo_apaga_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_apaga_proprias_sessoes" on sessoes_prontuario
   for delete using (
-    exists (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -433,12 +475,12 @@ create policy "psicologo_apaga_proprias_sessoes" on sessoes_prontuario
 drop policy if exists "psicologo_edita_proprias_sessoes" on sessoes_prontuario;
 create policy "psicologo_edita_proprias_sessoes" on sessoes_prontuario
   for update using (
-    exists (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
   ) with check (
-    exists (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = sessoes_prontuario.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -449,13 +491,14 @@ create policy "psicologo_ve_proprias_consultas" on consultas
   for select using (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_cria_proprias_consultas" on consultas;
 create policy "psicologo_cria_proprias_consultas" on consultas
-  for insert with check (auth.uid() = psicologo_id);
+  for insert with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_edita_proprias_consultas" on consultas;
 create policy "psicologo_edita_proprias_consultas" on consultas
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+  for update using (auth.uid() = psicologo_id and assinatura_ativa())
+  with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_apaga_proprias_consultas" on consultas;
 create policy "psicologo_apaga_proprias_consultas" on consultas
-  for delete using (auth.uid() = psicologo_id);
+  for delete using (auth.uid() = psicologo_id and assinatura_ativa());
 -- Sem policy de INSERT para "anon": agendamentos públicos passam pela função
 -- criar_agendamento_publico() (security definer) abaixo, nunca por insert cru
 -- na tabela — isso evita que a anon key (que vai pro bundle JS) seja usada
@@ -499,13 +542,14 @@ create policy "psicologo_ve_proprias_recorrencias" on recorrencias
   for select using (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_cria_proprias_recorrencias" on recorrencias;
 create policy "psicologo_cria_proprias_recorrencias" on recorrencias
-  for insert with check (auth.uid() = psicologo_id);
+  for insert with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_edita_proprias_recorrencias" on recorrencias;
 create policy "psicologo_edita_proprias_recorrencias" on recorrencias
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+  for update using (auth.uid() = psicologo_id and assinatura_ativa())
+  with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_apaga_proprias_recorrencias" on recorrencias;
 create policy "psicologo_apaga_proprias_recorrencias" on recorrencias
-  for delete using (auth.uid() = psicologo_id);
+  for delete using (auth.uid() = psicologo_id and assinatura_ativa());
 
 -- Liga cada ocorrência (linha em "consultas") à série que a gerou — nullable,
 -- a maioria das consultas continua avulsa. "on delete set null": apagar a
@@ -519,13 +563,14 @@ create policy "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros
   for select using (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_cria_proprios_lancamentos" on lancamentos_financeiros
-  for insert with check (auth.uid() = psicologo_id);
+  for insert with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_edita_proprios_lancamentos" on lancamentos_financeiros
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+  for update using (auth.uid() = psicologo_id and assinatura_ativa())
+  with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_apaga_proprios_lancamentos" on lancamentos_financeiros
-  for delete using (auth.uid() = psicologo_id);
+  for delete using (auth.uid() = psicologo_id and assinatura_ativa());
 
 -- Psicólogo enxerga (só leitura) os lembretes das próprias consultas, para
 -- poder conferir o que foi enviado. Escrita é exclusiva do despachante, que
@@ -1209,6 +1254,13 @@ as $$
 declare
   v_token text;
 begin
+  -- security definer ignora RLS, então a trava de assinatura das policies
+  -- não vale aqui — precisa ser checada explicitamente (mesma checagem em
+  -- confirmar_consulta_e_criar_paciente e gerar_convite_escala).
+  if not assinatura_ativa() then
+    raise exception 'Assinatura inativa: reative seu plano para convidar pacientes.';
+  end if;
+
   if not exists (
     select 1 from pacientes
     where id = p_paciente_id and psicologo_id = auth.uid()
@@ -1470,6 +1522,13 @@ declare
   v_observacoes text;
   v_criado boolean := false;
 begin
+  -- Ver comentário em gerar_convite_paciente: security definer ignora RLS,
+  -- então a trava de assinatura tem que ser explícita aqui (esta função
+  -- CRIA paciente, é escrita de verdade).
+  if not assinatura_ativa() then
+    raise exception 'Assinatura inativa: reative seu plano para confirmar agendamentos.';
+  end if;
+
   select * into v from consultas
   where id = p_consulta_id and psicologo_id = auth.uid();
   if not found then
@@ -1618,13 +1677,14 @@ create policy "psicologo_ve_proprios_modelos" on modelos_documentos
   for select using (auth.uid() = psicologo_id);
 drop policy if exists "psicologo_cria_proprios_modelos" on modelos_documentos;
 create policy "psicologo_cria_proprios_modelos" on modelos_documentos
-  for insert with check (auth.uid() = psicologo_id);
+  for insert with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_edita_proprios_modelos" on modelos_documentos;
 create policy "psicologo_edita_proprios_modelos" on modelos_documentos
-  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+  for update using (auth.uid() = psicologo_id and assinatura_ativa())
+  with check (auth.uid() = psicologo_id and assinatura_ativa());
 drop policy if exists "psicologo_apaga_proprios_modelos" on modelos_documentos;
 create policy "psicologo_apaga_proprios_modelos" on modelos_documentos
-  for delete using (auth.uid() = psicologo_id);
+  for delete using (auth.uid() = psicologo_id and assinatura_ativa());
 
 -- =========================================================
 -- documentos_emitidos — histórico dos documentos gerados (atestado, laudo
@@ -1661,7 +1721,7 @@ create policy "psicologo_ve_documentos_emitidos" on documentos_emitidos
 drop policy if exists "psicologo_cria_documentos_emitidos" on documentos_emitidos;
 create policy "psicologo_cria_documentos_emitidos" on documentos_emitidos
   for insert with check (
-    exists (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = documentos_emitidos.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -1669,7 +1729,7 @@ create policy "psicologo_cria_documentos_emitidos" on documentos_emitidos
 drop policy if exists "psicologo_apaga_documentos_emitidos" on documentos_emitidos;
 create policy "psicologo_apaga_documentos_emitidos" on documentos_emitidos
   for delete using (
-    exists (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = documentos_emitidos.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -1703,15 +1763,44 @@ create index if not exists materiais_paciente_paciente_idx
 
 alter table materiais_paciente enable row level security;
 
+-- Dividida em leitura + escrita (era "for all") por causa da trava de
+-- assinatura: quem está inadimplente continua VENDO/baixando o que já
+-- enviou, só não envia nem apaga material novo. "for all" cobriria o select
+-- junto e tiraria o acesso de leitura.
 drop policy if exists "psicologo_gerencia_materiais" on materiais_paciente;
-create policy "psicologo_gerencia_materiais" on materiais_paciente
-  for all using (
+drop policy if exists "psicologo_ve_materiais" on materiais_paciente;
+create policy "psicologo_ve_materiais" on materiais_paciente
+  for select using (
     exists (
       select 1 from pacientes p
       where p.id = materiais_paciente.paciente_id and p.psicologo_id = auth.uid()
     )
+  );
+drop policy if exists "psicologo_cria_materiais" on materiais_paciente;
+create policy "psicologo_cria_materiais" on materiais_paciente
+  for insert with check (
+    assinatura_ativa() and exists (
+      select 1 from pacientes p
+      where p.id = materiais_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_edita_materiais" on materiais_paciente;
+create policy "psicologo_edita_materiais" on materiais_paciente
+  for update using (
+    assinatura_ativa() and exists (
+      select 1 from pacientes p
+      where p.id = materiais_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
   ) with check (
-    exists (
+    assinatura_ativa() and exists (
+      select 1 from pacientes p
+      where p.id = materiais_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_apaga_materiais" on materiais_paciente;
+create policy "psicologo_apaga_materiais" on materiais_paciente
+  for delete using (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = materiais_paciente.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -1786,9 +1875,12 @@ on conflict (id) do update set
 -- dá pra decidir acesso sem consultar materiais_paciente. Compara como texto
 -- (p.id::text) de propósito — cast do nome da pasta para uuid explodiria em
 -- qualquer arquivo solto com nome fora do padrão.
+-- Mesma divisão de materiais_paciente (era "for all"): leitura/download do
+-- que já existe fica livre, upload/remoção exigem assinatura em dia.
 drop policy if exists "psicologo_gerencia_materiais_storage" on storage.objects;
-create policy "psicologo_gerencia_materiais_storage" on storage.objects
-  for all to authenticated
+drop policy if exists "psicologo_ve_materiais_storage" on storage.objects;
+create policy "psicologo_ve_materiais_storage" on storage.objects
+  for select to authenticated
   using (
     bucket_id = 'materiais-paciente'
     and exists (
@@ -1796,9 +1888,25 @@ create policy "psicologo_gerencia_materiais_storage" on storage.objects
       where p.id::text = (storage.foldername(name))[1]
         and p.psicologo_id = auth.uid()
     )
-  )
+  );
+drop policy if exists "psicologo_envia_materiais_storage" on storage.objects;
+create policy "psicologo_envia_materiais_storage" on storage.objects
+  for insert to authenticated
   with check (
     bucket_id = 'materiais-paciente'
+    and assinatura_ativa()
+    and exists (
+      select 1 from pacientes p
+      where p.id::text = (storage.foldername(name))[1]
+        and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_apaga_materiais_storage" on storage.objects;
+create policy "psicologo_apaga_materiais_storage" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'materiais-paciente'
+    and assinatura_ativa()
     and exists (
       select 1 from pacientes p
       where p.id::text = (storage.foldername(name))[1]
@@ -1835,15 +1943,42 @@ create table if not exists habitos_paciente (
 
 alter table habitos_paciente enable row level security;
 
+-- Mesma divisão de materiais_paciente (era "for all"): leitura livre,
+-- escrita exige assinatura em dia.
 drop policy if exists "psicologo_gerencia_habitos" on habitos_paciente;
-create policy "psicologo_gerencia_habitos" on habitos_paciente
-  for all using (
+drop policy if exists "psicologo_ve_habitos" on habitos_paciente;
+create policy "psicologo_ve_habitos" on habitos_paciente
+  for select using (
     exists (
       select 1 from pacientes p
       where p.id = habitos_paciente.paciente_id and p.psicologo_id = auth.uid()
     )
+  );
+drop policy if exists "psicologo_cria_habitos" on habitos_paciente;
+create policy "psicologo_cria_habitos" on habitos_paciente
+  for insert with check (
+    assinatura_ativa() and exists (
+      select 1 from pacientes p
+      where p.id = habitos_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_edita_habitos" on habitos_paciente;
+create policy "psicologo_edita_habitos" on habitos_paciente
+  for update using (
+    assinatura_ativa() and exists (
+      select 1 from pacientes p
+      where p.id = habitos_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
   ) with check (
-    exists (
+    assinatura_ativa() and exists (
+      select 1 from pacientes p
+      where p.id = habitos_paciente.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+drop policy if exists "psicologo_apaga_habitos" on habitos_paciente;
+create policy "psicologo_apaga_habitos" on habitos_paciente
+  for delete using (
+    assinatura_ativa() and exists (
       select 1 from pacientes p
       where p.id = habitos_paciente.paciente_id and p.psicologo_id = auth.uid()
     )
@@ -2052,6 +2187,11 @@ as $$
 declare
   v_token text;
 begin
+  -- Ver comentário em gerar_convite_paciente sobre security definer x RLS.
+  if not assinatura_ativa() then
+    raise exception 'Assinatura inativa: reative seu plano para enviar escalas.';
+  end if;
+
   if not exists (
     select 1 from pacientes
     where id = p_paciente_id and psicologo_id = auth.uid()
@@ -2257,3 +2397,35 @@ create policy "psicologo_ve_propria_assinatura" on assinaturas
 create or replace trigger assinaturas_set_updated_at
   before update on assinaturas
   for each row execute function set_updated_at();
+
+-- Conta cortesia/vitalícia (sócio, conta de demonstração, e principalmente
+-- quem já usava o app antes da cobrança existir — ver backfill abaixo).
+-- Separado de "status" de propósito: status é espelho fiel do Stripe, e
+-- misturar um valor nosso ali quebraria a comparação com o painel deles.
+alter table assinaturas add column if not exists isento boolean not null default false;
+
+-- Conta isenta não tem cliente no Stripe — a coluna nasceu "not null"
+-- porque só o webhook criava linha aqui.
+alter table assinaturas alter column stripe_customer_id drop not null;
+
+-- =========================================================
+-- Grandfather: todo psicólogo que já existia quando a cobrança entrou no ar
+-- continua usando de graça. Sem isto, reexecutar este arquivo cortaria na
+-- hora quem já usa o app em produção (que nunca teve como assinar, porque
+-- o Stripe não existia ainda).
+--
+-- O corte é uma data fixa, não "todo mundo que não tem linha": assim isto
+-- continua idempotente (pode reexecutar à vontade) sem passar a isentar
+-- também quem se cadastrar amanhã.
+-- =========================================================
+insert into assinaturas (psicologo_id, status, isento)
+select p.id, 'active', true
+from profiles p
+where p.role = 'psychologist'
+  and p.created_at < timestamptz '2026-08-14 00:00:00-03'
+  and not exists (select 1 from assinaturas a where a.psicologo_id = p.id)
+on conflict (psicologo_id) do nothing;
+
+-- A função assinatura_ativa(), que lê esta tabela, fica declarada bem antes
+-- daqui (junto das policies que a usam) — ver o comentário lá sobre por que
+-- ela precisa nascer antes desta tabela existir.
