@@ -468,6 +468,52 @@ drop policy if exists "cliente_ve_proprios_agendamentos" on consultas;
 create policy "cliente_ve_proprios_agendamentos" on consultas
   for select using (auth.uid() = cliente_id);
 
+-- =========================================================
+-- recorrencias — consulta que se repete toda semana (ou a cada 2 semanas) no
+-- mesmo dia da semana e horário. Cada ocorrência continua sendo uma linha
+-- normal em "consultas" (com recorrencia_id preenchido) — não existe
+-- consulta "virtual" calculada na hora; tudo que aparece na agenda é uma
+-- linha real, editável/cancelável individualmente sem afetar o resto da
+-- série.
+-- =========================================================
+create table if not exists recorrencias (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  dia_semana int not null check (dia_semana between 0 and 6), -- 0=domingo..6=sábado
+  horario time not null,
+  modalidade text check (modalidade in ('presencial', 'online')),
+  intervalo_semanas int not null default 1 check (intervalo_semanas in (1, 2)),
+  inicio date not null,
+  fim date,
+  ativa boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists recorrencias_psicologo_id_idx on recorrencias (psicologo_id);
+
+alter table recorrencias enable row level security;
+
+drop policy if exists "psicologo_ve_proprias_recorrencias" on recorrencias;
+create policy "psicologo_ve_proprias_recorrencias" on recorrencias
+  for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_cria_proprias_recorrencias" on recorrencias;
+create policy "psicologo_cria_proprias_recorrencias" on recorrencias
+  for insert with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_edita_proprias_recorrencias" on recorrencias;
+create policy "psicologo_edita_proprias_recorrencias" on recorrencias
+  for update using (auth.uid() = psicologo_id) with check (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_apaga_proprias_recorrencias" on recorrencias;
+create policy "psicologo_apaga_proprias_recorrencias" on recorrencias
+  for delete using (auth.uid() = psicologo_id);
+
+-- Liga cada ocorrência (linha em "consultas") à série que a gerou — nullable,
+-- a maioria das consultas continua avulsa. "on delete set null": apagar a
+-- recorrência (não usado hoje, só desativar via "ativa") nunca apaga a
+-- consulta em si.
+alter table consultas add column if not exists recorrencia_id uuid references recorrencias(id) on delete set null;
+create index if not exists consultas_recorrencia_id_idx on consultas (recorrencia_id);
+
 drop policy if exists "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros;
 create policy "psicologo_ve_proprios_lancamentos" on lancamentos_financeiros
   for select using (auth.uid() = psicologo_id);

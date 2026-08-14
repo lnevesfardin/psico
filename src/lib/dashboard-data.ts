@@ -69,5 +69,23 @@ export type Appointment = {
   // cancelar_consulta_cliente no schema.sql) — nunca em mudanças de status
   // feitas pelo psicólogo.
   motivoCancelamento?: string;
+  // Presente quando a ocorrência veio de uma recorrência (ver
+  // recorrencias-client.ts) — não null quando kind="consulta" e a consulta
+  // faz parte de uma série semanal/quinzenal.
+  recorrenciaId?: string | null;
+};
+
+export type Recorrencia = {
+  id: string;
+  psicologoId: string;
+  patientId: string;
+  patientName: string;
+  diaSemana: number; // 0=domingo .. 6=sábado
+  horario: string; // HH:mm
+  modalidade: ModalidadeAtendimento | null;
+  intervaloSemanas: 1 | 2;
+  inicio: string; // yyyy-mm-dd
+  fim: string | null;
+  ativa: boolean;
 };
 
