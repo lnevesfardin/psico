@@ -4,7 +4,14 @@ import { useState } from "react";
 import { CheckCircle2, Phone, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { enviarRespostaEscala } from "@/lib/respostas-escala-client";
-import type { Escala, EscalaCssrs, EscalaLikert, RespostaCssrs, RespostaLikert } from "@/lib/escalas";
+import type {
+  Escala,
+  EscalaCssrs,
+  EscalaLikert,
+  OpcaoLikert,
+  RespostaCssrs,
+  RespostaLikert,
+} from "@/lib/escalas";
 
 function SafetyBanner() {
   return (
@@ -52,21 +59,14 @@ function LikertForm({
           <legend className="px-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
             {i + 1}. {item.texto}
           </legend>
-          <div className="mt-2 flex flex-col gap-1.5">
+          <div className="mt-3 flex flex-col gap-2" role="radiogroup">
             {escala.opcoes.map((opcao) => (
-              <label
+              <OpcaoCard
                 key={opcao.valor}
-                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/60"
-              >
-                <input
-                  type="radio"
-                  name={item.id}
-                  checked={respostas[item.id] === opcao.valor}
-                  onChange={() => setValor(item.id, opcao.valor)}
-                  className="h-4 w-4 accent-brand-600"
-                />
-                {opcao.label}
-              </label>
+                opcao={opcao}
+                selecionada={respostas[item.id] === opcao.valor}
+                onSelect={() => setValor(item.id, opcao.valor)}
+              />
             ))}
           </div>
         </fieldset>
@@ -78,26 +78,46 @@ function LikertForm({
             {escala.itemExtra.texto}{" "}
             <span className="text-xs text-zinc-400 dark:text-zinc-600">(opcional)</span>
           </legend>
-          <div className="mt-2 flex flex-col gap-1.5">
+          <div className="mt-3 flex flex-col gap-2" role="radiogroup">
             {escala.itemExtra.opcoes.map((opcao) => (
-              <label
+              <OpcaoCard
                 key={opcao.valor}
-                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/60"
-              >
-                <input
-                  type="radio"
-                  name={escala.itemExtra!.id}
-                  checked={respostas[escala.itemExtra!.id] === opcao.valor}
-                  onChange={() => setValor(escala.itemExtra!.id, opcao.valor)}
-                  className="h-4 w-4 accent-brand-600"
-                />
-                {opcao.label}
-              </label>
+                opcao={opcao}
+                selecionada={respostas[escala.itemExtra!.id] === opcao.valor}
+                onSelect={() => setValor(escala.itemExtra!.id, opcao.valor)}
+              />
             ))}
           </div>
         </fieldset>
       )}
     </div>
+  );
+}
+
+function OpcaoCard({
+  opcao,
+  selecionada,
+  onSelect,
+}: {
+  opcao: OpcaoLikert;
+  selecionada: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selecionada}
+      onClick={onSelect}
+      className={`flex w-full flex-col items-start gap-0.5 rounded-xl border p-3.5 text-left transition-colors ${
+        selecionada
+          ? "border-brand-500 ring-1 ring-brand-500"
+          : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600"
+      }`}
+    >
+      <span className="text-sm font-semibold text-zinc-900 dark:text-white">{opcao.label}</span>
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">{opcao.descricao}</span>
+    </button>
   );
 }
 

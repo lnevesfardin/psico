@@ -13,7 +13,7 @@
 
 export type EscalaSlug = "cssrs" | "phq9" | "gad7" | "snap-iv";
 
-export type OpcaoLikert = { valor: number; label: string };
+export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
 export type ItemLikert = { id: string; texto: string; dominio?: string };
 
@@ -54,17 +54,17 @@ export type RespostaLikert = Record<string, number>;
 export type RespostaCssrs = Record<string, boolean>;
 
 const OPCOES_FREQUENCIA: OpcaoLikert[] = [
-  { valor: 0, label: "Nenhuma vez" },
-  { valor: 1, label: "Vários dias" },
-  { valor: 2, label: "Mais da metade dos dias" },
-  { valor: 3, label: "Quase todos os dias" },
+  { valor: 0, label: "Nenhuma vez", descricao: "Não aconteceu nos últimos 14 dias" },
+  { valor: 1, label: "Alguns dias", descricao: "Aconteceu em alguns momentos" },
+  { valor: 2, label: "Mais da metade dos dias", descricao: "Aconteceu com frequência" },
+  { valor: 3, label: "Quase todos os dias", descricao: "Aconteceu de forma intensa" },
 ];
 
 const OPCOES_SNAP: OpcaoLikert[] = [
-  { valor: 0, label: "Nem um pouco" },
-  { valor: 1, label: "Só um pouco" },
-  { valor: 2, label: "Bastante" },
-  { valor: 3, label: "Demais" },
+  { valor: 0, label: "Nem um pouco", descricao: "Não acontece" },
+  { valor: 1, label: "Só um pouco", descricao: "Acontece raramente" },
+  { valor: 2, label: "Bastante", descricao: "Acontece com frequência" },
+  { valor: 3, label: "Demais", descricao: "Acontece o tempo todo" },
 ];
 
 export const CSSRS: EscalaCssrs = {
@@ -107,10 +107,10 @@ export const PHQ9: EscalaLikert = {
     id: "funcionalidade",
     texto: "Se você marcou algum problema, o quanto ele dificultou seu dia a dia — estudos, casa, convivência?",
     opcoes: [
-      { valor: 0, label: "Nada" },
-      { valor: 1, label: "Um pouco" },
-      { valor: 2, label: "Muito" },
-      { valor: 3, label: "Extremamente" },
+      { valor: 0, label: "Nada", descricao: "Não dificultou" },
+      { valor: 1, label: "Um pouco", descricao: "Dificultou um pouco" },
+      { valor: 2, label: "Muito", descricao: "Dificultou bastante" },
+      { valor: 3, label: "Extremamente", descricao: "Dificultou extremamente" },
     ],
   },
   itens: [
