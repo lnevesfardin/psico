@@ -47,3 +47,7 @@ next-env.d.ts
 # plugin de terceiro baixado solto na raiz — não faz parte da aplicação e
 # seu config.json guarda a API key da Originkit (cmp_live_...)
 /originkit-main
+
+# backups gerados por scripts/backup.mjs — contêm prontuário, CPF e dado
+# pessoal de paciente. NUNCA podem ir pro repositório.
+/backups
