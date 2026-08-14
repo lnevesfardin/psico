@@ -944,7 +944,8 @@ function NewAppointmentModal({
   const [patientId, setPatientId] = useState(patients[0]?.id ?? "");
   const [date, setDate] = useState(todayIso());
   const [time, setTime] = useState("09:00");
-  const [repetir, setRepetir] = useState(false);
+  const [frequenciaConsulta, setFrequenciaConsulta] = useState<"avulsa" | "recorrente">("avulsa");
+  const repetir = frequenciaConsulta === "recorrente";
   const [intervaloSemanas, setIntervaloSemanas] = useState<1 | 2>(1);
   const [repetirAte, setRepetirAte] = useState("");
   const [bloquearVariosDias, setBloquearVariosDias] = useState(false);
@@ -1074,30 +1075,38 @@ function NewAppointmentModal({
         </div>
 
         {kind === "consulta" && (
-          <div className="mt-4 rounded-xl border border-zinc-100 p-3 dark:border-zinc-800">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                <Repeat className="h-4 w-4 text-zinc-400" />
-                Repetir semanalmente
-              </span>
+          <div className="mt-4">
+            <span className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Tipo de agendamento
+            </span>
+            <div className="mt-1.5 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                role="switch"
-                aria-checked={repetir}
-                onClick={() => setRepetir((v) => !v)}
-                className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  repetir ? "bg-brand-600" : "bg-zinc-200 dark:bg-zinc-700"
+                onClick={() => setFrequenciaConsulta("avulsa")}
+                className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  frequenciaConsulta === "avulsa"
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-zinc-200 bg-white text-zinc-600 hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
                 }`}
               >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    repetir ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
+                <CalendarClock className="h-4 w-4" />
+                Avulsa
+              </button>
+              <button
+                type="button"
+                onClick={() => setFrequenciaConsulta("recorrente")}
+                className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  frequenciaConsulta === "recorrente"
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-zinc-200 bg-white text-zinc-600 hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                }`}
+              >
+                <Repeat className="h-4 w-4" />
+                Recorrente
               </button>
             </div>
             {repetir && (
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-zinc-100 p-3 dark:border-zinc-800">
                 <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
                   Frequência
                   <select
