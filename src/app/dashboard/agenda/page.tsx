@@ -20,7 +20,12 @@ import {
   Repeat,
   CalendarClock,
 } from "lucide-react";
-import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
+import type {
+  Appointment,
+  AppointmentStatus,
+  ModalidadeAtendimento,
+  Patient,
+} from "@/lib/dashboard-data";
 import { formatDateLabel, formatDateShort, nextDays, todayIso, toWhatsappLink } from "@/lib/format";
 import { weekdayShort } from "@/lib/disponibilidade-data";
 import { useAppointments } from "@/context/appointments-context";
@@ -191,6 +196,7 @@ export default function AgendaPage() {
     patientName: string;
     diaSemana: number;
     horario: string;
+    modalidade: ModalidadeAtendimento | null;
     intervaloSemanas: 1 | 2;
     inicio: string;
     fim: string | null;
@@ -200,7 +206,7 @@ export default function AgendaPage() {
     const { criadas, conflitos } = await createRecorrenciaComOcorrencias(
       supabase,
       user.id,
-      { ...input, modalidade: null, maxOcorrenciasIniciais: 12 }
+      { ...input, maxOcorrenciasIniciais: 12 }
     );
     setModalOpen(false);
     if (conflitos > 0) {
@@ -689,6 +695,7 @@ function NewAppointmentModal({
     patientName: string;
     diaSemana: number;
     horario: string;
+    modalidade: ModalidadeAtendimento | null;
     intervaloSemanas: 1 | 2;
     inicio: string;
     fim: string | null;
@@ -701,6 +708,7 @@ function NewAppointmentModal({
   const [frequenciaConsulta, setFrequenciaConsulta] = useState<"avulsa" | "recorrente">("avulsa");
   const [intervaloSemanas, setIntervaloSemanas] = useState<1 | 2>(1);
   const [repetirAte, setRepetirAte] = useState("");
+  const [modalidade, setModalidade] = useState<ModalidadeAtendimento | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -716,6 +724,7 @@ function NewAppointmentModal({
           patientName: patient?.name ?? "Paciente",
           diaSemana,
           horario: time,
+          modalidade,
           intervaloSemanas,
           inicio: date,
           fim: repetirAte || null,
@@ -732,6 +741,7 @@ function NewAppointmentModal({
         status: "confirmada",
         kind,
         origem: "manual",
+        modalidade: kind === "consulta" ? modalidade ?? undefined : undefined,
       });
     } finally {
       setSaving(false);
@@ -809,6 +819,35 @@ function NewAppointmentModal({
             <TimeSelect value={time} onChange={setTime} required />
           </label>
         </div>
+
+        {kind === "consulta" && (
+          <div className="mt-4">
+            <span className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Modalidade{" "}
+              <span className="font-normal text-zinc-400">
+                (define o que vai no lembrete: link da sala ou endereço)
+              </span>
+            </span>
+            <div className="mt-1.5 grid grid-cols-3 gap-2">
+              {([null, "presencial", "online"] as const).map((m) => (
+                <button
+                  key={m ?? "indefinida"}
+                  type="button"
+                  onClick={() => setModalidade(m)}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-sm font-medium transition-colors ${
+                    modalidade === m
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:border-brand-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                  }`}
+                >
+                  {m === "presencial" && <MapPin className="h-4 w-4" />}
+                  {m === "online" && <Video className="h-4 w-4" />}
+                  {m === null ? "Não informar" : m === "presencial" ? "Presencial" : "Online"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {kind === "consulta" && (
           <div className="mt-4">

@@ -24,6 +24,7 @@ import {
   formatDateLabel,
   formatEndereco,
   nextDays,
+  nowTimeBr,
   todayIso,
 } from "@/lib/format";
 
@@ -206,10 +207,7 @@ export function BookingWizard({
     });
   }, [blocosDaModalidade, modalidade]);
 
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
-    now.getMinutes()
-  ).padStart(2, "0")}`;
+  const currentTime = nowTimeBr();
 
   // União dos blocos do dia da semana selecionado (pode haver mais de um
   // bloco pra mesma modalidade no mesmo dia, ex.: manhã e noite separadas).

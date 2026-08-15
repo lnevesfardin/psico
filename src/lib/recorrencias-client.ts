@@ -1,52 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ModalidadeAtendimento, Recorrencia } from "@/lib/dashboard-data";
-
-type RecorrenciaRow = {
-  id: string;
-  psicologo_id: string;
-  paciente_id: string;
-  dia_semana: number;
-  horario: string;
-  modalidade: ModalidadeAtendimento | null;
-  intervalo_semanas: 1 | 2;
-  inicio: string;
-  fim: string | null;
-  ativa: boolean;
-};
-
-const COLUMNS =
-  "id, psicologo_id, paciente_id, dia_semana, horario, modalidade, intervalo_semanas, inicio, fim, ativa";
-
-function rowToRecorrencia(row: RecorrenciaRow, patientName: string): Recorrencia {
-  return {
-    id: row.id,
-    psicologoId: row.psicologo_id,
-    patientId: row.paciente_id,
-    patientName,
-    diaSemana: row.dia_semana,
-    horario: row.horario.slice(0, 5),
-    modalidade: row.modalidade,
-    intervaloSemanas: row.intervalo_semanas,
-    inicio: row.inicio,
-    fim: row.fim,
-    ativa: row.ativa,
-  };
-}
-
-export async function listRecorrencias(
-  supabase: SupabaseClient,
-  psicologoId: string
-): Promise<Recorrencia[]> {
-  const { data, error } = await supabase
-    .from("recorrencias")
-    .select(`${COLUMNS}, pacientes(nome)`)
-    .eq("psicologo_id", psicologoId)
-    .eq("ativa", true);
-  if (error) throw new Error(error.message);
-  return (
-    data as (RecorrenciaRow & { pacientes: { nome: string }[] })[]
-  ).map((row) => rowToRecorrencia(row, row.pacientes[0]?.nome ?? ""));
-}
+import type { ModalidadeAtendimento } from "@/lib/dashboard-data";
 
 export async function deactivateRecorrencia(
   supabase: SupabaseClient,

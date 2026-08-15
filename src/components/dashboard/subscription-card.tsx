@@ -5,6 +5,7 @@ import { CreditCard, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   abrirPortal,
+  assinaturaEmDia,
   getAssinatura,
   iniciarCheckout,
   type Assinatura,
@@ -89,10 +90,11 @@ export function SubscriptionCard({ psicologoId }: { psicologoId: string }) {
     );
   }
 
-  // Trialing/active têm acesso pleno e só precisam do botão de gerenciar;
-  // qualquer outro estado (sem linha ainda, cancelada, pagamento não
-  // efetuado etc.) volta a oferecer os planos pra assinar/reassinar.
-  const emDia = assinatura?.status === "trialing" || assinatura?.status === "active";
+  // Mesma regra do banner e da RLS (assinatura_ativa) — inclusive "isento",
+  // que a checagem daqui ignorava: conta de cortesia com status cancelado no
+  // Stripe escreve normalmente no banco, mas este card oferecia plano como se
+  // ela estivesse bloqueada.
+  const emDia = assinaturaEmDia(assinatura);
 
   return (
     <div className="rounded-2xl border border-zinc-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
@@ -110,17 +112,30 @@ export function SubscriptionCard({ psicologoId }: { psicologoId: string }) {
       {assinatura && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-zinc-900 dark:text-white">
-            {assinatura.plano === "anual"
-              ? "Plano Anual"
-              : assinatura.plano === "trimestral"
-                ? "Plano Trimestral"
-                : "Plano Mensal"}
+            {/* "Plano Mensal" era o fallback de plano nulo, o que fazia uma
+                conta de cortesia (sem plano nenhum) se anunciar como mensal. */}
+            {assinatura.isento
+              ? "Conta de cortesia"
+              : assinatura.plano === "anual"
+                ? "Plano Anual"
+                : assinatura.plano === "trimestral"
+                  ? "Plano Trimestral"
+                  : assinatura.plano === "mensal"
+                    ? "Plano Mensal"
+                    : "Sem plano"}
           </span>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TOM_CLASSES[STATUS_LABEL[assinatura.status]?.tom ?? "neutro"]}`}
-          >
-            {STATUS_LABEL[assinatura.status]?.texto ?? assinatura.status}
-          </span>
+          {!assinatura.isento && (
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TOM_CLASSES[STATUS_LABEL[assinatura.status]?.tom ?? "neutro"]}`}
+            >
+              {STATUS_LABEL[assinatura.status]?.texto ?? assinatura.status}
+            </span>
+          )}
+          {assinatura.isento && (
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TOM_CLASSES.ok}`}>
+              Acesso liberado
+            </span>
+          )}
         </div>
       )}
 
@@ -132,15 +147,24 @@ export function SubscriptionCard({ psicologoId }: { psicologoId: string }) {
       )}
 
       {emDia ? (
-        <button
-          type="button"
-          onClick={handleGerenciar}
-          disabled={loadingPortal}
-          className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          {loadingPortal && <Loader2 className="h-4 w-4 animate-spin" />}
-          Gerenciar assinatura
-        </button>
+        // Sem customer no Stripe não existe portal pra abrir — o botão só
+        // levava a um erro. Conta de cortesia não tem o que gerenciar.
+        assinatura?.temCobrancaStripe ? (
+          <button
+            type="button"
+            onClick={handleGerenciar}
+            disabled={loadingPortal}
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            {loadingPortal && <Loader2 className="h-4 w-4 animate-spin" />}
+            Gerenciar assinatura
+          </button>
+        ) : (
+          <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+            Seu acesso está liberado sem cobrança — não há assinatura pra
+            gerenciar.
+          </p>
+        )
       ) : (
         <div className="mt-4">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">

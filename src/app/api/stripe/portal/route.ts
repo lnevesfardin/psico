@@ -32,12 +32,25 @@ export async function POST(request: Request) {
     .from("assinaturas")
     .select("stripe_customer_id")
     .eq("psicologo_id", user.id)
-    .maybeSingle<{ stripe_customer_id: string }>();
+    .maybeSingle<{ stripe_customer_id: string | null }>();
 
   if (!assinatura) {
     return NextResponse.json(
       { error: "Você ainda não tem uma assinatura." },
       { status: 404 }
+    );
+  }
+
+  // Conta de cortesia/grandfather tem linha em "assinaturas" mas nunca teve
+  // customer no Stripe (ver schema.sql). Sem esta guarda, o create() abaixo
+  // recebia customer: null e estourava um 500 sem explicação nenhuma.
+  if (!assinatura.stripe_customer_id) {
+    return NextResponse.json(
+      {
+        error:
+          "Sua conta é de cortesia e não tem cobrança no Stripe — não há nada pra gerenciar.",
+      },
+      { status: 409 }
     );
   }
 

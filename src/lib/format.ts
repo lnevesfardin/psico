@@ -55,6 +55,19 @@ export function todayIso(): string {
   return isoNoFusoBr(new Date());
 }
 
+// "HH:mm" de agora em Brasília. getHours() do navegador não serve pra
+// comparar com horário de consulta: quem abre o link de outro fuso (Manaus,
+// Acre, ou fora do país) veria a lista de horários livres deslocada — em
+// Manaus, -1h, sobrariam slots que já passaram em Brasília.
+export function nowTimeBr(): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO_BR,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+}
+
 export function nextDays(count: number): string[] {
   const days: string[] = [];
   for (let i = 0; i < count; i++) {

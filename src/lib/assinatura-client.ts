@@ -11,6 +11,9 @@ export type Assinatura = {
   trialFim: string | null;
   periodoAtualFim: string | null;
   isento: boolean;
+  /** Só há portal do Stripe pra gerenciar se existir customer lá. Conta
+   *  isenta (cortesia/grandfather) nunca teve customer — ver schema.sql. */
+  temCobrancaStripe: boolean;
 };
 
 type AssinaturaRow = {
@@ -19,6 +22,7 @@ type AssinaturaRow = {
   trial_fim: string | null;
   periodo_atual_fim: string | null;
   isento: boolean;
+  stripe_customer_id: string | null;
 };
 
 export async function getAssinatura(
@@ -27,7 +31,7 @@ export async function getAssinatura(
 ): Promise<Assinatura | null> {
   const { data, error } = await supabase
     .from("assinaturas")
-    .select("plano, status, trial_fim, periodo_atual_fim, isento")
+    .select("plano, status, trial_fim, periodo_atual_fim, isento, stripe_customer_id")
     .eq("psicologo_id", psicologoId)
     .maybeSingle<AssinaturaRow>();
   if (error || !data) return null;
@@ -37,6 +41,7 @@ export async function getAssinatura(
     trialFim: data.trial_fim,
     periodoAtualFim: data.periodo_atual_fim,
     isento: data.isento ?? false,
+    temCobrancaStripe: Boolean(data.stripe_customer_id),
   };
 }
 
