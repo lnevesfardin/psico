@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Patient } from "@/lib/dashboard-data";
 import type { Profile } from "@/lib/profile-data";
 import { formatDateExtenso, formatDateShort } from "@/lib/format";
+import { escapeHtml, linhasParaParagrafos, pareceHtml } from "@/lib/rich-text";
 import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export type DocumentTemplate = {
@@ -116,12 +117,29 @@ export const PLACEHOLDER_TOKENS: { token: string; label: string }[] = [
   { token: "{{data_emissao_extenso}}", label: "Data de emissão (por extenso)" },
 ];
 
+/**
+ * Devolve SEMPRE HTML, com todo valor substituído já escapado.
+ *
+ * O documento preenchido acaba renderizado via dangerouslySetInnerHTML (aba de
+ * documentos) e exportado pro .doc. Nome e CPF podem ter vindo do formulário
+ * PÚBLICO de agendamento, onde qualquer visitante digita texto livre — sem
+ * escapar, um nome como `<img src=x onerror=...>` vira script rodando na
+ * sessão do psicólogo, que enxerga todos os prontuários.
+ *
+ * Escapar só quando o modelo já é HTML não basta, e é uma armadilha: num
+ * modelo em texto puro (anterior ao editor rico) é o próprio valor injetado
+ * que faz o resultado "parecer HTML", e aí o ensureHtml lá na frente devolve
+ * tudo cru. Por isso a conversão de texto puro pra HTML acontece aqui dentro,
+ * decidida pelo modelo ORIGINAL, e não por uma nova detecção depois da
+ * substituição.
+ */
 export function fillPlaceholders(
   conteudo: string,
   patient: Patient,
   profile: Profile,
   emissionDate: Date
 ): string {
+  const modeloEraHtml = pareceHtml(conteudo);
   const values: Record<string, string> = {
     "{{paciente_nome}}": patient.name || "—",
     "{{paciente_cpf}}": patient.cpf || "—",
@@ -138,11 +156,13 @@ export function fillPlaceholders(
     "{{data_emissao}}": emissionDate.toLocaleDateString("pt-BR"),
     "{{data_emissao_extenso}}": formatDateExtenso(emissionDate),
   };
-  let out = conteudo;
+  // Os tokens não têm caractere especial de HTML, então escapar o modelo em
+  // texto puro antes não atrapalha a substituição abaixo.
+  let out = modeloEraHtml ? conteudo : escapeHtml(conteudo);
   for (const [token, value] of Object.entries(values)) {
-    out = out.split(token).join(value);
+    out = out.split(token).join(escapeHtml(value));
   }
-  return out;
+  return modeloEraHtml ? out : linhasParaParagrafos(out);
 }
 
 export type PresetTemplate = { tipo: string; nome: string; conteudo: string };
