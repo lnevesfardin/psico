@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { fetchConviteInfo } from "@/lib/convites-client";
-import { fetchUserRole } from "@/lib/auth/role";
 import { ConviteSignup } from "./convite-signup";
-import { ConviteVincular } from "./convite-vincular";
 
 export default async function ConvitePage({
   params,
@@ -13,15 +11,6 @@ export default async function ConvitePage({
   const { token } = await params;
   const supabase = await createClient();
   const info = await fetchConviteInfo(supabase, token);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // Se quem abriu o link já está logado como cliente (ex.: já é paciente de
-  // outro psicólogo no Psico), pula o mini-cadastro — ele bateria de
-  // frente com o e-mail já cadastrado — e só vincula a conta existente.
-  const role = user ? await fetchUserRole(supabase, user.id) : null;
-  const jaLogadoComoPsicologo = Boolean(user) && role === "psychologist";
-  const jaLogadoComoCliente = Boolean(user) && !jaLogadoComoPsicologo;
 
   if (!info || info.jaAceito) {
     return (
@@ -70,20 +59,10 @@ export default async function ConvitePage({
             seus agendamentos e registrar como você está se sentindo.
           </p>
           <div className="mt-6">
-            {jaLogadoComoPsicologo ? (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-                Você está logado com uma conta de psicólogo. Convites são só
-                para pacientes — abra este link em outro navegador ou saia
-                da sua conta antes de continuar.
-              </p>
-            ) : jaLogadoComoCliente ? (
-              <ConviteVincular token={token} psicologoNome={info.psicologoNome} />
-            ) : (
-              <ConviteSignup
-                token={token}
-                primeiroNome={info.pacientePrimeiroNome}
-              />
-            )}
+            <ConviteSignup
+              token={token}
+              primeiroNome={info.pacientePrimeiroNome}
+            />
           </div>
         </div>
       </div>
