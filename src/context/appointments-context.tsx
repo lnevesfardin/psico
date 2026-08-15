@@ -31,6 +31,7 @@ type ConsultaRow = {
   estado_civil: string | null;
   escolaridade: string | null;
   motivo: string | null;
+  como_conheceu: string | null;
   motivo_cancelamento: string | null;
   recorrencia_id: string | null;
 };
@@ -45,7 +46,8 @@ function rowToAppointment(row: ConsultaRow): Appointment {
     row.endereco ||
     row.estado_civil ||
     row.escolaridade ||
-    row.motivo;
+    row.motivo ||
+    row.como_conheceu;
 
   return {
     id: row.id,
@@ -68,6 +70,7 @@ function rowToAppointment(row: ConsultaRow): Appointment {
           estadoCivil: row.estado_civil ?? "",
           escolaridade: row.escolaridade ?? "",
           motivo: row.motivo ?? "",
+          comoConheceu: row.como_conheceu ?? "",
         }
       : undefined,
     motivoCancelamento: row.motivo_cancelamento ?? undefined,
@@ -76,7 +79,7 @@ function rowToAppointment(row: ConsultaRow): Appointment {
 }
 
 const SELECT_COLUMNS =
-  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil, escolaridade, motivo, motivo_cancelamento, recorrencia_id";
+  "id, paciente_id, paciente_nome, data, horario, status, tipo, origem, modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil, escolaridade, motivo, como_conheceu, motivo_cancelamento, recorrencia_id";
 
 export type CancellationAlert = {
   key: string;
@@ -234,6 +237,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         estado_civil: appointment.detalhes?.estadoCivil ?? null,
         escolaridade: appointment.detalhes?.escolaridade ?? null,
         motivo: appointment.detalhes?.motivo ?? null,
+        como_conheceu: appointment.detalhes?.comoConheceu ?? null,
       })
       .select(SELECT_COLUMNS)
       .single();

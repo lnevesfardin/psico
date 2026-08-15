@@ -243,6 +243,7 @@ create table if not exists consultas (
   estado_civil text,
   escolaridade text,
   motivo text,
+  como_conheceu text,
   -- Preenchido só quando o cliente cancela pela própria conta (função
   -- cancelar_consulta_cliente abaixo) — nunca quando o psicólogo muda o
   -- status manualmente, o que permite ao psicólogo distinguir as duas
@@ -257,6 +258,7 @@ create table if not exists consultas (
 alter table consultas add column if not exists email text;
 alter table consultas add column if not exists cliente_id uuid references auth.users(id) on delete set null;
 alter table consultas add column if not exists motivo_cancelamento text;
+alter table consultas add column if not exists como_conheceu text;
 
 create index if not exists consultas_cliente_id_idx
   on consultas (cliente_id, data desc);
@@ -799,6 +801,9 @@ $$;
 drop function if exists criar_agendamento_publico(
   uuid, text, date, time, text, int, text, text, text, text, text, text, text
 );
+drop function if exists criar_agendamento_publico(
+  uuid, text, date, time, text, int, text, text, text, text, text, text, text, text
+);
 
 create or replace function criar_agendamento_publico(
   p_psicologo_id uuid,
@@ -814,7 +819,8 @@ create or replace function criar_agendamento_publico(
   p_endereco text,
   p_estado_civil text,
   p_escolaridade text,
-  p_motivo text
+  p_motivo text,
+  p_como_conheceu text
 )
 returns uuid
 language plpgsql
@@ -853,14 +859,14 @@ begin
   insert into consultas (
     psicologo_id, cliente_id, paciente_nome, data, horario, status, tipo, origem,
     modalidade, idade, sexo, profissao, telefone, email, endereco, estado_civil,
-    escolaridade, motivo
+    escolaridade, motivo, como_conheceu
   ) values (
     -- auth.uid() reflete o JWT de quem chamou o RPC, mesmo sendo security
     -- definer — null se o visitante agendou deslogado (fluxo continua
     -- funcionando igual, só não aparece em "Meus Agendamentos" de ninguém).
     p_psicologo_id, auth.uid(), p_paciente_nome, p_data, p_horario, 'pendente', 'consulta', 'publico',
     p_modalidade, p_idade, p_sexo, p_profissao, p_telefone, p_email, p_endereco, p_estado_civil,
-    p_escolaridade, p_motivo
+    p_escolaridade, p_motivo, p_como_conheceu
   )
   returning id into v_id;
 
@@ -869,7 +875,7 @@ end;
 $$;
 
 grant execute on function criar_agendamento_publico(
-  uuid, text, date, time, text, int, text, text, text, text, text, text, text, text
+  uuid, text, date, time, text, int, text, text, text, text, text, text, text, text, text
 ) to anon, authenticated;
 
 -- =========================================================
@@ -1573,10 +1579,10 @@ begin
     end if;
 
     insert into pacientes (
-      psicologo_id, nome, telefone, email, escolaridade,
+      psicologo_id, nome, telefone, email, escolaridade, como_conheceu,
       cliente_user_id, data_primeira_consulta, observacoes
     ) values (
-      v.psicologo_id, v.paciente_nome, v.telefone, v.email, v.escolaridade,
+      v.psicologo_id, v.paciente_nome, v.telefone, v.email, v.escolaridade, v.como_conheceu,
       v.cliente_id, v.data, v_observacoes
     )
     returning id into v_paciente_id;

@@ -52,6 +52,7 @@ export type PublicBookingDetails = {
   estadoCivil: string;
   escolaridade: string;
   motivo: string;
+  comoConheceu: string;
 };
 
 export type Appointment = {

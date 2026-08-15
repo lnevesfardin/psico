@@ -104,6 +104,7 @@ const emptyForm = {
   estadoCivil: estadoCivilOptions[0],
   escolaridade: escolaridadeOptions[0],
   motivo: "",
+  comoConheceu: "",
 };
 
 type Step = "tipo" | "horario" | "dados" | "resumo" | "sucesso";
@@ -283,6 +284,7 @@ export function BookingWizard({
       p_estado_civil: form.estadoCivil,
       p_escolaridade: form.escolaridade,
       p_motivo: form.motivo,
+      p_como_conheceu: form.comoConheceu || null,
     });
 
     setSubmitting(false);
@@ -674,6 +676,18 @@ export function BookingWizard({
                   </select>
                 </label>
               </div>
+
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Por onde conheceu o profissional{" "}
+                <span className="font-normal text-zinc-400">(opcional)</span>
+                <input
+                  type="text"
+                  placeholder="Indicação, Instagram..."
+                  value={form.comoConheceu}
+                  onChange={(e) => set("comoConheceu", e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
 
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Motivo / Observações{" "}

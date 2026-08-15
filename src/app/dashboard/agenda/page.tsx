@@ -597,6 +597,11 @@ export default function AgendaPage() {
                         </span>
                         <span>Est. civil: {item.detalhes.estadoCivil}</span>
                         <span>Escolaridade: {item.detalhes.escolaridade}</span>
+                        {item.detalhes.comoConheceu && (
+                          <span className="col-span-2 sm:col-span-2">
+                            Como conheceu: {item.detalhes.comoConheceu}
+                          </span>
+                        )}
                         {item.detalhes.motivo && (
                           <span className="col-span-2 sm:col-span-4">
                             Motivo: {item.detalhes.motivo}
