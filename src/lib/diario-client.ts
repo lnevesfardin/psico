@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export type Visibilidade = "privada" | "compartilhada";
 
@@ -66,20 +67,24 @@ export async function alterarVisibilidade(
   entradaId: string,
   visibilidade: Visibilidade
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("diario_paciente")
     .update({ visibilidade })
-    .eq("id", entradaId);
+    .eq("id", entradaId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "A mudança de quem pode ver a entrada");
 }
 
 export async function apagarEntradaDiario(
   supabase: SupabaseClient,
   entradaId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("diario_paciente")
     .delete()
-    .eq("id", entradaId);
+    .eq("id", entradaId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "A entrada do diário");
 }

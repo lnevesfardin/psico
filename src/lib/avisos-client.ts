@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export type Aviso = {
   id: string;
@@ -32,11 +33,13 @@ export async function marcarAvisoLido(
   supabase: SupabaseClient,
   avisoId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("avisos_psicologo")
     .update({ lido: true })
-    .eq("id", avisoId);
+    .eq("id", avisoId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "A baixa do aviso");
 }
 
 export async function marcarTodosAvisosLidos(supabase: SupabaseClient): Promise<void> {

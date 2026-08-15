@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EscalaSlug } from "@/lib/escalas";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export type RespostaEscala = {
   id: string;
@@ -112,9 +113,11 @@ export async function apagarRespostaEscala(
   supabase: SupabaseClient,
   respostaId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("respostas_escala")
     .delete()
-    .eq("id", respostaId);
+    .eq("id", respostaId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "A resposta da escala");
 }

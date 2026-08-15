@@ -1,15 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ModalidadeAtendimento } from "@/lib/dashboard-data";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export async function deactivateRecorrencia(
   supabase: SupabaseClient,
   recorrenciaId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("recorrencias")
     .update({ ativa: false })
-    .eq("id", recorrenciaId);
+    .eq("id", recorrenciaId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "O encerramento da série");
 }
 
 // Datas (yyyy-mm-dd) em que a recorrência cai, a partir de `inicio`,

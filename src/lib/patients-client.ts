@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Patient, SessionNote } from "@/lib/dashboard-data";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 type PacienteRow = {
   id: string;
@@ -203,19 +204,26 @@ export async function deletePatient(
   supabase: SupabaseClient,
   patientId: string
 ): Promise<void> {
-  const { error } = await supabase.from("pacientes").delete().eq("id", patientId);
+  const { data, error } = await supabase
+    .from("pacientes")
+    .delete()
+    .eq("id", patientId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "O paciente");
 }
 
 export async function unlinkPatientFromClient(
   supabase: SupabaseClient,
   patientId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("pacientes")
     .update({ cliente_user_id: null })
-    .eq("id", patientId);
+    .eq("id", patientId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "A desvinculação da conta do paciente");
 }
 
 export type SessionNoteOrigin =

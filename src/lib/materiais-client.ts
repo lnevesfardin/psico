@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export const MATERIAIS_BUCKET = "materiais-paciente";
 /** Teto por arquivo. Áudio de meditação guiada cabe folgado em 25 MB. */
@@ -157,11 +158,17 @@ export async function apagarMaterial(
   supabase: SupabaseClient,
   material: Material
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("materiais_paciente")
     .delete()
-    .eq("id", material.id);
+    .eq("id", material.id)
+    .select("id");
   if (error) throw new Error(error.message);
+  // Confere ANTES de mexer no bucket: um delete barrado pela RLS volta como
+  // sucesso com zero linhas, e apagar o arquivo mesmo assim deixaria a linha
+  // no banco apontando pra um arquivo que não existe mais — o material
+  // continuaria listado e o download falharia pra sempre.
+  exigirLinhaAfetada(data, "O material");
   await supabase.storage.from(MATERIAIS_BUCKET).remove([material.storagePath]);
 }
 

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export type DocumentoEmitido = {
   id: string;
@@ -64,9 +65,11 @@ export async function apagarDocumentoEmitido(
   supabase: SupabaseClient,
   documentoId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("documentos_emitidos")
     .delete()
-    .eq("id", documentoId);
+    .eq("id", documentoId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "O documento");
 }

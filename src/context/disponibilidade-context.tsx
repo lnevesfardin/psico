@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 import { useAuth } from "@/context/auth-context";
 import type { DisponibilidadeBlock, Modalidade } from "@/lib/disponibilidade-data";
 
@@ -102,13 +103,15 @@ export function DisponibilidadeProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const supabase = createClient();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("disponibilidades")
       .delete()
       .eq("id", id)
-      .eq("psicologo_id", user.id);
+      .eq("psicologo_id", user.id)
+      .select("id");
 
     if (error) throw new Error(error.message);
+    exigirLinhaAfetada(data, "O bloco de horário");
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   }
 

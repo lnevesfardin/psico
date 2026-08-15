@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 import { useAuth } from "@/context/auth-context";
 import type { Appointment, AppointmentStatus } from "@/lib/dashboard-data";
 
@@ -273,13 +274,15 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       return { patientCreated: row.criado };
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("consultas")
       .update({ status })
       .eq("id", id)
-      .eq("psicologo_id", user.id);
+      .eq("psicologo_id", user.id)
+      .select("id");
 
     if (error) throw new Error(error.message);
+    exigirLinhaAfetada(data, "A mudança de status da consulta");
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status } : a))
     );
@@ -314,13 +317,15 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const supabase = createClient();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("consultas")
       .update({ recorrencia_id: recorrenciaId })
       .eq("id", id)
-      .eq("psicologo_id", user.id);
+      .eq("psicologo_id", user.id)
+      .select("id");
 
     if (error) throw new Error(error.message);
+    exigirLinhaAfetada(data, "O vínculo da consulta com a série");
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, recorrenciaId } : a))
     );

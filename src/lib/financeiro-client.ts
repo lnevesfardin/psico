@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PaymentStatus } from "@/lib/dashboard-data";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export type Lancamento = {
   id: string;
@@ -85,20 +86,24 @@ export async function updateLancamentoStatus(
   id: string,
   status: PaymentStatus
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("lancamentos_financeiros")
     .update({ status_pagamento: status })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "A baixa do lançamento");
 }
 
 export async function deleteLancamento(
   supabase: SupabaseClient,
   id: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("lancamentos_financeiros")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "O lançamento");
 }

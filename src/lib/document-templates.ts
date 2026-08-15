@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Patient } from "@/lib/dashboard-data";
 import type { Profile } from "@/lib/profile-data";
 import { formatDateExtenso, formatDateShort } from "@/lib/format";
+import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
 
 export type DocumentTemplate = {
   id: string;
@@ -87,11 +88,13 @@ export async function deleteDocumentTemplate(
   supabase: SupabaseClient,
   templateId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("modelos_documentos")
     .delete()
-    .eq("id", templateId);
+    .eq("id", templateId)
+    .select("id");
   if (error) throw new Error(error.message);
+  exigirLinhaAfetada(data, "O modelo de documento");
 }
 
 /**
