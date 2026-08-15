@@ -1344,6 +1344,8 @@ set search_path = public
 as $$
 declare
   v_paciente_id uuid;
+  v_email text;
+  v_telefone text;
 begin
   select paciente_id into v_paciente_id
   from convites_paciente
@@ -1353,8 +1355,27 @@ begin
     raise exception 'Convite inválido ou já utilizado.';
   end if;
 
+  -- Guarda extra: como é security definer (ignora RLS), nada impede por si
+  -- só que uma conta de psicólogo logada chame este RPC. Convite é sempre
+  -- pra vínculo de cliente.
+  if exists (select 1 from profiles where id = auth.uid() and role = 'psychologist') then
+    raise exception 'Contas de psicólogo não podem aceitar convite de paciente.';
+  end if;
+
+  -- Dados que a própria pessoa acabou de digitar no mini-cadastro (já
+  -- gravados em profiles pelo handle_new_user, que roda antes deste RPC na
+  -- mesma sessão). Só preenchem o que estiver em branco na ficha — nunca
+  -- sobrescrevem um dado que o psicólogo já tinha preenchido, pra não
+  -- arriscar apagar informação de prontuário por cima do autorrelato.
+  -- "nome" fica de fora: pacientes.nome nunca fica em branco (obrigatório
+  -- desde a criação da ficha), então não haveria o que preencher.
+  select email, whatsapp into v_email, v_telefone
+  from profiles where id = auth.uid();
+
   update pacientes
-  set cliente_user_id = auth.uid()
+  set cliente_user_id = auth.uid(),
+      email = coalesce(nullif(email, ''), v_email),
+      telefone = coalesce(nullif(telefone, ''), v_telefone)
   where id = v_paciente_id;
 
   update consultas
