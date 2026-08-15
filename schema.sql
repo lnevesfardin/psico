@@ -125,6 +125,7 @@ create table if not exists pacientes (
   escolaridade text,
   como_conheceu text,
   observacoes text,
+  compartilha_humor boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (psicologo_id, cpf)
@@ -139,6 +140,10 @@ alter table pacientes add column if not exists plano_saude_nome text;
 alter table pacientes add column if not exists data_primeira_consulta date;
 alter table pacientes add column if not exists escolaridade text;
 alter table pacientes add column if not exists como_conheceu text;
+-- Desligado pelo próprio paciente em parar_compartilhar_humor(). Só governa
+-- o check-in de humor: o vínculo da conta (cliente_user_id) continua de pé,
+-- pra não derrubar junto o acesso dele aos materiais e hábitos.
+alter table pacientes add column if not exists compartilha_humor boolean not null default true;
 alter table pacientes add column if not exists observacoes text;
 -- Vínculo opcional com a conta de login do cliente (auth.users), usado pra
 -- mostrar o check-in de humor (ver seção "checkins_humor" no fim do
@@ -1200,6 +1205,11 @@ create policy "cliente_edita_proprios_checkins" on checkins_humor
 -- Mesmo padrão de "psicologo_ve_proprias_sessoes", só que o join é por
 -- cliente_user_id (vínculo manual) em vez de paciente_id direto. Só
 -- SELECT — o psicólogo nunca cria/edita humor do paciente.
+--
+-- compartilha_humor é o que o botão "parar de compartilhar" desliga. Antes
+-- esse botão zerava cliente_user_id, o que de fato escondia o humor — mas
+-- junto levava o acesso do paciente aos materiais e aos hábitos (ver
+-- eh_meu_paciente mais abaixo), coisa que a confirmação na tela não avisa.
 drop policy if exists "psicologo_ve_humor_pacientes_vinculados" on checkins_humor;
 create policy "psicologo_ve_humor_pacientes_vinculados" on checkins_humor
   for select using (
@@ -1207,6 +1217,7 @@ create policy "psicologo_ve_humor_pacientes_vinculados" on checkins_humor
       select 1 from pacientes p
       where p.cliente_user_id = checkins_humor.cliente_id
         and p.psicologo_id = auth.uid()
+        and p.compartilha_humor
     )
   );
 
@@ -1452,6 +1463,7 @@ as $$
   from pacientes p
   join perfis pf on pf.id = p.psicologo_id
   where p.cliente_user_id = auth.uid()
+    and p.compartilha_humor
   order by pf.nome;
 $$;
 
@@ -1475,13 +1487,20 @@ declare
 begin
   select psicologo_id, nome into v_psicologo_id, v_paciente_nome
   from pacientes
-  where id = p_paciente_id and cliente_user_id = auth.uid();
+  where id = p_paciente_id
+    and cliente_user_id = auth.uid()
+    and compartilha_humor;
 
   if v_psicologo_id is null then
     raise exception 'Vínculo não encontrado.';
   end if;
 
-  update pacientes set cliente_user_id = null where id = p_paciente_id;
+  -- Desliga só o humor. Zerar cliente_user_id (o que esta função fazia
+  -- antes) também derrubava o acesso do paciente aos materiais que o
+  -- psicólogo enviou e aos hábitos definidos pra ele — efeito que a
+  -- confirmação na tela não menciona e que ele não tem como desfazer
+  -- sozinho, porque um novo vínculo depende de convite do psicólogo.
+  update pacientes set compartilha_humor = false where id = p_paciente_id;
 
   insert into avisos_psicologo (psicologo_id, mensagem)
   values (
