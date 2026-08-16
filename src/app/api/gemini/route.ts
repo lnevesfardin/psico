@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole, type Role } from "@/lib/auth/role";
+import { dentroDoLimiteIA, MENSAGEM_LIMITE_IA } from "@/lib/limite-ia";
 
 const COMMON_RULES = `Regras importantes:
 - Responda sempre em português do Brasil, de forma breve, clara e cordial.
@@ -76,6 +77,10 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  if (!(await dentroDoLimiteIA(supabase, "chat"))) {
+    return NextResponse.json({ error: MENSAGEM_LIMITE_IA }, { status: 429 });
   }
 
   const role = await fetchUserRole(supabase, user.id);

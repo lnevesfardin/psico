@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
 import { fetchUserRole } from "@/lib/auth/role";
+import { dentroDoLimiteIA, MENSAGEM_LIMITE_IA } from "@/lib/limite-ia";
 
 // Transcreve um trecho do áudio de uma sessão. Recebe um segmento por vez
 // (ver lib/audio/session-recorder.ts) em vez da sessão inteira: o limite de
@@ -46,6 +47,10 @@ export async function POST(request: Request) {
   const role = await fetchUserRole(supabase, user.id);
   if (role === "client") {
     return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
+  }
+
+  if (!(await dentroDoLimiteIA(supabase, "transcricao"))) {
+    return NextResponse.json({ error: MENSAGEM_LIMITE_IA }, { status: 429 });
   }
 
   let form: FormData;

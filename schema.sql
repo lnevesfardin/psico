@@ -2475,3 +2475,136 @@ on conflict (psicologo_id) do nothing;
 -- A função assinatura_ativa(), que lê esta tabela, fica declarada bem antes
 -- daqui (junto das policies que a usam) — ver o comentário lá sobre por que
 -- ela precisa nascer antes desta tabela existir.
+
+-- =========================================================
+-- erros_app — o que quebrou na mão de quem está usando.
+--
+-- Com um único usuário dava pra saber por telefone; com gente desconhecida
+-- não dá — quem tropeça num erro não reporta, só some. Fica aqui em vez de
+-- num serviço tipo Sentry de propósito: mensagem de erro carrega fragmento
+-- de dado clínico com frequência (nome em constraint, id de paciente na
+-- rota), e mandar isso pra fora acrescentaria um operador estrangeiro de
+-- dado de saúde ao tratamento, com tudo que a LGPD exige junto.
+--
+-- Consulta no SQL Editor:
+--   select ocorrido_em, origem, rota, mensagem, count(*) over () as total
+--   from erros_app order by ocorrido_em desc limit 50;
+-- =========================================================
+create table if not exists erros_app (
+  id bigint generated always as identity primary key,
+  ocorrido_em timestamptz not null default now(),
+  origem text not null check (origem in ('cliente', 'servidor')),
+  rota text,
+  mensagem text not null,
+  stack text,
+  user_agent text,
+  usuario_id uuid references auth.users(id) on delete set null
+);
+
+create index if not exists erros_app_ocorrido_em_idx
+  on erros_app (ocorrido_em desc);
+
+-- RLS ligada e SEM policy nenhuma: ninguém logado lê nem escreve direto. A
+-- escrita passa só pelo registrar_erro_app() abaixo (security definer), e a
+-- leitura é sua, pelo painel do Supabase. Um psicólogo não tem por que ver
+-- o erro que outro tomou.
+alter table erros_app enable row level security;
+
+-- Aceita chamada anônima de propósito: erro na página pública de
+-- agendamento é justamente o que você não fica sabendo de outro jeito.
+-- Nunca lança exceção — reportar erro que vira erro só piora a tela de quem
+-- já está travado.
+create or replace function registrar_erro_app(
+  p_origem text,
+  p_rota text,
+  p_mensagem text,
+  p_stack text,
+  p_user_agent text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_origem not in ('cliente', 'servidor') then
+    return;
+  end if;
+  if coalesce(trim(p_mensagem), '') = '' then
+    return;
+  end if;
+
+  -- Freio pra esta porta (aberta ao anônimo) não virar caminho de flood.
+  if not checar_rate_limit(
+    'erro_app:' || coalesce(auth.uid()::text, client_ip(), 'anon'),
+    20,
+    interval '10 minutes'
+  ) then
+    return;
+  end if;
+
+  -- left() em tudo: stack de navegador passa fácil de dezenas de KB, e não
+  -- interessa guardar isso multiplicado por cada visitante.
+  insert into erros_app (origem, rota, mensagem, stack, user_agent, usuario_id)
+  values (
+    p_origem,
+    left(p_rota, 300),
+    left(p_mensagem, 2000),
+    left(p_stack, 4000),
+    left(p_user_agent, 300),
+    auth.uid()
+  );
+exception
+  when others then
+    return;
+end;
+$$;
+
+grant execute on function registrar_erro_app(text, text, text, text, text)
+  to anon, authenticated;
+
+-- =========================================================
+-- checar_limite_ia — freio das rotas que chamam o Gemini, que são as únicas
+-- em que cada requisição custa dinheiro de verdade. Sem isto, uma conta
+-- autenticada consegue rodar em laço e queimar a cota inteira.
+--
+-- Os limites ficam DENTRO da função, não nos parâmetros: checar_rate_limit()
+-- é revogada do public justamente pra ninguém escolher chave e teto na mão
+-- (ver o comentário lá em cima), e repassar isso pro chamador aqui abriria a
+-- mesma porta de novo. A chave sai de auth.uid(), nunca de argumento.
+-- =========================================================
+create or replace function checar_limite_ia(p_recurso text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_limite int;
+  v_janela interval;
+begin
+  if auth.uid() is null then
+    return false;
+  end if;
+
+  case p_recurso
+    when 'chat' then
+      v_limite := 40; v_janela := interval '10 minutes';
+    when 'lancamento' then
+      v_limite := 40; v_janela := interval '10 minutes';
+    -- A transcrição manda um trecho a cada 90s enquanto a sessão corre:
+    -- 50 minutos dão ~34 chamadas. O teto cobre folgado duas sessões
+    -- seguidas na mesma hora sem atrapalhar ninguém legítimo.
+    when 'transcricao' then
+      v_limite := 150; v_janela := interval '1 hour';
+    else
+      raise exception 'Recurso de IA desconhecido: %', p_recurso;
+  end case;
+
+  return checar_rate_limit(
+    'ia:' || p_recurso || ':' || auth.uid()::text, v_limite, v_janela
+  );
+end;
+$$;
+
+grant execute on function checar_limite_ia(text) to authenticated;

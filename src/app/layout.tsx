@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { RouteProgress } from "@/components/ui/route-progress";
+import { ErrorReporter } from "@/components/error-reporter";
 import "./globals.css";
 
 // Aplicada em --font-sans, que é o que tanto o body quanto os wrappers com
@@ -44,6 +45,7 @@ export default function RootLayout({
           }}
         />
         <RouteProgress />
+        <ErrorReporter />
         <AuthProvider>{children}</AuthProvider>
         {/* Flutuante e único para o site inteiro (landing, área do cliente
             e do psicólogo) — evita duplicar o toggle em cada header/sidebar. */}

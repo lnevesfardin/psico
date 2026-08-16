@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
+import { dentroDoLimiteIA, MENSAGEM_LIMITE_IA } from "@/lib/limite-ia";
 
 // Instrução fixa do usuário: extrair um lançamento financeiro descrito em
 // texto livre para os 4 campos do formulário "Novo Lançamento". O resultado
@@ -62,6 +63,10 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  if (!(await dentroDoLimiteIA(supabase, "lancamento"))) {
+    return NextResponse.json({ error: MENSAGEM_LIMITE_IA }, { status: 429 });
   }
 
   let body: unknown;
