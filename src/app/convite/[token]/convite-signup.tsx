@@ -8,14 +8,10 @@ import { aceitarConvite } from "@/lib/convites-client";
 import { PasswordStrength } from "@/components/ui/password-strength";
 
 function traduzErro(msg: string): string {
-  if (msg.includes("User already registered"))
-    return "Já existe uma conta com esse e-mail — use \"Já tenho conta\" abaixo pra entrar.";
   if (msg.includes("Invalid login credentials"))
     return "E-mail ou senha incorretos.";
   if (msg.includes("Password should be at least"))
     return "A senha precisa ter pelo menos 6 caracteres.";
-  if (msg.includes("Token has expired or is invalid"))
-    return "Código inválido ou expirado. Confira o número ou peça um novo código.";
   return msg;
 }
 
@@ -35,10 +31,6 @@ export function ConviteSignup({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [awaitingCode, setAwaitingCode] = useState(false);
-  const [code, setCode] = useState("");
-  const [resending, setResending] = useState(false);
-  const [resent, setResent] = useState(false);
 
   function trocarModo(novo: "cadastro" | "login") {
     setMode(novo);
@@ -67,29 +59,40 @@ export function ConviteSignup({
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const supabase = createClient();
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name, role: "client", telefone },
-        emailRedirectTo: `${window.location.origin}/auth/confirmado`,
-      },
+    // A conta do paciente nasce no servidor já com o e-mail confirmado (ver
+    // /api/convite/criar-conta): quem tem o link do convite entra direto, sem
+    // código de verificação. Por isso o cadastro não passa por supabase.auth
+    // .signUp() aqui — ele obedeceria ao "Confirm email" global do projeto.
+    const res = await fetch("/api/convite/criar-conta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, name, telefone, email, password }),
     });
+    const payload = await res.json().catch(() => null);
 
-    if (error) {
-      setError(traduzErro(error.message));
+    if (!res.ok) {
+      if (payload?.code === "email-em-uso") {
+        setMode("login");
+        setError('Já existe uma conta com esse e-mail. Entre com a senha dela pra vincular ao seu psicólogo.');
+      } else {
+        setError(payload?.error ?? "Não foi possível criar a conta. Tente novamente.");
+      }
       setLoading(false);
       return;
     }
 
-    if (data.session) {
-      await concluir(supabase);
+    const supabase = createClient();
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (loginError) {
+      setError("Conta criada, mas não foi possível entrar. Tente pelo login.");
+      setLoading(false);
       return;
     }
-    setLoading(false);
-    setAwaitingCode(true);
+    await concluir(supabase);
   }
 
   // Quem já é paciente (de outro psicólogo, ou desse mesmo antes) usa este
@@ -108,102 +111,6 @@ export function ConviteSignup({
       return;
     }
     await concluir(supabase);
-  }
-
-  async function handleVerifyCode(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: code,
-      type: "signup",
-    });
-    if (error) {
-      setError(traduzErro(error.message));
-      setLoading(false);
-      return;
-    }
-    if (!data.session) {
-      setLoading(false);
-      return;
-    }
-    await concluir(supabase);
-  }
-
-  async function handleResendCode() {
-    setError(null);
-    setResending(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email });
-    setResending(false);
-    if (error) {
-      setError(traduzErro(error.message));
-      return;
-    }
-    setResent(true);
-    setTimeout(() => setResent(false), 4000);
-  }
-
-  if (awaitingCode) {
-    return (
-      <div>
-        <h2 className="text-center text-base font-semibold text-zinc-900 dark:text-white">
-          Digite o código de verificação
-        </h2>
-        <p className="mt-2 text-center text-sm text-zinc-500 dark:text-zinc-400">
-          Enviamos um código de 6 dígitos para <strong>{email}</strong>.
-        </p>
-
-        <form onSubmit={handleVerifyCode} className="mt-5 space-y-4">
-          {error && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
-              {error}
-            </div>
-          )}
-
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Código de verificação
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              required
-              value={code}
-              onChange={(e) =>
-                setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              placeholder="000000"
-              className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-center text-lg font-semibold tracking-[0.4em] text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={loading || code.length < 6}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Verificar código
-          </button>
-        </form>
-
-        <button
-          type="button"
-          onClick={handleResendCode}
-          disabled={resending}
-          className="mt-4 block w-full text-center text-sm font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-brand-400"
-        >
-          {resending
-            ? "Reenviando..."
-            : resent
-              ? "Código reenviado!"
-              : "Reenviar código"}
-        </button>
-      </div>
-    );
   }
 
   if (mode === "login") {
