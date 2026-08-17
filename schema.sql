@@ -161,6 +161,27 @@ alter table pacientes add column if not exists observacoes text;
 -- convites_paciente mais abaixo), nunca automático.
 alter table pacientes add column if not exists cliente_user_id uuid references auth.users(id) on delete set null;
 
+-- tipo — a ficha deixou de ser sempre uma pessoa: atendimento de casal e de
+-- grupo viram uma ficha ÚNICA compartilhada (as pessoas ficam em
+-- participantes_ficha, logo abaixo), e não fichas individuais amarradas.
+--
+-- A escolha mantém agenda, prontuário, documentos e financeiro intactos: para
+-- todos eles a ficha continua sendo "o paciente" daquele atendimento. O preço
+-- é não existir prontuário separado por integrante do casal/grupo — o que é
+-- coerente com a evolução de uma sessão conjunta, que é uma só.
+alter table pacientes add column if not exists tipo text not null default 'individuo';
+alter table pacientes drop constraint if exists pacientes_tipo_check;
+alter table pacientes add constraint pacientes_tipo_check
+  check (tipo in ('individuo', 'casal', 'grupo'));
+
+-- complexidade — classificação clínica do próprio psicólogo (nunca inferida
+-- pelo sistema), usada só para ordenar/visualizar a carteira de pacientes.
+-- Aceita null: ficha sem classificação é o estado normal, não um erro.
+alter table pacientes add column if not exists complexidade text;
+alter table pacientes drop constraint if exists pacientes_complexidade_check;
+alter table pacientes add constraint pacientes_complexidade_check
+  check (complexidade is null or complexidade in ('baixa', 'media', 'alta'));
+
 create index if not exists pacientes_psicologo_id_idx on pacientes (psicologo_id);
 create index if not exists pacientes_nome_idx on pacientes using gin (nome gin_trgm_ops);
 create index if not exists pacientes_cliente_user_id_idx
@@ -173,6 +194,49 @@ create unique index if not exists pacientes_psicologo_cliente_unique
 create or replace trigger pacientes_set_updated_at
   before update on pacientes
   for each row execute function set_updated_at();
+
+-- =========================================================
+-- participantes_ficha — as pessoas de uma ficha de casal ou grupo.
+--
+-- Tabela separada (e não um campo de texto com os nomes) porque cada
+-- integrante tem contato próprio, que o psicólogo precisa acessar para
+-- remarcar ou avisar alguém específico. Continua sem prontuário próprio:
+-- quem responde por evolução, documentos e financeiro é a ficha (ver "tipo"
+-- em pacientes acima).
+--
+-- Dado de participante é dado de paciente para efeito de LGPD — daí a RLS
+-- amarrada ao dono da ficha, igual ao resto do prontuário.
+-- =========================================================
+create table if not exists participantes_ficha (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  nome text not null,
+  telefone text,
+  email text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists participantes_ficha_paciente_idx
+  on participantes_ficha (paciente_id);
+
+alter table participantes_ficha enable row level security;
+
+-- Uma policy só para todas as operações: o dono da ficha faz tudo, mais
+-- ninguém enxerga nada. with check repete a condição para o insert/update
+-- não conseguir mover um participante para a ficha de outro psicólogo.
+drop policy if exists "psicologo_gerencia_participantes" on participantes_ficha;
+create policy "psicologo_gerencia_participantes" on participantes_ficha
+  for all using (
+    exists (
+      select 1 from pacientes p
+      where p.id = participantes_ficha.paciente_id and p.psicologo_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from pacientes p
+      where p.id = participantes_ficha.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
 
 -- =========================================================
 -- sessoes_prontuario (evolução / anotações sigilosas)

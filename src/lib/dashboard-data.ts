@@ -9,8 +9,37 @@ export type SessionNote = {
   updatedAt: string;
 };
 
+/** Ficha de uma pessoa, de um casal ou de um grupo (ver "tipo" no schema). */
+export type TipoFicha = "individuo" | "casal" | "grupo";
+
+/** Classificação feita pelo psicólogo — o sistema nunca deduz. */
+export type Complexidade = "baixa" | "media" | "alta";
+
+export const TIPO_FICHA_LABELS: Record<TipoFicha, string> = {
+  individuo: "Indivíduo",
+  casal: "Casal",
+  grupo: "Grupo",
+};
+
+export const COMPLEXIDADE_LABELS: Record<Complexidade, string> = {
+  baixa: "Baixa",
+  media: "Média",
+  alta: "Alta",
+};
+
+/** Integrante de uma ficha de casal/grupo; não tem prontuário próprio. */
+export type Participante = {
+  id: string;
+  nome: string;
+  telefone: string;
+  email: string;
+};
+
 export type Patient = {
   id: string;
+  tipo: TipoFicha;
+  complexidade: Complexidade | null;
+  participantes: Participante[];
   name: string;
   cpf: string;
   phone: string;
@@ -27,6 +56,13 @@ export type Patient = {
   comoConheceu: string;
   observacoes: string;
   sessions: SessionNote[];
+  /**
+   * Resumo das sessões para a listagem, que de propósito não carrega o
+   * conteúdo das evoluções (dado sigiloso não precisa trafegar para montar
+   * uma lista). Na ficha aberta, vêm das próprias sessions.
+   */
+  totalSessoes: number;
+  ultimaSessaoEm: string | null;
   // Conta de login do cliente vinculada manualmente pelo psicólogo (ver
   // convites_paciente no schema.sql) — null se ainda não vinculado.
   clienteUserId: string | null;

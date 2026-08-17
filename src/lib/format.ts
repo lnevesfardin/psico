@@ -10,6 +10,15 @@ export function formatDateLabel(iso: string): string {
 }
 
 export function formatDateShort(iso: string): string {
+  // Timestamp completo (data_hora de sessão, created_at) precisa virar hora
+  // local antes de virar data: uma sessão das 21h no Brasil é o dia seguinte
+  // em UTC. Antes desta guarda, o split("-") transformava "2026-08-17T12:00Z"
+  // em dia NaN e a tela mostrava "Invalid Date" sem erro nenhum no console.
+  if (iso.includes("T")) return new Date(iso).toLocaleDateString("pt-BR");
+
+  // Data pura ("yyyy-mm-dd", ex.: nascimento) é montada campo a campo de
+  // propósito: new Date("2026-08-17") seria lida como UTC e voltaria um dia
+  // para quem está a oeste de Greenwich.
   const [year, month, day] = iso.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString("pt-BR");
 }

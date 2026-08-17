@@ -1,11 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
-import type { Patient } from "@/lib/dashboard-data";
-import type { NewPatientInput } from "@/lib/patients-client";
+import { Plus, Trash2, User, Users, X } from "lucide-react";
+import {
+  COMPLEXIDADE_LABELS,
+  type Complexidade,
+  type Patient,
+  type TipoFicha,
+} from "@/lib/dashboard-data";
+import type { NewPatientInput, ParticipanteInput } from "@/lib/patients-client";
+
+const TIPOS: { value: TipoFicha; label: string; icon: typeof User; hint: string }[] = [
+  { value: "individuo", label: "Indivíduo", icon: User, hint: "Uma pessoa." },
+  { value: "casal", label: "Casal", icon: Users, hint: "Duas pessoas, uma ficha." },
+  { value: "grupo", label: "Grupo", icon: Users, hint: "Várias pessoas, uma ficha." },
+];
+
+const COMPLEXIDADES: Complexidade[] = ["baixa", "media", "alta"];
 
 const EMPTY_VALUES: NewPatientInput = {
+  tipo: "individuo",
+  complexidade: null,
+  participantes: [],
   name: "",
   cpf: "",
   phone: "",
@@ -37,6 +53,18 @@ export function PatientFormModal({
   onSaved: (patient: Patient) => void;
 }) {
   const base = initialValues ?? EMPTY_VALUES;
+  const [tipo, setTipo] = useState<TipoFicha>(base.tipo);
+  const [complexidade, setComplexidade] = useState<Complexidade | null>(
+    base.complexidade
+  );
+  const [participantes, setParticipantes] = useState<ParticipanteInput[]>(
+    base.participantes.length > 0
+      ? base.participantes
+      : [
+          { nome: "", telefone: "", email: "" },
+          { nome: "", telefone: "", email: "" },
+        ]
+  );
   const [name, setName] = useState(base.name);
   const [cpf, setCpf] = useState(base.cpf);
   const [phone, setPhone] = useState(base.phone);
@@ -65,6 +93,9 @@ export function PatientFormModal({
     setError(null);
     try {
       const patient = await onSave({
+        tipo,
+        complexidade,
+        participantes,
         name,
         cpf,
         phone,
@@ -127,30 +158,193 @@ export function PatientFormModal({
         )}
 
         <div className="mt-4 space-y-4">
+          <div>
+            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Tipo de atendimento
+            </span>
+            <div className="mt-1.5 grid grid-cols-3 gap-2">
+              {TIPOS.map(({ value, label, icon: Icon, hint }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTipo(value)}
+                  title={hint}
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs font-semibold transition-colors ${
+                    tipo === value
+                      ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300"
+                      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-400"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Nome completo
+            {tipo === "individuo" ? "Nome completo" : "Nome da ficha"}
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
+              placeholder={
+                tipo === "casal"
+                  ? "Ex.: Ana e João"
+                  : tipo === "grupo"
+                    ? "Ex.: Grupo de adolescentes - terças"
+                    : undefined
+              }
               className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
           </label>
 
+          {tipo !== "individuo" && (
+            <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Participantes
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setParticipantes((prev) => [
+                      ...prev,
+                      { nome: "", telefone: "", email: "" },
+                    ])
+                  }
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/40"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                Contatos de cada pessoa. A evolução, os documentos e o
+                financeiro continuam sendo da ficha inteira.
+              </p>
+              <div className="mt-3 space-y-2">
+                {participantes.map((p, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="grid flex-1 grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={p.nome}
+                        onChange={(e) =>
+                          setParticipantes((prev) =>
+                            prev.map((item, idx) =>
+                              idx === i ? { ...item, nome: e.target.value } : item
+                            )
+                          )
+                        }
+                        placeholder="Nome"
+                        className="col-span-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                      />
+                      <input
+                        type="tel"
+                        value={p.telefone}
+                        onChange={(e) =>
+                          setParticipantes((prev) =>
+                            prev.map((item, idx) =>
+                              idx === i
+                                ? { ...item, telefone: e.target.value }
+                                : item
+                            )
+                          )
+                        }
+                        placeholder="Telefone"
+                        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                      />
+                      <input
+                        type="email"
+                        value={p.email}
+                        onChange={(e) =>
+                          setParticipantes((prev) =>
+                            prev.map((item, idx) =>
+                              idx === i ? { ...item, email: e.target.value } : item
+                            )
+                          )
+                        }
+                        placeholder="E-mail"
+                        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setParticipantes((prev) =>
+                          prev.filter((_, idx) => idx !== i)
+                        )
+                      }
+                      aria-label="Remover participante"
+                      className="mt-1 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                {participantes.length === 0 && (
+                  <p className="text-xs text-zinc-400 dark:text-zinc-600">
+                    Nenhum participante. Use &quot;Adicionar&quot; acima.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Complexidade
+            </span>
+            <div className="mt-1.5 flex gap-2">
+              {COMPLEXIDADES.map((nivel) => (
+                <button
+                  key={nivel}
+                  type="button"
+                  // Clicar no nível já marcado desmarca: sem isso não haveria
+                  // como voltar a "não classificada" depois do primeiro clique.
+                  onClick={() =>
+                    setComplexidade((atual) => (atual === nivel ? null : nivel))
+                  }
+                  className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                    complexidade === nivel
+                      ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300"
+                      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-400"
+                  }`}
+                >
+                  {COMPLEXIDADE_LABELS[nivel]}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
+              Sua avaliação, só para organizar sua lista. Clique de novo para
+              deixar sem classificação.
+            </p>
+          </div>
+
+          {/* CPF e nascimento só valem para indivíduo: numa ficha de casal ou
+              grupo eles não têm dono definido. O campo que sobra ocupa a
+              linha toda, em vez de ficar meia-largura sozinho. */}
           <div className="grid grid-cols-2 gap-4">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              CPF
-              <input
-                type="text"
-                placeholder="000.000.000-00"
-                value={cpf}
-                onChange={(e) => setCpf(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Telefone
+            {tipo === "individuo" && (
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                CPF
+                <input
+                  type="text"
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+            )}
+            <label
+              className={`block text-sm font-medium text-zinc-700 dark:text-zinc-300 ${
+                tipo === "individuo" ? "" : "col-span-2"
+              }`}
+            >
+              {tipo === "individuo" ? "Telefone" : "Telefone principal"}
               <input
                 type="tel"
                 placeholder="(11) 99999-9999"
@@ -162,7 +356,11 @@ export function PatientFormModal({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label
+              className={`block text-sm font-medium text-zinc-700 dark:text-zinc-300 ${
+                tipo === "individuo" ? "" : "col-span-2"
+              }`}
+            >
               Email
               <input
                 type="email"
@@ -171,15 +369,17 @@ export function PatientFormModal({
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               />
             </label>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Nascimento
-              <input
-                type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
-            </label>
+            {tipo === "individuo" && (
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Nascimento
+                <input
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              </label>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

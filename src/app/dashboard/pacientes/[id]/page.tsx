@@ -20,8 +20,10 @@ import {
   HelpCircle,
   StickyNote,
   Mic,
+  Users,
 } from "lucide-react";
-import type { Patient } from "@/lib/dashboard-data";
+import { TIPO_FICHA_LABELS, type Patient } from "@/lib/dashboard-data";
+import { ComplexidadeBar } from "@/components/dashboard/complexidade-bar";
 import { createClient } from "@/lib/supabase/client";
 import {
   addSessionNote,
@@ -271,21 +273,61 @@ export default function PatientDetailPage({
 
       <div className="mt-4 flex items-center gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-100 text-lg font-semibold text-brand-700 dark:bg-brand-900 dark:text-brand-300">
-          {patient.name
-            .split(" ")
-            .slice(0, 2)
-            .map((n) => n[0])
-            .join("")}
+          {patient.tipo === "individuo" ? (
+            patient.name
+              .split(" ")
+              .slice(0, 2)
+              .map((n) => n[0])
+              .join("")
+          ) : (
+            <Users className="h-6 w-6" />
+          )}
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            {patient.name}
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {patient.sessions.length} sessão(ões) registrada(s)
-          </p>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+              {patient.name}
+            </h1>
+            {patient.tipo !== "individuo" && (
+              <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {TIPO_FICHA_LABELS[patient.tipo]}
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {patient.sessions.length} sessão(ões) registrada(s)
+            </p>
+            <ComplexidadeBar nivel={patient.complexidade} />
+          </div>
         </div>
       </div>
+
+      {patient.tipo !== "individuo" && patient.participantes.length > 0 && (
+        <div className="mt-4 rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+            Participantes ({patient.participantes.length})
+          </p>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+            {patient.participantes.map((p) => (
+              <li
+                key={p.id}
+                className="rounded-lg border border-zinc-100 px-3 py-2 dark:border-zinc-800"
+              >
+                <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  {p.nome}
+                </p>
+                <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                  {[p.telefone, p.email].filter(Boolean).join(" · ") || "Sem contato"}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-600">
+            Editar participantes: use &quot;Editar&quot; no topo da ficha.
+          </p>
+        </div>
+      )}
 
       <div className="mt-6 inline-flex flex-wrap rounded-full border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
         {(

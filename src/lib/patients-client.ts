@@ -1,9 +1,35 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Patient, SessionNote } from "@/lib/dashboard-data";
+import type {
+  Complexidade,
+  Participante,
+  Patient,
+  SessionNote,
+  TipoFicha,
+} from "@/lib/dashboard-data";
 import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
+
+type ParticipanteRow = {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+};
+
+const PARTICIPANTE_COLUMNS = "id, nome, telefone, email";
+
+function rowToParticipante(row: ParticipanteRow): Participante {
+  return {
+    id: row.id,
+    nome: row.nome,
+    telefone: row.telefone ?? "",
+    email: row.email ?? "",
+  };
+}
 
 type PacienteRow = {
   id: string;
+  tipo: TipoFicha | null;
+  complexidade: Complexidade | null;
   nome: string;
   cpf: string | null;
   telefone: string | null;
@@ -20,12 +46,30 @@ type PacienteRow = {
   cliente_user_id: string | null;
 };
 
-const PACIENTE_COLUMNS =
+const PACIENTE_COLUMNS_BASE =
   "id, nome, cpf, telefone, email, data_nascimento, contato_emergencia_nome, contato_emergencia_telefone, tem_plano_saude, plano_saude_nome, data_primeira_consulta, escolaridade, como_conheceu, observacoes, cliente_user_id";
 
-function rowToPatient(row: PacienteRow, sessions: SessionNote[] = []): Patient {
+const PACIENTE_COLUMNS = `${PACIENTE_COLUMNS_BASE}, tipo, complexidade`;
+
+type ResumoSessoes = { total: number; ultima: string | null };
+
+function rowToPatient(
+  row: PacienteRow,
+  sessions: SessionNote[] = [],
+  participantes: Participante[] = [],
+  resumo?: ResumoSessoes
+): Patient {
   return {
+    totalSessoes: resumo?.total ?? sessions.length,
+    // sessions vem ordenada da mais recente para a mais antiga.
+    ultimaSessaoEm: resumo?.ultima ?? sessions[0]?.dateTime ?? null,
     id: row.id,
+    // Ficha antiga (anterior à coluna) é indivíduo — o default do banco diz o
+    // mesmo, mas o fallback também cobre o select sem a coluna, usado
+    // enquanto o schema.sql ainda não foi aplicado à mão.
+    tipo: row.tipo ?? "individuo",
+    complexidade: row.complexidade ?? null,
+    participantes,
     name: row.nome,
     cpf: row.cpf ?? "",
     phone: row.telefone ?? "",
@@ -50,13 +94,59 @@ export async function listPatients(
   supabase: SupabaseClient,
   psicologoId: string
 ): Promise<Patient[]> {
-  const { data, error } = await supabase
-    .from("pacientes")
-    .select(PACIENTE_COLUMNS)
-    .eq("psicologo_id", psicologoId)
-    .order("nome");
+  const buscar = (colunas: string) =>
+    supabase
+      .from("pacientes")
+      .select(colunas)
+      .eq("psicologo_id", psicologoId)
+      .order("nome");
+
+  // Mesma proteção do perfil: o deploy chega antes do schema.sql ser rodado à
+  // mão, e uma coluna inexistente derrubaria a lista inteira de pacientes.
+  let { data, error } = await buscar(PACIENTE_COLUMNS);
+  if (error) ({ data, error } = await buscar(PACIENTE_COLUMNS_BASE));
   if (error) throw new Error(error.message);
-  return (data as PacienteRow[]).map((row) => rowToPatient(row));
+
+  const rows = data as unknown as PacienteRow[];
+  const resumos = await resumirSessoes(
+    supabase,
+    rows.map((r) => r.id)
+  );
+
+  return rows.map((row) => rowToPatient(row, [], [], resumos.get(row.id)));
+}
+
+/**
+ * Total e data da última sessão de cada ficha, em uma consulta só.
+ *
+ * Traz apenas paciente_id e data_hora: montar a lista não é motivo para o
+ * conteúdo das evoluções sair do banco (minimização de dado, ver CLAUDE.md).
+ * Falha aqui devolve mapa vazio — a lista aparece sem o resumo, em vez de
+ * não aparecer.
+ */
+async function resumirSessoes(
+  supabase: SupabaseClient,
+  patientIds: string[]
+): Promise<Map<string, ResumoSessoes>> {
+  const resumos = new Map<string, ResumoSessoes>();
+  if (patientIds.length === 0) return resumos;
+
+  const { data, error } = await supabase
+    .from("sessoes_prontuario")
+    .select("paciente_id, data_hora")
+    .in("paciente_id", patientIds)
+    .order("data_hora", { ascending: false });
+  if (error || !data) return resumos;
+
+  for (const linha of data as { paciente_id: string; data_hora: string }[]) {
+    const atual = resumos.get(linha.paciente_id);
+    if (atual) {
+      atual.total += 1; // a primeira vista já era a mais recente (order desc)
+    } else {
+      resumos.set(linha.paciente_id, { total: 1, ultima: linha.data_hora });
+    }
+  }
+  return resumos;
 }
 
 /**
@@ -82,14 +172,23 @@ export async function getPatientWithSessions(
   supabase: SupabaseClient,
   patientId: string
 ): Promise<Patient | null> {
-  const { data: paciente, error } = await supabase
-    .from("pacientes")
-    .select(PACIENTE_COLUMNS)
-    .eq("id", patientId)
-    .single();
+  const buscar = (colunas: string) =>
+    supabase.from("pacientes").select(colunas).eq("id", patientId).single();
+
+  let { data: paciente, error } = await buscar(PACIENTE_COLUMNS);
+  if (error) ({ data: paciente, error } = await buscar(PACIENTE_COLUMNS_BASE));
   if (error || !paciente) return null;
 
   registrarAcessoProntuario(supabase, patientId).catch(() => {});
+
+  // Participantes só existem em ficha de casal/grupo; a tabela pode ainda nem
+  // existir no banco, então erro aqui vira lista vazia em vez de derrubar o
+  // prontuário inteiro.
+  const { data: participantesRows } = await supabase
+    .from("participantes_ficha")
+    .select(PARTICIPANTE_COLUMNS)
+    .eq("paciente_id", patientId)
+    .order("created_at");
 
   const { data: sessoes } = await supabase
     .from("sessoes_prontuario")
@@ -105,10 +204,51 @@ export async function getPatientWithSessions(
     updatedAt: (s.updated_at as string) ?? (s.data_hora as string),
   }));
 
-  return rowToPatient(paciente as PacienteRow, sessions);
+  return rowToPatient(
+    paciente as unknown as PacienteRow,
+    sessions,
+    ((participantesRows ?? []) as ParticipanteRow[]).map(rowToParticipante)
+  );
+}
+
+/** Participante como o formulário entrega: ainda sem id (nem sempre existe). */
+export type ParticipanteInput = {
+  nome: string;
+  telefone: string;
+  email: string;
+};
+
+/**
+ * Regrava a lista de participantes da ficha: apaga o que havia e insere de
+ * novo. Trocar tudo (em vez de comparar linha a linha) é o suficiente aqui —
+ * são poucas pessoas por ficha, e nada mais no sistema aponta para o id do
+ * participante, então recriá-los não quebra referência nenhuma.
+ */
+async function sincronizarParticipantes(
+  supabase: SupabaseClient,
+  patientId: string,
+  participantes: ParticipanteInput[]
+): Promise<void> {
+  await supabase.from("participantes_ficha").delete().eq("paciente_id", patientId);
+
+  const linhas = participantes
+    .filter((p) => p.nome.trim())
+    .map((p) => ({
+      paciente_id: patientId,
+      nome: p.nome.trim(),
+      telefone: p.telefone.trim() || null,
+      email: p.email.trim() || null,
+    }));
+
+  if (linhas.length === 0) return;
+  const { error } = await supabase.from("participantes_ficha").insert(linhas);
+  if (error) throw new Error(error.message);
 }
 
 export type NewPatientInput = {
+  tipo: TipoFicha;
+  complexidade: Complexidade | null;
+  participantes: ParticipanteInput[];
   name: string;
   cpf: string;
   phone: string;
@@ -133,6 +273,8 @@ export async function createPatient(
     .from("pacientes")
     .insert({
       psicologo_id: psicologoId,
+      tipo: input.tipo,
+      complexidade: input.complexidade,
       nome: input.name,
       cpf: input.cpf || null,
       telefone: input.phone || null,
@@ -150,7 +292,30 @@ export async function createPatient(
     .select(PACIENTE_COLUMNS)
     .single();
   if (error) throw new Error(error.message);
-  return rowToPatient(data as PacienteRow);
+
+  const paciente = data as unknown as PacienteRow;
+  const participantes =
+    input.tipo === "individuo" ? [] : input.participantes;
+  if (participantes.length > 0) {
+    await sincronizarParticipantes(supabase, paciente.id, participantes);
+  }
+  return rowToPatient(paciente, [], participantesComId(participantes));
+}
+
+/**
+ * Devolve os participantes recém-gravados para a UI sem uma segunda ida ao
+ * banco. O id aqui é só chave de renderização — a lista é relida do banco na
+ * próxima abertura da ficha.
+ */
+function participantesComId(entrada: ParticipanteInput[]): Participante[] {
+  return entrada
+    .filter((p) => p.nome.trim())
+    .map((p, i) => ({
+      id: `novo-${i}`,
+      nome: p.nome.trim(),
+      telefone: p.telefone.trim(),
+      email: p.email.trim(),
+    }));
 }
 
 export async function updatePatient(
@@ -161,6 +326,8 @@ export async function updatePatient(
   const { data, error } = await supabase
     .from("pacientes")
     .update({
+      tipo: input.tipo,
+      complexidade: input.complexidade,
       nome: input.name,
       cpf: input.cpf || null,
       telefone: input.phone || null,
@@ -179,11 +346,28 @@ export async function updatePatient(
     .select(PACIENTE_COLUMNS)
     .single();
   if (error) throw new Error(error.message);
-  return rowToPatient(data as PacienteRow);
+
+  // Indivíduo não tem participante: trocar o tipo de casal para indivíduo
+  // precisa limpar a lista, senão sobrariam pessoas invisíveis na ficha.
+  const participantes = input.tipo === "individuo" ? [] : input.participantes;
+  await sincronizarParticipantes(supabase, patientId, participantes);
+
+  return rowToPatient(
+    data as unknown as PacienteRow,
+    [],
+    participantesComId(participantes)
+  );
 }
 
 export function patientToFormInput(patient: Patient): NewPatientInput {
   return {
+    tipo: patient.tipo,
+    complexidade: patient.complexidade,
+    participantes: patient.participantes.map((p) => ({
+      nome: p.nome,
+      telefone: p.telefone,
+      email: p.email,
+    })),
     name: patient.name,
     cpf: patient.cpf,
     phone: patient.phone,
