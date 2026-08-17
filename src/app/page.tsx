@@ -24,6 +24,9 @@ import {
   MonitorSmartphone,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
+import { StickyCta } from "@/components/landing/sticky-cta";
+import { StructuredData } from "@/components/seo/structured-data";
+import { RESPOSTA_PROMESSA } from "@/lib/site";
 
 /** Superfície padrão dos cards: sutil no claro, translúcida no escuro. */
 const cardBase =
@@ -152,6 +155,11 @@ const faq = [
     answer:
       "Sim, não há fidelidade. Você pode cancelar a qualquer momento diretamente no seu perfil.",
   },
+  {
+    question: "Em quanto tempo vocês respondem uma dúvida?",
+    answer:
+      "No mesmo dia útil. O suporte é direto com quem constrói a plataforma, sem fila de atendimento — se você escrever num dia útil, tem resposta antes de o dia acabar.",
+  },
 ];
 
 const navLinks = [
@@ -255,7 +263,9 @@ export default function Home() {
   const [fluxo, setFluxo] = useState<Fluxo>("psicologo");
 
   return (
-    <div className="flex min-h-screen flex-col bg-white font-sans text-zinc-900 dark:bg-ink-950 dark:text-zinc-50">
+    <div className="flex min-h-screen flex-col bg-white pb-28 font-sans text-zinc-900 lg:pb-0 dark:bg-ink-950 dark:text-zinc-50">
+      {/* pb-28 no mobile: espaço pro CTA fixo do rodapé não cobrir o fim da
+          página (o seletor de tema também mora nesse canto). */}
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur-md dark:border-white/5 dark:bg-ink-950/80">
         <div className="mx-auto flex max-w-[85rem] items-center justify-between px-4 py-4 sm:px-6">
@@ -389,6 +399,16 @@ export default function Home() {
                 Plataforma nova, grupo pequeno de psicólogos usando agora.
               </p>
             </motion.div>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.55 }}
+              className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+            >
+              <Check className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+              {RESPOSTA_PROMESSA} — você fala direto com quem construiu.
+            </motion.p>
           </div>
 
           <motion.div
@@ -879,6 +899,9 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      <StickyCta />
+      <StructuredData faq={faq} />
     </div>
   );
 }

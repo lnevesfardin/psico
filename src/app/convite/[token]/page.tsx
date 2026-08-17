@@ -1,7 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { fetchConviteInfo } from "@/lib/convites-client";
 import { ConviteSignup } from "./convite-signup";
+
+// Título genérico e fora do índice de propósito: a URL tem token e a página
+// mostra o primeiro nome do paciente e o vínculo com o psicólogo — dado
+// sensível de saúde, que não pode acabar em resultado de busca (LGPD).
+export const metadata: Metadata = {
+  title: "Convite para criar conta",
+  robots: { index: false, follow: false },
+};
 
 export default async function ConvitePage({
   params,

@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
+// Sem "— Psico" no título: o template do layout raiz já acrescenta a marca.
 export const metadata: Metadata = {
-  title: "Política de Privacidade — Psico",
+  title: "Política de Privacidade",
+  description:
+    "Como o Psico trata os dados pessoais de psicólogos e pacientes, incluindo dados de saúde, sob a LGPD.",
+  alternates: { canonical: "/privacidade" },
 };
 
 const h2 = "mt-10 text-xl font-bold tracking-tight text-zinc-900 dark:text-white";
@@ -13,6 +18,7 @@ const strong = "text-zinc-800 dark:text-zinc-200";
 export default function PoliticaDePrivacidadePage() {
   return (
     <article>
+      <Breadcrumbs items={[{ label: "Política de Privacidade" }]} />
       <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
         Política de Privacidade
       </h1>

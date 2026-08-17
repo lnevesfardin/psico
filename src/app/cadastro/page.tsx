@@ -1,6 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { AuthForm } from "@/components/auth/auth-form";
+
+export const metadata: Metadata = {
+  title: "Criar conta grátis",
+  description:
+    "Crie sua conta no Psico e organize agenda, prontuários, pacientes e financeiro do seu consultório de psicologia em um só lugar.",
+  alternates: { canonical: "/cadastro" },
+};
 
 export default async function CadastroPage({
   searchParams,

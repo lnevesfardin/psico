@@ -1,7 +1,15 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getEscala } from "@/lib/escalas";
 import { EscalaWizard } from "@/components/escalas/escala-wizard";
+
+// Fora do índice: a URL pode carregar o token do convite (?c=), e uma escala
+// respondida é dado clínico. Mesmo motivo da página de convite.
+export const metadata: Metadata = {
+  title: "Responder questionário",
+  robots: { index: false, follow: false },
+};
 
 export default async function ResponderEscalaPage({
   params,

@@ -1,6 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { AuthForm } from "@/components/auth/auth-form";
+
+export const metadata: Metadata = {
+  title: "Entrar",
+  description:
+    "Acesse sua conta do Psico para ver sua agenda, seus pacientes e seus prontuários.",
+  alternates: { canonical: "/login" },
+};
 
 export default async function LoginPage({
   searchParams,

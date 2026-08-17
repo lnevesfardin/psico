@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
+// Sem "— Psico" no título: o template do layout raiz já acrescenta a marca.
 export const metadata: Metadata = {
-  title: "Termos de Uso — Psico",
+  title: "Termos de Uso",
+  description:
+    "Regras de acesso e uso da plataforma Psico por psicólogos e pacientes, incluindo assinatura, cancelamento e responsabilidades.",
+  alternates: { canonical: "/termos" },
 };
 
 const h2 = "mt-10 text-xl font-bold tracking-tight text-zinc-900 dark:text-white";
@@ -12,6 +17,7 @@ const link = "font-medium text-brand-600 underline decoration-2 underline-offset
 export default function TermosDeUsoPage() {
   return (
     <article>
+      <Breadcrumbs items={[{ label: "Termos de Uso" }]} />
       <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
         Termos de Uso
       </h1>

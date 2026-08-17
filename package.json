@@ -20,6 +20,7 @@
     "@tiptap/pm": "^3.30.0",
     "@tiptap/react": "^3.30.0",
     "@tiptap/starter-kit": "^3.30.0",
+    "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.43.0",
     "lucide-react": "^1.31.0",

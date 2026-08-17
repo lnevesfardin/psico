@@ -1,6 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "E-mail confirmado",
+  description: "Sua conta foi confirmada e já está pronta para uso.",
+  robots: { index: false, follow: false },
+};
 
 export default async function ConfirmadoPage({
   searchParams,
