@@ -72,6 +72,13 @@ alter table perfis drop column if exists consultorio_endereco cascade;
 -- exposta, qualquer visitante poderia pegar o link e invadir sessões. Só o
 -- despachante de notificações (service role) lê esta coluna.
 alter table perfis add column if not exists sala_online_url text not null default '';
+
+-- Logo/marca do consultório, aplicada como timbrado no topo dos documentos
+-- emitidos (ver src/lib/document-letterhead.ts). Fica só no perfil, e não
+-- copiada dentro de cada documento salvo: assim trocar a logo atualiza os
+-- documentos antigos e documentos_emitidos não engorda com a imagem repetida.
+-- Aceita URL http(s) ou data URL (o upload reduz a imagem antes de salvar).
+alter table perfis add column if not exists logo_url text not null default '';
 alter table perfis add column if not exists consultorio_rua text not null default '';
 alter table perfis add column if not exists consultorio_numero text not null default '';
 alter table perfis add column if not exists consultorio_bairro text not null default '';

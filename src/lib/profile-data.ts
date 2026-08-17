@@ -5,6 +5,8 @@ export type Profile = {
   uf: string;
   cidade: string;
   photoUrl: string;
+  /** Timbrado dos documentos emitidos — separado da foto de perfil. */
+  logoUrl: string;
   bio: string;
   price: number;
   whatsapp: string;
@@ -28,6 +30,7 @@ export const defaultProfile: Profile = {
   uf: "SP",
   cidade: "",
   photoUrl: "",
+  logoUrl: "",
   bio: "Atendimento psicológico individual para adultos, com abordagem cognitivo-comportamental focada em ansiedade, autoestima e transições de vida.",
   price: 200,
   whatsapp: "(11) 99999-9999",

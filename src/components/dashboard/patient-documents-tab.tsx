@@ -20,6 +20,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import { ensureHtml } from "@/lib/rich-text";
 import { downloadAsWord } from "@/lib/download-doc";
+import { timbradoHtml } from "@/lib/document-letterhead";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { DocumentHowItWorksModal } from "@/components/dashboard/document-how-it-works-modal";
 
@@ -84,8 +85,12 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
     return `${base}.doc`;
   }
 
+  // A logo não está dentro do conteúdo salvo: entra aqui, na saída, a partir
+  // do perfil (ver document-letterhead.ts).
+  const timbrado = timbradoHtml(profile.logoUrl);
+
   function baixarConteudo(conteudo: string, modeloNome: string) {
-    downloadAsWord(ensureHtml(conteudo), nomeArquivo(modeloNome));
+    downloadAsWord(ensureHtml(conteudo), nomeArquivo(modeloNome), timbrado);
   }
 
   function imprimirConteudo(conteudo: string, id: string) {
@@ -202,6 +207,9 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             Revise e complete o texto antes de salvar — campos entre colchetes
             precisam ser preenchidos manualmente.
+            {timbrado
+              ? " A logo do seu perfil entra como timbrado ao imprimir ou baixar (ela não aparece aqui no editor)."
+              : " Para sair com timbrado, cadastre uma logo em Meu Perfil."}
           </p>
           <div className="mt-3">
             <RichTextEditor
@@ -309,7 +317,9 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
               mesmo/seus pacientes. */}
           <div
             className="rich-doc text-sm leading-6 text-black"
-            dangerouslySetInnerHTML={{ __html: ensureHtml(conteudoParaImprimir) }}
+            dangerouslySetInnerHTML={{
+              __html: timbrado + ensureHtml(conteudoParaImprimir),
+            }}
           />
         </div>
       )}

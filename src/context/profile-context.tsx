@@ -18,6 +18,7 @@ type ProfileRow = {
   uf: string;
   cidade: string;
   foto_url: string | null;
+  logo_url: string | null;
   bio: string | null;
   valor_consulta: number;
   whatsapp: string | null;
@@ -42,6 +43,7 @@ function rowToProfile(row: ProfileRow): Profile {
     uf: row.uf,
     cidade: row.cidade,
     photoUrl: row.foto_url ?? "",
+    logoUrl: row.logo_url ?? "",
     bio: row.bio ?? "",
     price: row.valor_consulta,
     whatsapp: row.whatsapp ?? "",
@@ -59,6 +61,11 @@ function rowToProfile(row: ProfileRow): Profile {
   };
 }
 
+const COLUNAS_PERFIL_BASE =
+  "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url, sala_online_url";
+
+const COLUNAS_PERFIL = `${COLUNAS_PERFIL_BASE}, logo_url`;
+
 type ProfileContextValue = {
   profile: Profile;
   loading: boolean;
@@ -75,17 +82,24 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
-    supabase
-      .from("perfis")
-      .select(
-        "nome, titulo, crp, uf, cidade, foto_url, bio, valor_consulta, whatsapp, especialidades, abordagens, faixas_etarias, tem_consultorio, consultorio_rua, consultorio_numero, consultorio_bairro, consultorio_cidade, consultorio_uf, consultorio_maps_url, sala_online_url"
-      )
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) setProfile(rowToProfile(data as ProfileRow));
-        setLoading(false);
-      });
+
+    async function carregar(userId: string) {
+      const buscar = (colunas: string) =>
+        supabase.from("perfis").select(colunas).eq("id", userId).single();
+
+      let { data, error } = await buscar(COLUNAS_PERFIL);
+
+      // O schema deste projeto é aplicado à mão no SQL Editor, então o deploy
+      // pode chegar antes da coluna nova existir. Sem esta segunda tentativa,
+      // o select inteiro falha por causa de uma coluna e o psicólogo vê o
+      // perfil em branco — parece perda de dados, mas é só o schema atrasado.
+      if (error) ({ data, error } = await buscar(COLUNAS_PERFIL_BASE));
+
+      if (data) setProfile(rowToProfile(data as unknown as ProfileRow));
+      setLoading(false);
+    }
+
+    carregar(user.id);
   }, [user]);
 
   async function updateProfile(updates: Partial<Profile>) {
@@ -100,6 +114,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (updates.uf !== undefined) patch.uf = updates.uf;
     if (updates.cidade !== undefined) patch.cidade = updates.cidade;
     if (updates.photoUrl !== undefined) patch.foto_url = updates.photoUrl;
+    if (updates.logoUrl !== undefined) patch.logo_url = updates.logoUrl;
     if (updates.bio !== undefined) patch.bio = updates.bio;
     if (updates.price !== undefined) patch.valor_consulta = updates.price;
     if (updates.whatsapp !== undefined) patch.whatsapp = updates.whatsapp;

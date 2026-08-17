@@ -176,6 +176,132 @@ export type PresetTemplate = { tipo: string; nome: string; conteudo: string };
  */
 export const PRESET_TEMPLATES: PresetTemplate[] = [
   {
+    tipo: "Anamnese",
+    nome: "Anamnese Clínica (adulto)",
+    conteudo: `ANAMNESE CLÍNICA
+
+1. IDENTIFICAÇÃO
+Nome: {{paciente_nome}}
+CPF: {{paciente_cpf}}
+Data de nascimento: {{paciente_data_nascimento}}
+Estado civil: [ ]
+Escolaridade: [ ]
+Profissão / ocupação atual: [ ]
+Com quem reside: [ ]
+Data da entrevista: {{data_emissao}}
+
+2. QUEIXA PRINCIPAL
+[o que traz a pessoa ao atendimento, nas palavras dela]
+
+3. HISTÓRIA DA QUEIXA
+[quando começou, como evoluiu, o que piora e o que alivia, o que já tentou]
+
+4. HISTÓRICO DE SAÚDE MENTAL
+Atendimentos anteriores (psicoterapia/psiquiatria): [ ]
+Internações: [ ]
+Medicação em uso (nome, dose e prescritor): [ ]
+Histórico familiar de transtornos mentais: [ ]
+
+5. HISTÓRICO DE SAÚDE GERAL
+Condições clínicas e cirurgias: [ ]
+Uso de álcool e outras substâncias: [ ]
+Sono, apetite e atividade física: [ ]
+
+6. HISTÓRIA DE VIDA
+Composição e dinâmica familiar: [ ]
+Infância e adolescência: [ ]
+Vida escolar e profissional: [ ]
+Relacionamentos afetivos: [ ]
+Rede de apoio social: [ ]
+Eventos significativos / perdas: [ ]
+
+7. AVALIAÇÃO DE RISCO
+Ideação suicida (atual e pregressa): [ ]
+Planejamento, tentativas anteriores e acesso a meios: [ ]
+Autolesão: [ ]
+Situação de violência (sofrida ou praticada): [ ]
+[Havendo risco identificado, registrar as condutas adotadas e considerar o
+modelo "Plano de Segurança — Prevenção ao Suicídio".]
+
+8. OBSERVAÇÕES DA ENTREVISTA
+[apresentação, contato, humor, linguagem e demais impressões clínicas]
+
+9. OBJETIVOS DO ACOMPANHAMENTO
+[demanda combinada com o paciente e primeiras hipóteses de trabalho]
+
+10. ENCAMINHAMENTOS E CONDUTAS
+[frequência combinada, encaminhamentos, orientações]
+
+
+_____________________________________
+{{psicologo_nome}}
+{{psicologo_titulo}}
+{{psicologo_crp}}`,
+  },
+  {
+    tipo: "Anamnese",
+    nome: "Anamnese Infantil (com responsável)",
+    conteudo: `ANAMNESE INFANTIL
+
+[Entrevista realizada com o(a) responsável. Registrar quem prestou as
+informações e o vínculo com a criança/adolescente.]
+
+1. IDENTIFICAÇÃO
+Nome: {{paciente_nome}}
+Data de nascimento: {{paciente_data_nascimento}}
+Idade: [ ]
+Escola / ano escolar: [ ]
+Responsável entrevistado(a) e vínculo: [ ]
+Data da entrevista: {{data_emissao}}
+
+2. COMPOSIÇÃO FAMILIAR
+[quem mora na casa, idades e ocupações; guarda e convivência, se aplicável]
+
+3. QUEIXA PRINCIPAL
+[o que motivou a procura, segundo o responsável]
+Quem indicou o atendimento: [escola, pediatra, familiar...]
+
+4. GESTAÇÃO E NASCIMENTO
+Gestação (planejada, intercorrências): [ ]
+Parto e condições de nascimento: [ ]
+Amamentação: [ ]
+
+5. DESENVOLVIMENTO
+Marcos motores (sentar, andar): [ ]
+Linguagem (primeiras palavras e frases): [ ]
+Controle esfincteriano: [ ]
+Sono e alimentação: [ ]
+
+6. SAÚDE
+Doenças, cirurgias e internações: [ ]
+Medicação em uso: [ ]
+Avaliações e terapias anteriores (fono, TO, neuro, psico): [ ]
+
+7. VIDA ESCOLAR
+Adaptação e rendimento: [ ]
+Relação com professores e colegas: [ ]
+Queixas relatadas pela escola: [ ]
+
+8. COMPORTAMENTO E CONVIVÊNCIA
+Rotina diária: [ ]
+Brincadeiras e interesses: [ ]
+Reação a limites e frustração: [ ]
+Uso de telas: [ ]
+Relação com irmãos e cuidadores: [ ]
+
+9. OBSERVAÇÕES DA ENTREVISTA
+[impressões clínicas sobre a criança/adolescente e sobre a dinâmica familiar]
+
+10. OBJETIVOS E CONDUTAS
+[demanda combinada com a família, encaminhamentos e orientações]
+
+
+_____________________________________
+{{psicologo_nome}}
+{{psicologo_titulo}}
+{{psicologo_crp}}`,
+  },
+  {
     tipo: "Atestado",
     nome: "Atestado Psicológico",
     conteudo: `ATESTADO PSICOLÓGICO

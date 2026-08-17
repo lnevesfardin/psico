@@ -6,8 +6,17 @@
  * adicionar biblioteca nova. O <style> replica as mesmas regras de
  * .rich-doc (globals.css), porque o arquivo baixado não tem acesso ao CSS
  * do site.
+ *
+ * timbradoHtml (opcional) entra antes do conteúdo — ver document-letterhead.ts.
+ * Ressalva conhecida do formato: o Word carrega imagem de URL http(s), mas
+ * costuma ignorar imagem em data URL. Logo enviada por upload aparece na
+ * impressão/PDF do navegador; no .doc, só aparece se vier de uma URL.
  */
-export function downloadAsWord(contentHtml: string, filename: string): void {
+export function downloadAsWord(
+  contentHtml: string,
+  filename: string,
+  timbradoHtml = ""
+): void {
   const doc = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -25,7 +34,7 @@ export function downloadAsWord(contentHtml: string, filename: string): void {
   em { font-style: italic; }
 </style>
 </head>
-<body>${contentHtml}</body>
+<body>${timbradoHtml}${contentHtml}</body>
 </html>`;
 
   // BOM ("﻿") garante que o Word reconheça UTF-8 e acentuação não

@@ -33,6 +33,7 @@ import { TimeSelect } from "@/components/ui/time-select";
 import { CidadeSelect } from "@/components/ui/cidade-select";
 import { brStates } from "@/lib/br-states";
 import { maskCrp } from "@/lib/format";
+import { reduzirImagemParaDataUrl } from "@/lib/document-letterhead";
 import {
   especialidadesOptions,
   abordagensOptions,
@@ -54,6 +55,8 @@ export default function PerfilPage() {
   const { profile, updateProfile } = useProfile();
   const [draft, setDraft] = useState<Profile | null>(null);
   const [photoMode, setPhotoMode] = useState<"url" | "upload">("url");
+  const [logoMode, setLogoMode] = useState<"url" | "upload">("upload");
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,6 +139,20 @@ export default function PerfilPage() {
         ? current.filter((v) => v !== value)
         : [...current, value]
     );
+  }
+
+  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoError(null);
+    try {
+      // Reduzida antes de salvar: a logo vira data URL dentro do perfil, que
+      // é lido no layout do painel — imagem crua de celular pesaria em toda
+      // navegação (ver document-letterhead.ts).
+      set("logoUrl", await reduzirImagemParaDataUrl(file));
+    } catch {
+      setLogoError("Não foi possível ler essa imagem. Tente PNG ou JPG.");
+    }
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -241,6 +258,95 @@ export default function PerfilPage() {
                   </label>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Logo do timbrado */}
+        <div className="border-t border-zinc-100 pt-6 dark:border-zinc-800">
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Logo do consultório
+          </label>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Aparece como timbrado no topo dos documentos que você emite
+            (atestados, contratos, anamnese...). Deixe em branco para emitir sem
+            timbrado.
+          </p>
+          <div className="mt-3 flex items-start gap-5">
+            <div className="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-700 dark:bg-zinc-950">
+              {form.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.logoUrl}
+                  alt="Logo do consultório"
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <span className="text-center text-[11px] text-zinc-400 dark:text-zinc-600">
+                  Sem logo
+                </span>
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
+                {(["upload", "url"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setLogoMode(mode)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      logoMode === mode
+                        ? "bg-brand-600 text-white"
+                        : "text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    {mode === "url" ? "URL da logo" : "Fazer upload"}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {logoMode === "url" ? (
+                  <input
+                    type="url"
+                    value={form.logoUrl}
+                    onChange={(e) => set("logoUrl", e.target.value)}
+                    placeholder="https://exemplo.com/minha-logo.png"
+                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                  />
+                ) : (
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-600 hover:border-brand-400 hover:text-brand-600 dark:border-zinc-700 dark:text-zinc-400">
+                    <Layers className="h-4 w-4" />
+                    Escolher arquivo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoFile}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+                {form.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => set("logoUrl", "")}
+                    className="rounded-lg px-2.5 py-2 text-sm font-medium text-zinc-500 transition-colors hover:text-rose-600 dark:text-zinc-400 dark:hover:text-rose-400"
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+              {logoError && (
+                <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+                  {logoError}
+                </p>
+              )}
+              {logoMode === "upload" && (
+                <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+                  Logo enviada por upload aparece ao imprimir e ao salvar em
+                  PDF. No download .doc, o Word só carrega logo hospedada em
+                  uma URL.
+                </p>
+              )}
             </div>
           </div>
         </div>
