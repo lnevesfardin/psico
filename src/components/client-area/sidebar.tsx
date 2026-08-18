@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Smile,
+  Sparkles,
   UserCog,
   X,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/agendamentos/humor", label: "Humor", icon: Smile },
   { href: "/agendamentos/diario", label: "Meu Diário", icon: BookLock },
   { href: "/agendamentos/materiais", label: "Materiais", icon: FileText },
+  { href: "/agendamentos/espaco", label: "Espaço Interativo", icon: Sparkles },
   { href: "/agendamentos/perfil", label: "Meu Perfil", icon: UserCog },
 ];
 
