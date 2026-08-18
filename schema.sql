@@ -2423,6 +2423,49 @@ grant execute on function responder_escala_publico(uuid, text, text, jsonb, text
   to anon, authenticated;
 
 -- =========================================================
+-- minhas_atividades — alimenta o Espaço Interativo do paciente logado
+-- (/agendamentos/espaco): as atividades que o psicólogo enviou para a ficha
+-- dele, com a marca de já respondida.
+--
+-- Precisa ser security definer porque convites_escala é RLS-restrito ao
+-- psicólogo dono da ficha — sem isto o próprio paciente não enxerga o que
+-- recebeu. O filtro é a conta dele (pacientes.cliente_user_id = auth.uid()),
+-- então ninguém lê convite de outra pessoa.
+--
+-- Devolve o mínimo para montar o cartão e abrir o questionário: token, qual
+-- escala, e quem enviou. Nada da ficha (nome, contato, prontuário) sai daqui.
+-- =========================================================
+create or replace function minhas_atividades()
+returns table (
+  token text,
+  escala text,
+  psicologo_id uuid,
+  psicologo_nome text,
+  criado_em timestamptz,
+  respondido_em timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    c.token,
+    c.escala,
+    p.psicologo_id,
+    pf.nome,
+    c.criado_em,
+    c.respondido_em
+  from convites_escala c
+  join pacientes p on p.id = c.paciente_id
+  join perfis pf on pf.id = p.psicologo_id
+  where p.cliente_user_id = auth.uid()
+  order by c.criado_em desc;
+$$;
+
+grant execute on function minhas_atividades() to authenticated;
+
+-- =========================================================
 -- acessos_prontuario — trilha de auditoria (LGPD): registra QUANDO o
 -- prontuário de um paciente foi acessado, complementando o RLS (que só
 -- controla QUEM pode acessar). Gravado pelo cliente logo após buscar as

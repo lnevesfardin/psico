@@ -39,6 +39,7 @@ import { PatientMoodTab } from "@/components/dashboard/patient-mood-tab";
 import { PatientDocumentsTab } from "@/components/dashboard/patient-documents-tab";
 import { PatientMaterialsTab } from "@/components/dashboard/patient-materials-tab";
 import { RespostasEscalaList } from "@/components/dashboard/respostas-escala-list";
+import { EnviarAtividade } from "@/components/dashboard/enviar-atividade";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
@@ -595,10 +596,15 @@ export default function PatientDetailPage({
       {tab === "rastreio" && (
         <div className="mt-6">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Respostas de escalas de rastreio enviadas por link vinculado a esta
-            ficha. Para gerar um link, vá em Meu Link e escolha &quot;Paciente
-            cadastrado&quot;. São instrumentos de triagem, não de diagnóstico.
+            Escalas de rastreio enviadas para esta ficha. São instrumentos de
+            triagem, não de diagnóstico.
           </p>
+          <div className="mt-4">
+            <EnviarAtividade
+              pacienteId={patient.id}
+              temConta={Boolean(patient.clienteUserId)}
+            />
+          </div>
           <div className="mt-4">
             <RespostasEscalaList pacienteId={patient.id} />
           </div>
