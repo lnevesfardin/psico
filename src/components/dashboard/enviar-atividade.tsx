@@ -7,17 +7,11 @@ import { useAuth } from "@/context/auth-context";
 import { ESCALAS_DISPONIVEIS, type EscalaSlug } from "@/lib/escalas";
 import { gerarConviteEscala } from "@/lib/respostas-escala-client";
 import { APRESENTACAO } from "@/lib/patient-activities";
-import { JOGOS_DISPONIVEIS, PUBLICO_LABELS, type PublicoJogo } from "@/lib/jogos";
-import { gerarConviteJogo } from "@/lib/jogos-client";
 
-/**
- * O valor do <select> carrega o tipo junto ("escala:phq9", "jogo:roda-da-vida")
- * porque escalas e jogos moram em tabelas e rotas diferentes — sem o prefixo,
- * o slug sozinho não diria qual caminho seguir.
- */
-type Selecao = `escala:${EscalaSlug}` | `jogo:${string}` | "";
-
-const PUBLICOS: PublicoJogo[] = ["adultos", "adolescentes", "criancas", "casais"];
+// Só escalas aqui. As atividades do Espaço Interativo saem da própria seção
+// no menu (/dashboard/espaco-interativo), onde dá para ver cada uma antes de
+// mandar — misturar as duas coisas neste seletor escondia os jogos dentro de
+// uma aba chamada "Rastreio", que é outro assunto.
 
 /**
  * Envia uma atividade direto da ficha, em vez de obrigar o desvio por
@@ -35,7 +29,7 @@ export function EnviarAtividade({
   temConta: boolean;
 }) {
   const { user } = useAuth();
-  const [selecao, setSelecao] = useState<Selecao>("");
+  const [selecao, setSelecao] = useState<EscalaSlug | "">("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
@@ -47,24 +41,14 @@ export function EnviarAtividade({
     setErro(null);
     setLink(null);
     try {
-      const supabase = createClient();
-      // Corta no primeiro ":" apenas: slug de jogo pode conter hífen, e um
-      // split simples quebraria valores futuros que tivessem ":" no meio.
-      const corte = selecao.indexOf(":");
-      const tipo = selecao.slice(0, corte);
-      const slug = selecao.slice(corte + 1);
-
-      if (tipo === "jogo") {
-        const token = await gerarConviteJogo(supabase, pacienteId, slug);
-        setLink(`${window.location.origin}/jogo/${slug}?c=${token}`);
-      } else {
-        const token = await gerarConviteEscala(
-          supabase,
-          pacienteId,
-          slug as EscalaSlug
-        );
-        setLink(`${window.location.origin}/escala/${user.id}/${slug}?c=${token}`);
-      }
+      const token = await gerarConviteEscala(
+        createClient(),
+        pacienteId,
+        selecao
+      );
+      setLink(
+        `${window.location.origin}/escala/${user.id}/${selecao}?c=${token}`
+      );
     } catch (err) {
       setErro(
         err instanceof Error ? err.message : "Não foi possível gerar a atividade."
@@ -88,54 +72,30 @@ export function EnviarAtividade({
   return (
     <div className="rounded-xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-        Enviar atividade
+        Enviar escala de rastreio
       </p>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
         {temConta
-          ? "A atividade aparece no Espaço Interativo do paciente assim que você enviar. O link abaixo serve se preferir mandar por WhatsApp."
-          : "Este paciente ainda não tem conta, então envie o link pelo WhatsApp. Com conta, a atividade apareceria sozinha no Espaço Interativo dele."}
+          ? "A escala aparece no Espaço Interativo do paciente assim que você enviar. O link abaixo serve se preferir mandar por WhatsApp."
+          : "Este paciente ainda não tem conta, então envie o link pelo WhatsApp. Com conta, a escala apareceria sozinha no Espaço Interativo dele."}
       </p>
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <select
           value={selecao}
           onChange={(e) => {
-            setSelecao(e.target.value as Selecao);
+            setSelecao(e.target.value as EscalaSlug | "");
             setLink(null);
           }}
-          aria-label="Escolher atividade"
+          aria-label="Escolher escala"
           className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
         >
-          <option value="">Escolha uma atividade...</option>
-
-          <optgroup label="Escalas de rastreio (pontuam)">
-            {ESCALAS_DISPONIVEIS.map((escala) => (
-              <option key={escala.slug} value={`escala:${escala.slug}`}>
-                {APRESENTACAO[escala.slug].title} ({escala.slug.toUpperCase()})
-              </option>
-            ))}
-          </optgroup>
-
-          {/* Jogos agrupados por público para não virar uma lista de 13
-              itens soltos, em que achar o de criança dá trabalho. */}
-          {PUBLICOS.map((publico) => {
-            const doPublico = JOGOS_DISPONIVEIS.filter(
-              (j) => j.publico === publico
-            );
-            if (doPublico.length === 0) return null;
-            return (
-              <optgroup
-                key={publico}
-                label={`Atividades · ${PUBLICO_LABELS[publico]}`}
-              >
-                {doPublico.map((jogo) => (
-                  <option key={jogo.slug} value={`jogo:${jogo.slug}`}>
-                    {jogo.nome} ({jogo.duracao})
-                  </option>
-                ))}
-              </optgroup>
-            );
-          })}
+          <option value="">Escolha uma escala...</option>
+          {ESCALAS_DISPONIVEIS.map((escala) => (
+            <option key={escala.slug} value={escala.slug}>
+              {APRESENTACAO[escala.slug].title} ({escala.slug.toUpperCase()})
+            </option>
+          ))}
         </select>
         <button
           type="button"

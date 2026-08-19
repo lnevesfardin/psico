@@ -34,7 +34,16 @@ function mensagemDeErro(erro: unknown): string {
  * um formulário. Travar o avanço em pergunta sobre sentimento difícil só
  * empurraria a pessoa a escrever qualquer coisa para se livrar da tela.
  */
-export function JogoPlayer({ jogo, token }: { jogo: Jogo; token: string }) {
+export function JogoPlayer({
+  jogo,
+  token,
+  preview = false,
+}: {
+  jogo: Jogo;
+  token: string;
+  /** Psicólogo conferindo antes de enviar: joga igual, mas não grava nada. */
+  preview?: boolean;
+}) {
   const [iniciado, setIniciado] = useState(false);
   const [indice, setIndice] = useState(0);
   const [respostas, setRespostas] = useState<RespostaJogo>({});
@@ -50,6 +59,13 @@ export function JogoPlayer({ jogo, token }: { jogo: Jogo; token: string }) {
   }
 
   async function finalizar() {
+    // Em preview nada é gravado: o psicólogo está só vendo a atividade, e uma
+    // resposta de teste dele na ficha do paciente seria lixo no prontuário.
+    if (preview) {
+      setEnviado(true);
+      return;
+    }
+
     setEnviando(true);
     setErro(null);
     try {
@@ -70,11 +86,16 @@ export function JogoPlayer({ jogo, token }: { jogo: Jogo; token: string }) {
             <Check className="h-7 w-7" />
           </div>
           <h2 className="mt-4 text-xl font-bold text-zinc-900 dark:text-white">
-            Atividade concluída
+            {preview ? "Fim da visualização" : "Atividade concluída"}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
             {jogo.fechamento}
           </p>
+          {preview && (
+            <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              Esta era a visualização da atividade. Nada foi salvo.
+            </p>
+          )}
         </div>
       </Moldura>
     );
@@ -103,7 +124,9 @@ export function JogoPlayer({ jogo, token }: { jogo: Jogo; token: string }) {
             <ArrowRight className="h-4 w-4" />
           </button>
           <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-600">
-            Suas respostas ficam disponíveis para o seu psicólogo.
+            {preview
+              ? "Visualização: nada do que você responder aqui será salvo."
+              : "Suas respostas ficam disponíveis para o seu psicólogo."}
           </p>
         </div>
       </Moldura>

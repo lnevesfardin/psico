@@ -13,6 +13,7 @@ import {
   LogOut,
   UserCog,
   FileSignature,
+  Sparkles,
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/dashboard/agenda", label: "Agenda de Hoje", icon: CalendarDays },
   { href: "/dashboard/pacientes", label: "Pacientes & Prontuários", icon: Users },
   { href: "/dashboard/documentos", label: "Modelos de Documentos", icon: FileSignature },
+  { href: "/dashboard/espaco-interativo", label: "Espaço Interativo", icon: Sparkles },
   { href: "/dashboard/financeiro", label: "Financeiro / Recibos", icon: Wallet },
   { href: "/dashboard/link", label: "Meu Link de Agendamento", icon: Link2 },
   { href: "/dashboard/perfil", label: "Meu Perfil", icon: UserCog },

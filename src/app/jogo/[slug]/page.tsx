@@ -21,13 +21,19 @@ export default async function JogoPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; preview?: string }>;
 }) {
   const { slug } = await params;
-  const { c: token } = await searchParams;
+  const { c: token, preview } = await searchParams;
 
   const jogo = getJogo(slug);
   if (!jogo) notFound();
+
+  // Visualização do psicólogo (abre do Espaço Interativo do painel): roda a
+  // atividade inteira sem token e sem gravar nada.
+  if (preview === "1") {
+    return <JogoPlayer jogo={jogo} token="" preview />;
+  }
 
   if (!token) {
     return (

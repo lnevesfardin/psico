@@ -621,7 +621,15 @@ export default function PatientDetailPage({
             </h3>
             <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
               Exercícios de reflexão e regulação. Não pontuam nem classificam —
-              o material é o que o paciente escreveu.
+              o material é o que o paciente escreveu. Para enviar uma atividade
+              nova, vá em{" "}
+              <Link
+                href="/dashboard/espaco-interativo"
+                className="font-medium text-brand-600 hover:underline dark:text-brand-400"
+              >
+                Espaço Interativo
+              </Link>
+              , no menu.
             </p>
             <div className="mt-3">
               <RespostasJogoList pacienteId={patient.id} />
