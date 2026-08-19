@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { encerrarInscricao, inscreverComSeguranca } from "@/lib/supabase/realtime-seguro";
 import { listPatients } from "@/lib/patients-client";
 import {
   createLancamento,
@@ -46,36 +47,36 @@ export default function FinanceiroPage() {
       .then(setLancamentos)
       .finally(() => setLoadingLancamentos(false));
 
-    const channel = supabase
-      .channel(`lancamentos-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "lancamentos_financeiros",
-          filter: `psicologo_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === "DELETE") {
-            const oldId = (payload.old as { id?: string }).id;
-            setLancamentos((prev) => prev.filter((l) => l.id !== oldId));
-            return;
+    const channel = inscreverComSeguranca(() =>
+      supabase
+        .channel(`lancamentos-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "lancamentos_financeiros",
+            filter: `psicologo_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (payload.eventType === "DELETE") {
+              const oldId = (payload.old as { id?: string }).id;
+              setLancamentos((prev) => prev.filter((l) => l.id !== oldId));
+              return;
+            }
+            const lancamento = rowToLancamento(payload.new as LancamentoRow);
+            setLancamentos((prev) => {
+              const exists = prev.some((l) => l.id === lancamento.id);
+              return exists
+                ? prev.map((l) => (l.id === lancamento.id ? lancamento : l))
+                : [lancamento, ...prev];
+            });
           }
-          const lancamento = rowToLancamento(payload.new as LancamentoRow);
-          setLancamentos((prev) => {
-            const exists = prev.some((l) => l.id === lancamento.id);
-            return exists
-              ? prev.map((l) => (l.id === lancamento.id ? lancamento : l))
-              : [lancamento, ...prev];
-          });
-        }
-      )
-      .subscribe();
+        )
+        .subscribe()
+    );
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => encerrarInscricao(supabase, channel);
   }, [user]);
 
   const sortedLancamentos = [...lancamentos].sort((a, b) =>

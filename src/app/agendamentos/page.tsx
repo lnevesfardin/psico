@@ -12,6 +12,7 @@ import {
 } from "@/lib/client-appointments-client";
 import type { AppointmentStatus } from "@/lib/dashboard-data";
 import { formatDateLabel } from "@/lib/format";
+import { encerrarInscricao, inscreverComSeguranca } from "@/lib/supabase/realtime-seguro";
 
 const CANCELAVEIS: AppointmentStatus[] = ["pendente", "confirmada"];
 
@@ -51,25 +52,25 @@ export default function AgendamentosPage() {
 
     // Um agendamento feito agora mesmo (ou confirmado pelo psicólogo em
     // outro dispositivo) aparece aqui sem precisar recarregar a página.
-    const channel = supabase
-      .channel(`meus-agendamentos-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "consultas",
-          filter: `cliente_id=eq.${user.id}`,
-        },
-        () => {
-          listClientAppointments(supabase, user.id).then(setAppointments);
-        }
-      )
-      .subscribe();
+    const channel = inscreverComSeguranca(() =>
+      supabase
+        .channel(`meus-agendamentos-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "consultas",
+            filter: `cliente_id=eq.${user.id}`,
+          },
+          () => {
+            listClientAppointments(supabase, user.id).then(setAppointments);
+          }
+        )
+        .subscribe()
+    );
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => encerrarInscricao(supabase, channel);
   }, [user]);
 
   function handleCancelled(id: string, motivo: string) {

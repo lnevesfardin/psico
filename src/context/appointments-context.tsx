@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { exigirLinhaAfetada } from "@/lib/supabase/escrita";
+import { encerrarInscricao, inscreverComSeguranca } from "@/lib/supabase/realtime-seguro";
 import { useAuth } from "@/context/auth-context";
 import type { Appointment, AppointmentStatus } from "@/lib/dashboard-data";
 
@@ -154,63 +155,63 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
 
     // Novos agendamentos públicos (feitos em /agendar/[id], sem sessão) e
     // mudanças de status feitas em outro dispositivo aparecem aqui ao vivo.
-    const channel = supabase
-      .channel(`consultas-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "consultas",
-          filter: `psicologo_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === "DELETE") {
-            const oldId = (payload.old as { id?: string }).id;
-            setAppointments((prev) => prev.filter((a) => a.id !== oldId));
-            return;
+    const channel = inscreverComSeguranca(() =>
+      supabase
+        .channel(`consultas-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "consultas",
+            filter: `psicologo_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (payload.eventType === "DELETE") {
+              const oldId = (payload.old as { id?: string }).id;
+              setAppointments((prev) => prev.filter((a) => a.id !== oldId));
+              return;
+            }
+            const appointment = rowToAppointment(payload.new as ConsultaRow);
+
+            // motivoCancelamento só existe quando é o CLIENTE cancelando (ver
+            // cancelar_consulta_cliente) — o psicólogo mudando o status pela
+            // própria Agenda nunca preenche essa coluna, então checar a
+            // transição por ela (em vez de só status === "desmarcada") evita
+            // alertar o psicólogo sobre a própria ação.
+            const motivoCancelamento = appointment.motivoCancelamento;
+            const previousMotivo = knownCancelReasons.current.get(appointment.id);
+            knownCancelReasons.current.set(appointment.id, motivoCancelamento);
+            if (
+              appointment.status === "desmarcada" &&
+              motivoCancelamento &&
+              previousMotivo !== motivoCancelamento
+            ) {
+              setCancellationAlerts((alerts) => [
+                ...alerts,
+                {
+                  key: `${appointment.id}-${motivoCancelamento}`,
+                  appointmentId: appointment.id,
+                  patientName: appointment.patientName,
+                  date: appointment.date,
+                  time: appointment.time,
+                  motivo: motivoCancelamento,
+                },
+              ]);
+            }
+
+            setAppointments((prev) => {
+              const exists = prev.some((a) => a.id === appointment.id);
+              return exists
+                ? prev.map((a) => (a.id === appointment.id ? appointment : a))
+                : [...prev, appointment];
+            });
           }
-          const appointment = rowToAppointment(payload.new as ConsultaRow);
+        )
+        .subscribe()
+    );
 
-          // motivoCancelamento só existe quando é o CLIENTE cancelando (ver
-          // cancelar_consulta_cliente) — o psicólogo mudando o status pela
-          // própria Agenda nunca preenche essa coluna, então checar a
-          // transição por ela (em vez de só status === "desmarcada") evita
-          // alertar o psicólogo sobre a própria ação.
-          const motivoCancelamento = appointment.motivoCancelamento;
-          const previousMotivo = knownCancelReasons.current.get(appointment.id);
-          knownCancelReasons.current.set(appointment.id, motivoCancelamento);
-          if (
-            appointment.status === "desmarcada" &&
-            motivoCancelamento &&
-            previousMotivo !== motivoCancelamento
-          ) {
-            setCancellationAlerts((alerts) => [
-              ...alerts,
-              {
-                key: `${appointment.id}-${motivoCancelamento}`,
-                appointmentId: appointment.id,
-                patientName: appointment.patientName,
-                date: appointment.date,
-                time: appointment.time,
-                motivo: motivoCancelamento,
-              },
-            ]);
-          }
-
-          setAppointments((prev) => {
-            const exists = prev.some((a) => a.id === appointment.id);
-            return exists
-              ? prev.map((a) => (a.id === appointment.id ? appointment : a))
-              : [...prev, appointment];
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => encerrarInscricao(supabase, channel);
   }, [user]);
 
   async function addAppointment(appointment: Omit<Appointment, "id">) {
