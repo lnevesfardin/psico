@@ -34,13 +34,44 @@ function escaparAtributo(valor: string): string {
     .replace(/>/g, "&gt;");
 }
 
+export type ContatoTimbrado = {
+  crp: string;
+  whatsapp: string;
+  email: string;
+};
+
+/** Cor do texto de contato: o mesmo verde-oliva da marca (--color-brand-600
+ *  em globals.css) — este HTML não tem acesso à variável CSS, por isso o
+ *  hex direto. */
+const COR_CONTATO = "#5c7143";
+
 /**
  * Devolve o HTML do cabeçalho, ou string vazia quando não há logo válida —
  * quem chama pode concatenar sem verificar nada.
+ *
+ * Nome do psicólogo fica DE FORA do texto de propósito: a logo real que os
+ * psicólogos sobem costuma já trazer o próprio nome desenhado nela (foi o
+ * caso de referência que motivou este recurso) — reimprimir o nome por
+ * baixo duplicaria a informação. CRP, telefone e e-mail, por outro lado,
+ * dificilmente estão dentro da imagem, então entram como texto.
  */
-export function timbradoHtml(logoUrl: string): string {
+export function timbradoHtml(logoUrl: string, contato?: ContatoTimbrado): string {
   const src = urlDeImagemSegura(logoUrl);
   if (!src) return "";
+
+  const linhasContato = contato
+    ? [
+        contato.crp.trim(),
+        contato.whatsapp.trim() && `Cel: ${contato.whatsapp.trim()}`,
+        contato.email.trim() && `Email: ${contato.email.trim()}`,
+      ].filter((linha): linha is string => Boolean(linha))
+    : [];
+
+  const blocoContato = linhasContato.length
+    ? `<div style="margin-top:8pt;font-size:9.5pt;color:${COR_CONTATO};line-height:1.7;">${linhasContato
+        .map(escaparAtributo)
+        .join("<br/>")}</div>`
+    : "";
 
   // Estilos inline: este HTML também vai para o arquivo .doc, que não
   // enxerga o CSS do site nem classes do Tailwind.
@@ -48,9 +79,9 @@ export function timbradoHtml(logoUrl: string): string {
   // "display:block;margin:0 auto" em vez de só text-align no pai: o preflight
   // do Tailwind já deixa <img> como bloco, e aí o text-align do pai não
   // centraliza nada na prévia/impressão. Assim centraliza nos dois lados.
-  return `<div style="text-align:center;margin:0 0 18pt;padding-bottom:10pt;border-bottom:1px solid #d4d4d8;"><img src="${escaparAtributo(
+  return `<div style="text-align:center;margin:0 0 18pt;padding-bottom:14pt;border-bottom:1px solid #d4d4d8;"><img src="${escaparAtributo(
     src
-  )}" alt="" style="display:block;margin:0 auto;max-height:${ALTURA_MAX_PT}pt;max-width:60%;" /></div>`;
+  )}" alt="" style="display:block;margin:0 auto;max-height:${ALTURA_MAX_PT}pt;max-width:60%;" />${blocoContato}</div>`;
 }
 
 /**

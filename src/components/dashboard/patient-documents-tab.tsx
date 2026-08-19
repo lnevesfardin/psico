@@ -87,7 +87,11 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
 
   // A logo não está dentro do conteúdo salvo: entra aqui, na saída, a partir
   // do perfil (ver document-letterhead.ts).
-  const timbrado = timbradoHtml(profile.logoUrl);
+  const timbrado = timbradoHtml(profile.logoUrl, {
+    crp: profile.crp,
+    whatsapp: profile.whatsapp,
+    email: user?.email ?? "",
+  });
 
   function baixarConteudo(conteudo: string, modeloNome: string) {
     downloadAsWord(ensureHtml(conteudo), nomeArquivo(modeloNome), timbrado);
@@ -208,7 +212,7 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
             Revise e complete o texto antes de salvar — campos entre colchetes
             precisam ser preenchidos manualmente.
             {timbrado
-              ? " A logo do seu perfil entra como timbrado ao imprimir ou baixar (ela não aparece aqui no editor)."
+              ? " Sua logo, CRP, telefone e e-mail entram como timbrado ao imprimir ou baixar (não aparecem aqui no editor)."
               : " Para sair com timbrado, cadastre uma logo em Meu Perfil."}
           </p>
           <div className="mt-3">

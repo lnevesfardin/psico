@@ -269,8 +269,8 @@ export default function PerfilPage() {
           </label>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             Aparece como timbrado no topo dos documentos que você emite
-            (atestados, contratos, anamnese...). Deixe em branco para emitir sem
-            timbrado.
+            (atestados, contratos, anamnese...), acompanhada do seu CRP,
+            telefone e e-mail. Deixe em branco para emitir sem timbrado.
           </p>
           <div className="mt-3 flex items-start gap-5">
             <div className="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-700 dark:bg-zinc-950">
