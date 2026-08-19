@@ -174,7 +174,12 @@ export type PresetTemplate = { tipo: string; nome: string; conteudo: string };
  * preencher, em vez de um texto "pronto" — fabricar conteúdo técnico/legal
  * detalhado nesses casos seria arriscado sem supervisão profissional.
  */
-export const PRESET_TEMPLATES: PresetTemplate[] = [
+/**
+ * Primeira linha de cada modelo abaixo é sempre o título (ex.: "ATESTADO
+ * PSICOLÓGICO") — vira um heading centralizado em PRESET_TEMPLATES logo
+ * abaixo, em vez de texto comum do mesmo tamanho do resto.
+ */
+const PRESET_TEMPLATES_TEXTO: PresetTemplate[] = [
   {
     tipo: "Anamnese",
     nome: "Anamnese Clínica (adulto)",
@@ -375,9 +380,14 @@ Este contrato vigora a partir de {{data_emissao}}, podendo ser encerrado por qua
 {{psicologo_cidade}}, {{data_emissao_extenso}}.
 
 
-_____________________________________          _____________________________________
-{{psicologo_nome}} ({{psicologo_crp}})          {{paciente_nome}}
-CONTRATADO(A)                                   CONTRATANTE`,
+_____________________________________
+{{psicologo_nome}} ({{psicologo_crp}})
+CONTRATADO(A)
+
+
+_____________________________________
+{{paciente_nome}}
+CONTRATANTE`,
   },
   {
     tipo: "Contrato",
@@ -394,8 +404,12 @@ Eu, {{paciente_nome}}, CPF {{paciente_cpf}}, declaro estar ciente e de acordo co
 {{psicologo_cidade}}, {{data_emissao_extenso}}.
 
 
-_____________________________________          _____________________________________
-{{psicologo_nome}} ({{psicologo_crp}})          {{paciente_nome}}`,
+_____________________________________
+{{psicologo_nome}} ({{psicologo_crp}})
+
+
+_____________________________________
+{{paciente_nome}}`,
   },
   {
     tipo: "Declaração",
@@ -619,3 +633,21 @@ _____________________________________
 Assinatura do(a) responsável legal`,
   },
 ];
+
+/**
+ * Promove a primeira linha (sempre o título) a heading centralizado, e
+ * converte o resto para o mesmo HTML que fillPlaceholders geraria de um
+ * texto puro — necessário porque, a partir daqui, o conteúdo já "parece
+ * HTML" (tem uma tag), e pareceHtml() trata isso como tudo-ou-nada: sem essa
+ * conversão manual do resto, as quebras de linha do corpo se perderiam,
+ * virando um parágrafo só.
+ */
+function comTituloDestacado(conteudo: string): string {
+  const [titulo, ...linhas] = conteudo.split("\n");
+  const corpo = linhas.map((linha) => `<p>${escapeHtml(linha)}</p>`).join("");
+  return `<h1 style="text-align:center">${escapeHtml(titulo)}</h1>${corpo}`;
+}
+
+export const PRESET_TEMPLATES: PresetTemplate[] = PRESET_TEMPLATES_TEXTO.map(
+  (preset) => ({ ...preset, conteudo: comTituloDestacado(preset.conteudo) })
+);
