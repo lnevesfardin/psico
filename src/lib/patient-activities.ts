@@ -1,17 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EscalaSlug } from "@/lib/escalas";
+import { getJogo } from "@/lib/jogos";
 
 /**
  * Espaço Interativo do paciente: as atividades que o psicólogo dele enviou.
  *
- * A fonte é convites_escala — o mesmo convite que hoje o psicólogo copia e
- * manda por WhatsApp. Aqui ele também aparece na área do paciente, então
- * quem tem conta não depende de achar o link antigo na conversa.
+ * São dois tipos, das duas tabelas de convite (ver minhas_atividades no
+ * schema.sql): "escala" (instrumento de rastreio, que pontua) e "jogo"
+ * (exercício de reflexão e regulação, que não pontua). O paciente vê os dois
+ * lado a lado, mas o cartão de cada um é montado por caminhos diferentes.
  */
 
+export type TipoAtividade = "escala" | "jogo";
+
 export type AtividadePaciente = {
+  tipo: TipoAtividade;
   token: string;
-  escala: EscalaSlug;
+  /** Slug da escala ou do jogo, conforme o tipo. */
+  escala: string;
   psicologoId: string;
   psicologoNome: string;
   criadoEm: string;
@@ -19,6 +25,7 @@ export type AtividadePaciente = {
 };
 
 type AtividadeRow = {
+  tipo: string | null;
   token: string;
   escala: string;
   psicologo_id: string;
@@ -42,8 +49,10 @@ export async function listMinhasAtividades(
   }
 
   return ((data ?? []) as AtividadeRow[]).map((row) => ({
+    // Banco anterior aos jogos não devolvia "tipo" — tudo que vinha era escala.
+    tipo: row.tipo === "jogo" ? "jogo" : "escala",
     token: row.token,
-    escala: row.escala as EscalaSlug,
+    escala: row.escala,
     psicologoId: row.psicologo_id,
     psicologoNome: row.psicologo_nome ?? "seu psicólogo",
     criadoEm: row.criado_em,
@@ -56,9 +65,22 @@ export async function listMinhasAtividades(
  * Tailwind gera CSS lendo o código-fonte, então `bg-${cor}-500` sairia sem
  * estilo. As classes completas ficam em patient-activity-card.tsx.
  */
-export type ActivityThemeColor = "roxo" | "azul" | "verde" | "laranja" | "sobrio";
+export type ActivityThemeColor =
+  | "roxo"
+  | "azul"
+  | "verde"
+  | "laranja"
+  | "rosa"
+  | "sobrio";
 
-export type ActivityIconType = "heart" | "brain" | "smile" | "shield";
+export type ActivityIconType =
+  | "heart"
+  | "brain"
+  | "smile"
+  | "shield"
+  | "star"
+  | "wind"
+  | "users";
 
 export type ActivityPresentation = {
   /** Título em linguagem comum — o nome técnico fica em "instrumento". */
@@ -122,8 +144,31 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
   },
 };
 
-export function apresentacaoDa(escala: EscalaSlug): ActivityPresentation | null {
-  return APRESENTACAO[escala] ?? null;
+/**
+ * Monta o cartão de qualquer atividade. Escala tem apresentação escrita à
+ * mão (o nome técnico precisa de tradução cuidadosa para o paciente); jogo
+ * já nasce com nome e descrição em linguagem comum, então vem direto do
+ * catálogo em jogos.ts.
+ */
+export function apresentacaoDa(
+  atividade: Pick<AtividadePaciente, "tipo" | "escala">
+): ActivityPresentation | null {
+  if (atividade.tipo === "escala") {
+    return APRESENTACAO[atividade.escala as EscalaSlug] ?? null;
+  }
+
+  const jogo = getJogo(atividade.escala);
+  if (!jogo) return null;
+
+  return {
+    title: jogo.nome,
+    description: jogo.descricao,
+    instrumento: "Atividade",
+    estimatedTime: jogo.duracao,
+    tags: jogo.temas,
+    themeColor: jogo.cor,
+    iconType: jogo.icone,
+  };
 }
 
 /** Enviada nos últimos 14 dias e ainda sem resposta. */
@@ -133,7 +178,10 @@ export function ehNovidade(atividade: AtividadePaciente): boolean {
   return dias <= 14;
 }
 
-/** Link do questionário — o mesmo que o psicólogo copiaria em Meu Link. */
+/** Link do questionário ou do jogo, conforme o tipo. */
 export function linkDaAtividade(atividade: AtividadePaciente): string {
+  if (atividade.tipo === "jogo") {
+    return `/jogo/${atividade.escala}?c=${atividade.token}`;
+  }
   return `/escala/${atividade.psicologoId}/${atividade.escala}?c=${atividade.token}`;
 }

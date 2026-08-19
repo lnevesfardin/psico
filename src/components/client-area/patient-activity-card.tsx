@@ -1,7 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Brain, Heart, ShieldCheck, Smile, Check, Clock, Play } from "lucide-react";
+import {
+  Brain,
+  Heart,
+  ShieldCheck,
+  Smile,
+  Star,
+  Users,
+  Wind,
+  Check,
+  Clock,
+  Play,
+} from "lucide-react";
 import {
   apresentacaoDa,
   ehNovidade,
@@ -18,6 +29,7 @@ const BANNER: Record<ActivityThemeColor, string> = {
   azul: "bg-sky-600",
   verde: "bg-teal-600",
   laranja: "bg-orange-500",
+  rosa: "bg-pink-500",
   sobrio: "bg-slate-600",
 };
 
@@ -26,6 +38,9 @@ const ICONES: Record<ActivityIconType, typeof Heart> = {
   brain: Brain,
   smile: Smile,
   shield: ShieldCheck,
+  star: Star,
+  wind: Wind,
+  users: Users,
 };
 
 export function PatientActivityCard({
@@ -33,7 +48,7 @@ export function PatientActivityCard({
 }: {
   atividade: AtividadePaciente;
 }) {
-  const info = apresentacaoDa(atividade.escala);
+  const info = apresentacaoDa(atividade);
   if (!info) return null;
 
   const Icone = ICONES[info.iconType];

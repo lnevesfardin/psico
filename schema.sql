@@ -2423,6 +2423,179 @@ grant execute on function responder_escala_publico(uuid, text, text, jsonb, text
   to anon, authenticated;
 
 -- =========================================================
+-- JOGOS DO ESPAÇO INTERATIVO
+--
+-- Tabelas separadas das escalas de propósito. Escala é instrumento de
+-- triagem, com pontuação e faixa clínica; jogo é exercício de reflexão e
+-- regulação, sem pontuação nenhuma. Guardar os dois na mesma tabela faria
+-- uma reflexão livre aparecer no prontuário com cara de resultado de
+-- instrumento — confusão que, em registro de saúde, é séria.
+--
+-- Quem aplica é o psicólogo, igual às escalas: o paciente não sai jogando
+-- sozinho, só responde o que foi enviado para a ficha dele.
+--
+-- O slug do jogo NÃO tem check de valor fixo (ao contrário de escala): o
+-- catálogo vive em src/lib/jogos.ts e cresce com frequência, e um check aqui
+-- viraria uma migração manual a cada jogo novo. A validação real é a mesma
+-- que protege o resto: só o dono da ficha gera convite, e responder exige
+-- token válido.
+-- =========================================================
+create table if not exists convites_jogo (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references pacientes(id) on delete cascade,
+  jogo text not null,
+  token text not null unique,
+  criado_em timestamptz not null default now(),
+  respondido_em timestamptz,
+  unique (paciente_id, jogo)
+);
+
+create index if not exists convites_jogo_paciente_idx
+  on convites_jogo (paciente_id);
+
+alter table convites_jogo enable row level security;
+
+drop policy if exists "psicologo_ve_proprios_convites_jogo" on convites_jogo;
+create policy "psicologo_ve_proprios_convites_jogo" on convites_jogo
+  for select using (
+    exists (
+      select 1 from pacientes p
+      where p.id = convites_jogo.paciente_id and p.psicologo_id = auth.uid()
+    )
+  );
+
+create table if not exists respostas_jogo (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  paciente_id uuid references pacientes(id) on delete set null,
+  jogo text not null,
+  respostas jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists respostas_jogo_paciente_idx
+  on respostas_jogo (paciente_id);
+
+alter table respostas_jogo enable row level security;
+
+-- Só leitura e exclusão pelo psicólogo dono. A escrita é exclusiva de
+-- responder_jogo_publico (security definer), mesmo desenho de
+-- respostas_escala: quem responde não está logado, e não pode ter permissão
+-- de insert direto na tabela.
+drop policy if exists "psicologo_ve_respostas_jogo" on respostas_jogo;
+create policy "psicologo_ve_respostas_jogo" on respostas_jogo
+  for select using (psicologo_id = auth.uid());
+
+drop policy if exists "psicologo_apaga_respostas_jogo" on respostas_jogo;
+create policy "psicologo_apaga_respostas_jogo" on respostas_jogo
+  for delete using (psicologo_id = auth.uid());
+
+-- =========================================================
+-- gerar_convite_jogo — cria (ou reaproveita) o link de um jogo para um
+-- paciente. Espelha gerar_convite_escala, inclusive na exigência de
+-- assinatura ativa.
+-- =========================================================
+create or replace function gerar_convite_jogo(
+  p_paciente_id uuid,
+  p_jogo text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_token text;
+begin
+  if not assinatura_ativa() then
+    raise exception 'Assinatura inativa: reative seu plano para enviar atividades.';
+  end if;
+
+  if not exists (
+    select 1 from pacientes
+    where id = p_paciente_id and psicologo_id = auth.uid()
+  ) then
+    raise exception 'Paciente não encontrado';
+  end if;
+
+  if coalesce(trim(p_jogo), '') = '' then
+    raise exception 'Jogo inválido';
+  end if;
+
+  select token into v_token
+  from convites_jogo
+  where paciente_id = p_paciente_id and jogo = p_jogo;
+
+  if v_token is null then
+    v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+    insert into convites_jogo (paciente_id, jogo, token)
+    values (p_paciente_id, p_jogo, v_token);
+  end if;
+
+  return v_token;
+end;
+$$;
+
+grant execute on function gerar_convite_jogo(uuid, text) to authenticated;
+
+-- =========================================================
+-- responder_jogo_publico — grava as respostas de um jogo.
+--
+-- Exige token SEMPRE (diferente da escala, que também aceita link genérico
+-- sem ficha): jogo não tem versão "qualquer pessoa responde" — ele é sempre
+-- aplicado pelo psicólogo a um paciente específico.
+-- =========================================================
+create or replace function responder_jogo_publico(
+  p_token text,
+  p_respostas jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_paciente_id uuid;
+  v_psicologo_id uuid;
+  v_jogo text;
+begin
+  select cj.paciente_id, p.psicologo_id, cj.jogo
+    into v_paciente_id, v_psicologo_id, v_jogo
+  from convites_jogo cj
+  join pacientes p on p.id = cj.paciente_id
+  where cj.token = p_token;
+
+  if v_paciente_id is null then
+    raise exception 'Link inválido ou expirado.';
+  end if;
+
+  if not checar_rate_limit('jogo:' || v_psicologo_id::text, 12, interval '5 minutes') then
+    raise exception 'Muitas respostas enviadas em pouco tempo. Aguarde alguns minutos e tente novamente.';
+  end if;
+
+  if client_ip() is not null
+    and not checar_rate_limit('jogo_ip:' || client_ip(), 25, interval '5 minutes')
+  then
+    raise exception 'Muitas respostas enviadas em pouco tempo. Aguarde alguns minutos e tente novamente.';
+  end if;
+
+  insert into respostas_jogo (psicologo_id, paciente_id, jogo, respostas)
+  values (v_psicologo_id, v_paciente_id, v_jogo, p_respostas)
+  returning id into v_id;
+
+  -- Marca como respondido, mas o convite continua válido: estes exercícios
+  -- (respiração, gratidão, aterrissagem) ganham em ser repetidos, e cada
+  -- resposta entra como um registro novo.
+  update convites_jogo set respondido_em = now() where token = p_token;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function responder_jogo_publico(text, jsonb) to anon, authenticated;
+
+-- =========================================================
 -- minhas_atividades — alimenta o Espaço Interativo do paciente logado
 -- (/agendamentos/espaco): as atividades que o psicólogo enviou para a ficha
 -- dele, com a marca de já respondida.
@@ -2435,8 +2608,14 @@ grant execute on function responder_escala_publico(uuid, text, text, jsonb, text
 -- Devolve o mínimo para montar o cartão e abrir o questionário: token, qual
 -- escala, e quem enviou. Nada da ficha (nome, contato, prontuário) sai daqui.
 -- =========================================================
+-- A coluna "tipo" foi acrescentada depois, quando os jogos entraram: como
+-- Postgres não deixa CREATE OR REPLACE mudar o retorno de uma função, o drop
+-- é obrigatório para quem já tinha a versão anterior no banco.
+drop function if exists minhas_atividades();
+
 create or replace function minhas_atividades()
 returns table (
+  tipo text,
   token text,
   escala text,
   psicologo_id uuid,
@@ -2450,6 +2629,7 @@ set search_path = public
 stable
 as $$
   select
+    'escala'::text,
     c.token,
     c.escala,
     p.psicologo_id,
@@ -2460,7 +2640,23 @@ as $$
   join pacientes p on p.id = c.paciente_id
   join perfis pf on pf.id = p.psicologo_id
   where p.cliente_user_id = auth.uid()
-  order by c.criado_em desc;
+
+  union all
+
+  select
+    'jogo'::text,
+    c.token,
+    c.jogo,
+    p.psicologo_id,
+    pf.nome,
+    c.criado_em,
+    c.respondido_em
+  from convites_jogo c
+  join pacientes p on p.id = c.paciente_id
+  join perfis pf on pf.id = p.psicologo_id
+  where p.cliente_user_id = auth.uid()
+
+  order by 6 desc;
 $$;
 
 grant execute on function minhas_atividades() to authenticated;

@@ -7,6 +7,17 @@ import { useAuth } from "@/context/auth-context";
 import { ESCALAS_DISPONIVEIS, type EscalaSlug } from "@/lib/escalas";
 import { gerarConviteEscala } from "@/lib/respostas-escala-client";
 import { APRESENTACAO } from "@/lib/patient-activities";
+import { JOGOS_DISPONIVEIS, PUBLICO_LABELS, type PublicoJogo } from "@/lib/jogos";
+import { gerarConviteJogo } from "@/lib/jogos-client";
+
+/**
+ * O valor do <select> carrega o tipo junto ("escala:phq9", "jogo:roda-da-vida")
+ * porque escalas e jogos moram em tabelas e rotas diferentes — sem o prefixo,
+ * o slug sozinho não diria qual caminho seguir.
+ */
+type Selecao = `escala:${EscalaSlug}` | `jogo:${string}` | "";
+
+const PUBLICOS: PublicoJogo[] = ["adultos", "adolescentes", "criancas", "casais"];
 
 /**
  * Envia uma atividade direto da ficha, em vez de obrigar o desvio por
@@ -24,20 +35,36 @@ export function EnviarAtividade({
   temConta: boolean;
 }) {
   const { user } = useAuth();
-  const [slug, setSlug] = useState<EscalaSlug | "">("");
+  const [selecao, setSelecao] = useState<Selecao>("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
 
   async function handleEnviar() {
-    if (!slug || !user) return;
+    if (!selecao || !user) return;
     setEnviando(true);
     setErro(null);
     setLink(null);
     try {
-      const token = await gerarConviteEscala(createClient(), pacienteId, slug);
-      setLink(`${window.location.origin}/escala/${user.id}/${slug}?c=${token}`);
+      const supabase = createClient();
+      // Corta no primeiro ":" apenas: slug de jogo pode conter hífen, e um
+      // split simples quebraria valores futuros que tivessem ":" no meio.
+      const corte = selecao.indexOf(":");
+      const tipo = selecao.slice(0, corte);
+      const slug = selecao.slice(corte + 1);
+
+      if (tipo === "jogo") {
+        const token = await gerarConviteJogo(supabase, pacienteId, slug);
+        setLink(`${window.location.origin}/jogo/${slug}?c=${token}`);
+      } else {
+        const token = await gerarConviteEscala(
+          supabase,
+          pacienteId,
+          slug as EscalaSlug
+        );
+        setLink(`${window.location.origin}/escala/${user.id}/${slug}?c=${token}`);
+      }
     } catch (err) {
       setErro(
         err instanceof Error ? err.message : "Não foi possível gerar a atividade."
@@ -71,25 +98,49 @@ export function EnviarAtividade({
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <select
-          value={slug}
+          value={selecao}
           onChange={(e) => {
-            setSlug(e.target.value as EscalaSlug | "");
+            setSelecao(e.target.value as Selecao);
             setLink(null);
           }}
           aria-label="Escolher atividade"
           className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
         >
           <option value="">Escolha uma atividade...</option>
-          {ESCALAS_DISPONIVEIS.map((escala) => (
-            <option key={escala.slug} value={escala.slug}>
-              {APRESENTACAO[escala.slug].title} ({escala.slug.toUpperCase()})
-            </option>
-          ))}
+
+          <optgroup label="Escalas de rastreio (pontuam)">
+            {ESCALAS_DISPONIVEIS.map((escala) => (
+              <option key={escala.slug} value={`escala:${escala.slug}`}>
+                {APRESENTACAO[escala.slug].title} ({escala.slug.toUpperCase()})
+              </option>
+            ))}
+          </optgroup>
+
+          {/* Jogos agrupados por público para não virar uma lista de 13
+              itens soltos, em que achar o de criança dá trabalho. */}
+          {PUBLICOS.map((publico) => {
+            const doPublico = JOGOS_DISPONIVEIS.filter(
+              (j) => j.publico === publico
+            );
+            if (doPublico.length === 0) return null;
+            return (
+              <optgroup
+                key={publico}
+                label={`Atividades · ${PUBLICO_LABELS[publico]}`}
+              >
+                {doPublico.map((jogo) => (
+                  <option key={jogo.slug} value={`jogo:${jogo.slug}`}>
+                    {jogo.nome} ({jogo.duracao})
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
         </select>
         <button
           type="button"
           onClick={handleEnviar}
-          disabled={!slug || enviando}
+          disabled={!selecao || enviando}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {enviando ? (

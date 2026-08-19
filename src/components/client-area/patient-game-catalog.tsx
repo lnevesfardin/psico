@@ -45,7 +45,7 @@ export function PatientGameCatalog() {
 
   const temas = useMemo(() => {
     const todas = atividades.flatMap(
-      (a) => apresentacaoDa(a.escala)?.tags ?? []
+      (a) => apresentacaoDa(a)?.tags ?? []
     );
     return [...new Set(todas)].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [atividades]);
@@ -62,7 +62,7 @@ export function PatientGameCatalog() {
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return atividades.filter((atividade) => {
-      const info = apresentacaoDa(atividade.escala);
+      const info = apresentacaoDa(atividade);
       if (!info) return false;
       if (!pertenceAba(atividade, tab)) return false;
       if (tema && !info.tags.includes(tema)) return false;

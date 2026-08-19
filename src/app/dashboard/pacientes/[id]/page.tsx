@@ -40,6 +40,7 @@ import { PatientDocumentsTab } from "@/components/dashboard/patient-documents-ta
 import { PatientMaterialsTab } from "@/components/dashboard/patient-materials-tab";
 import { RespostasEscalaList } from "@/components/dashboard/respostas-escala-list";
 import { EnviarAtividade } from "@/components/dashboard/enviar-atividade";
+import { RespostasJogoList } from "@/components/dashboard/respostas-jogo-list";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
@@ -605,8 +606,26 @@ export default function PatientDetailPage({
               temConta={Boolean(patient.clienteUserId)}
             />
           </div>
-          <div className="mt-4">
-            <RespostasEscalaList pacienteId={patient.id} />
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+              Escalas respondidas
+            </h3>
+            <div className="mt-3">
+              <RespostasEscalaList pacienteId={patient.id} />
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+              Atividades do Espaço Interativo
+            </h3>
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
+              Exercícios de reflexão e regulação. Não pontuam nem classificam —
+              o material é o que o paciente escreveu.
+            </p>
+            <div className="mt-3">
+              <RespostasJogoList pacienteId={patient.id} />
+            </div>
           </div>
         </div>
       )}
