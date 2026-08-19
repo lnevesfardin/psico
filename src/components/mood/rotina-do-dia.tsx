@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ListChecks } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  habitoEmoji,
+  habitoIcone,
   habitoLabel,
   listMeusHabitos,
   listRegistrosHabito,
@@ -91,6 +91,7 @@ export function RotinaDoDia({ clienteId }: { clienteId: string }) {
       <div className="mt-3 space-y-2">
         {habitos.map((chave) => {
           const feito = marcados.has(chave);
+          const Icone = habitoIcone(chave);
           return (
             <button
               key={chave}
@@ -112,7 +113,14 @@ export function RotinaDoDia({ clienteId }: { clienteId: string }) {
               >
                 ✓
               </span>
-              <span aria-hidden>{habitoEmoji(chave)}</span>
+              <Icone
+                aria-hidden
+                className={`h-4 w-4 shrink-0 ${
+                  feito
+                    ? "text-brand-600 dark:text-brand-400"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              />
               <span
                 className={
                   feito

@@ -26,7 +26,7 @@ export function TagEnergyPicker({
           O que mais influenciou seu humor hoje?
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {MOOD_TAGS.map(({ value, label, emoji }) => (
+          {MOOD_TAGS.map(({ value, label, icone: Icone }) => (
             <button
               key={value}
               type="button"
@@ -37,7 +37,7 @@ export function TagEnergyPicker({
                   : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               }`}
             >
-              <span>{emoji}</span>
+              <Icone className="h-4 w-4 shrink-0" aria-hidden />
               {label}
             </button>
           ))}

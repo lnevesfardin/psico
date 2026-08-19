@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { enviarRespostaJogo } from "@/lib/jogos-client";
 import type { Jogo, PassoJogo, RespostaJogo } from "@/lib/jogos";
 import { RespiracaoGuiada } from "@/components/jogos/respiracao-guiada";
+import { IconeDaOpcao } from "@/components/jogos/icone-opcao";
 
 /**
  * Traduz a falha de envio para quem está do outro lado — que pode ser uma
@@ -276,7 +277,21 @@ function PassoConteudo({
                       : "border-zinc-200 text-zinc-700 hover:border-brand-300 dark:border-zinc-700 dark:text-zinc-300"
                   }`}
                 >
-                  {opcao.emoji && <span className="text-xl">{opcao.emoji}</span>}
+                  {opcao.icone && (
+                    // 24px dentro de 40px: a 16px os ícones de rosto perdem
+                    // as feições e "alegre", "triste" e "calmo" viram três
+                    // bolinhas iguais — o desenho precisa ser lido de relance,
+                    // ainda mais por criança.
+                    <span
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                        marcado
+                          ? "bg-brand-600 text-white"
+                          : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                      }`}
+                    >
+                      <IconeDaOpcao nome={opcao.icone} className="h-6 w-6" />
+                    </span>
+                  )}
                   {opcao.rotulo}
                 </button>
               );

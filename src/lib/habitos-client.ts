@@ -1,4 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  Apple,
+  Ban,
+  Circle,
+  Droplet,
+  Footprints,
+  Moon,
+  Pill,
+  Users,
+  Wind,
+  type LucideIcon,
+} from "lucide-react";
 
 /**
  * Catálogo fechado de hábitos. É o psicólogo quem escolhe quais valem para
@@ -19,24 +31,24 @@ export type HabitoChave =
 export const HABITOS: {
   chave: HabitoChave;
   label: string;
-  emoji: string;
+  icone: LucideIcon;
 }[] = [
-  { chave: "sono", label: "Dormiu 7h ou mais", emoji: "😴" },
-  { chave: "medicacao", label: "Tomou a medicação", emoji: "💊" },
-  { chave: "exercicio", label: "Fez exercício ou caminhada", emoji: "🏃" },
-  { chave: "alimentacao", label: "Alimentou-se bem", emoji: "🍎" },
-  { chave: "agua", label: "Bebeu água suficiente", emoji: "💧" },
-  { chave: "meditacao", label: "Meditou ou fez respiração", emoji: "🧘" },
-  { chave: "social", label: "Teve contato social", emoji: "👥" },
-  { chave: "sem_alcool", label: "Ficou sem álcool", emoji: "🚫" },
+  { chave: "sono", label: "Dormiu 7h ou mais", icone: Moon },
+  { chave: "medicacao", label: "Tomou a medicação", icone: Pill },
+  { chave: "exercicio", label: "Fez exercício ou caminhada", icone: Footprints },
+  { chave: "alimentacao", label: "Alimentou-se bem", icone: Apple },
+  { chave: "agua", label: "Bebeu água suficiente", icone: Droplet },
+  { chave: "meditacao", label: "Meditou ou fez respiração", icone: Wind },
+  { chave: "social", label: "Teve contato social", icone: Users },
+  { chave: "sem_alcool", label: "Ficou sem álcool", icone: Ban },
 ];
 
 export function habitoLabel(chave: string): string {
   return HABITOS.find((h) => h.chave === chave)?.label ?? chave;
 }
 
-export function habitoEmoji(chave: string): string {
-  return HABITOS.find((h) => h.chave === chave)?.emoji ?? "•";
+export function habitoIcone(chave: string): LucideIcon {
+  return HABITOS.find((h) => h.chave === chave)?.icone ?? Circle;
 }
 
 export type RegistroHabito = {

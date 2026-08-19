@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   calcularAdesao,
   HABITOS,
-  habitoEmoji,
+  habitoIcone,
   habitoLabel,
   listHabitosDoPaciente,
   listRegistrosHabito,
@@ -125,7 +125,7 @@ export function PatientHabitsSection({
             aplica vira falso &quot;não aderiu&quot; no acompanhamento.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {HABITOS.map(({ chave, label, emoji }) => {
+            {HABITOS.map(({ chave, label, icone: Icone }) => {
               const ligado = ativos.includes(chave);
               return (
                 <button
@@ -139,7 +139,7 @@ export function PatientHabitsSection({
                       : "border-zinc-200 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
                   }`}
                 >
-                  <span aria-hidden>{emoji}</span>
+                  <Icone className="h-4 w-4 shrink-0" aria-hidden />
                   {label}
                 </button>
               );
@@ -160,13 +160,13 @@ export function PatientHabitsSection({
             <>
               {adesao
                 .filter(({ dias }) => dias > 0)
-                .map(({ chave, feitos, dias, pct }) => (
+                .map(({ chave, feitos, dias, pct }) => {
+                  const Icone = habitoIcone(chave);
+                  return (
                   <div key={chave}>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-700 dark:text-zinc-300">
-                        <span aria-hidden className="mr-1.5">
-                          {habitoEmoji(chave)}
-                        </span>
+                      <span className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+                        <Icone className="h-3.5 w-3.5 shrink-0 text-zinc-400" aria-hidden />
                         {habitoLabel(chave)}
                       </span>
                       <span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">
@@ -186,7 +186,8 @@ export function PatientHabitsSection({
                       />
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               {/* Nenhum hábito com registro ainda: uma barra em 0% pra cada
                   um pareceria "o paciente não fez nada" quando na verdade
                   ele só ainda não teve chance de marcar. */}

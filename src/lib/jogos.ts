@@ -26,6 +26,55 @@ export type CorJogo = "roxo" | "azul" | "verde" | "laranja" | "rosa";
 
 export type IconeJogo = "heart" | "brain" | "smile" | "star" | "wind" | "users";
 
+/**
+ * Ícone de cada opção de resposta, também por chave.
+ *
+ * Não é o componente do ícone porque este arquivo é lido pelo Server
+ * Component /jogo/[slug], que repassa o jogo para um Client Component —
+ * função React não atravessa essa fronteira. A tradução chave → desenho fica
+ * em components/jogos/icone-opcao.tsx.
+ */
+export type IconeOpcao =
+  | "alegre"
+  | "triste"
+  | "raiva"
+  | "medo"
+  | "calmo"
+  | "confuso"
+  | "neutro"
+  | "tenso"
+  | "vergonha"
+  | "culpa"
+  | "pequeno"
+  | "medio"
+  | "gigante"
+  | "escola"
+  | "dormir"
+  | "casa"
+  | "sozinho"
+  | "sempre"
+  | "familia"
+  | "internet"
+  | "espelho"
+  | "sol"
+  | "nublado"
+  | "chuva"
+  | "calar"
+  | "explodir"
+  | "ironia"
+  | "afastar"
+  | "conversar"
+  | "desculpar"
+  | "justificar"
+  | "evitar"
+  | "compensar"
+  | "ouvir"
+  | "calma"
+  | "dizer"
+  | "ceder"
+  | "firmeza"
+  | "bloquear";
+
 export type PassoJogo =
   | {
       tipo: "respiracao";
@@ -43,7 +92,7 @@ export type PassoJogo =
       id: string;
       pergunta: string;
       ajuda?: string;
-      opcoes: { valor: string; rotulo: string; emoji?: string }[];
+      opcoes: { valor: string; rotulo: string; icone?: IconeOpcao }[];
     }
   | {
       tipo: "texto";
@@ -88,13 +137,13 @@ export type Jogo = {
   fechamento: string;
 };
 
-const EMOCOES = [
-  { valor: "alegre", rotulo: "Alegre", emoji: "😀" },
-  { valor: "triste", rotulo: "Triste", emoji: "😢" },
-  { valor: "bravo", rotulo: "Com raiva", emoji: "😠" },
-  { valor: "medo", rotulo: "Com medo", emoji: "😨" },
-  { valor: "calmo", rotulo: "Calmo", emoji: "😌" },
-  { valor: "confuso", rotulo: "Confuso", emoji: "😕" },
+const EMOCOES: { valor: string; rotulo: string; icone: IconeOpcao }[] = [
+  { valor: "alegre", rotulo: "Alegre", icone: "alegre" },
+  { valor: "triste", rotulo: "Triste", icone: "triste" },
+  { valor: "bravo", rotulo: "Com raiva", icone: "raiva" },
+  { valor: "medo", rotulo: "Com medo", icone: "medo" },
+  { valor: "calmo", rotulo: "Calmo", icone: "calmo" },
+  { valor: "confuso", rotulo: "Confuso", icone: "confuso" },
 ];
 
 // =========================================================
@@ -130,9 +179,9 @@ const BALAO_DA_RESPIRACAO: Jogo = {
       id: "como-ficou",
       pergunta: "E aí, como seu corpo ficou depois?",
       opcoes: [
-        { valor: "mais-calmo", rotulo: "Mais calminho", emoji: "😌" },
-        { valor: "igual", rotulo: "Do mesmo jeito", emoji: "😐" },
-        { valor: "agitado", rotulo: "Ainda agitado", emoji: "😣" },
+        { valor: "mais-calmo", rotulo: "Mais calminho", icone: "calmo" },
+        { valor: "igual", rotulo: "Do mesmo jeito", icone: "neutro" },
+        { valor: "agitado", rotulo: "Ainda agitado", icone: "tenso" },
       ],
     },
   ],
@@ -277,9 +326,9 @@ const MONSTRO_DAS_PREOCUPACOES: Jogo = {
       id: "tamanho",
       pergunta: "Que tamanho ele tem hoje?",
       opcoes: [
-        { valor: "pequeno", rotulo: "Pequenininho", emoji: "🐜" },
-        { valor: "medio", rotulo: "Do meu tamanho", emoji: "🐕" },
-        { valor: "gigante", rotulo: "Gigante", emoji: "🦕" },
+        { valor: "pequeno", rotulo: "Pequenininho", icone: "pequeno" },
+        { valor: "medio", rotulo: "Do meu tamanho", icone: "medio" },
+        { valor: "gigante", rotulo: "Gigante", icone: "gigante" },
       ],
     },
     {
@@ -287,11 +336,11 @@ const MONSTRO_DAS_PREOCUPACOES: Jogo = {
       id: "quando-vem",
       pergunta: "Quando ele costuma aparecer?",
       opcoes: [
-        { valor: "escola", rotulo: "Na escola", emoji: "🏫" },
-        { valor: "dormir", rotulo: "Na hora de dormir", emoji: "🌙" },
-        { valor: "casa", rotulo: "Em casa", emoji: "🏠" },
-        { valor: "sozinho", rotulo: "Quando fico sozinho(a)", emoji: "🚪" },
-        { valor: "sempre", rotulo: "Em vários momentos", emoji: "🔁" },
+        { valor: "escola", rotulo: "Na escola", icone: "escola" },
+        { valor: "dormir", rotulo: "Na hora de dormir", icone: "dormir" },
+        { valor: "casa", rotulo: "Em casa", icone: "casa" },
+        { valor: "sozinho", rotulo: "Quando fico sozinho(a)", icone: "sozinho" },
+        { valor: "sempre", rotulo: "Em vários momentos", icone: "sempre" },
       ],
     },
     {
@@ -411,10 +460,10 @@ const MOCHILA_DA_PRESSAO: Jogo = {
       id: "de-onde-vem",
       pergunta: "A cobrança mais pesada vem mais de onde?",
       opcoes: [
-        { valor: "familia", rotulo: "Da minha família", emoji: "👪" },
-        { valor: "amigos", rotulo: "Dos amigos / escola", emoji: "🎒" },
-        { valor: "internet", rotulo: "Das redes sociais", emoji: "📱" },
-        { valor: "eu", rotulo: "De mim mesmo(a)", emoji: "🪞" },
+        { valor: "familia", rotulo: "Da minha família", icone: "familia" },
+        { valor: "amigos", rotulo: "Dos amigos / escola", icone: "escola" },
+        { valor: "internet", rotulo: "Das redes sociais", icone: "internet" },
+        { valor: "eu", rotulo: "De mim mesmo(a)", icone: "espelho" },
       ],
     },
     {
@@ -535,9 +584,9 @@ const ATERRISSAGEM: Jogo = {
       id: "agora",
       pergunta: "E agora?",
       opcoes: [
-        { valor: "melhor", rotulo: "Um pouco melhor", emoji: "🌤️" },
-        { valor: "igual", rotulo: "Mais ou menos igual", emoji: "☁️" },
-        { valor: "pior", rotulo: "Ainda muito difícil", emoji: "🌧️" },
+        { valor: "melhor", rotulo: "Um pouco melhor", icone: "sol" },
+        { valor: "igual", rotulo: "Mais ou menos igual", icone: "nublado" },
+        { valor: "pior", rotulo: "Ainda muito difícil", icone: "chuva" },
       ],
     },
   ],
@@ -677,11 +726,11 @@ const DETETIVE_DO_PENSAMENTO: Jogo = {
       id: "emocao",
       pergunta: "O que você sentiu?",
       opcoes: [
-        { valor: "medo", rotulo: "Medo / ansiedade", emoji: "😰" },
-        { valor: "tristeza", rotulo: "Tristeza", emoji: "😔" },
-        { valor: "raiva", rotulo: "Raiva", emoji: "😤" },
-        { valor: "vergonha", rotulo: "Vergonha", emoji: "😳" },
-        { valor: "culpa", rotulo: "Culpa", emoji: "😞" },
+        { valor: "medo", rotulo: "Medo / ansiedade", icone: "medo" },
+        { valor: "tristeza", rotulo: "Tristeza", icone: "triste" },
+        { valor: "raiva", rotulo: "Raiva", icone: "raiva" },
+        { valor: "vergonha", rotulo: "Vergonha", icone: "vergonha" },
+        { valor: "culpa", rotulo: "Culpa", icone: "culpa" },
       ],
     },
     {
@@ -804,11 +853,11 @@ const COMO_EU_FALO_QUANDO_DOI: Jogo = {
       id: "quando-magoa",
       pergunta: "Quando alguém te magoa, você geralmente...",
       opcoes: [
-        { valor: "cala", rotulo: "Fico calado(a) e guardo", emoji: "🤐" },
-        { valor: "explode", rotulo: "Falo na hora, mesmo exaltado(a)", emoji: "🔥" },
-        { valor: "ironia", rotulo: "Uso ironia ou indireta", emoji: "🙃" },
-        { valor: "afasta", rotulo: "Me afasto por uns dias", emoji: "🚶" },
-        { valor: "conversa", rotulo: "Peço pra conversar depois", emoji: "💬" },
+        { valor: "cala", rotulo: "Fico calado(a) e guardo", icone: "calar" },
+        { valor: "explode", rotulo: "Falo na hora, mesmo exaltado(a)", icone: "explodir" },
+        { valor: "ironia", rotulo: "Uso ironia ou indireta", icone: "ironia" },
+        { valor: "afasta", rotulo: "Me afasto por uns dias", icone: "afastar" },
+        { valor: "conversa", rotulo: "Peço pra conversar depois", icone: "conversar" },
       ],
     },
     {
@@ -816,10 +865,10 @@ const COMO_EU_FALO_QUANDO_DOI: Jogo = {
       id: "quando-erram-comigo",
       pergunta: "Quando você percebe que errou com alguém, você...",
       opcoes: [
-        { valor: "pede", rotulo: "Peço desculpas logo", emoji: "🙏" },
-        { valor: "justifica", rotulo: "Explico meus motivos primeiro", emoji: "📝" },
-        { valor: "evita", rotulo: "Deixo o assunto morrer", emoji: "🌫️" },
-        { valor: "compensa", rotulo: "Compenso com atitudes, sem falar", emoji: "🎁" },
+        { valor: "pede", rotulo: "Peço desculpas logo", icone: "desculpar" },
+        { valor: "justifica", rotulo: "Explico meus motivos primeiro", icone: "justificar" },
+        { valor: "evita", rotulo: "Deixo o assunto morrer", icone: "evitar" },
+        { valor: "compensa", rotulo: "Compenso com atitudes, sem falar", icone: "compensar" },
       ],
     },
     {
@@ -827,10 +876,10 @@ const COMO_EU_FALO_QUANDO_DOI: Jogo = {
       id: "discussao",
       pergunta: "No meio de uma discussão, o que é mais difícil pra você?",
       opcoes: [
-        { valor: "ouvir", rotulo: "Ouvir sem interromper", emoji: "👂" },
-        { valor: "calma", rotulo: "Manter a calma", emoji: "🌡️" },
-        { valor: "dizer", rotulo: "Dizer o que sinto de verdade", emoji: "💗" },
-        { valor: "ceder", rotulo: "Admitir que posso estar errado(a)", emoji: "🔄" },
+        { valor: "ouvir", rotulo: "Ouvir sem interromper", icone: "ouvir" },
+        { valor: "calma", rotulo: "Manter a calma", icone: "calma" },
+        { valor: "dizer", rotulo: "Dizer o que sinto de verdade", icone: "dizer" },
+        { valor: "ceder", rotulo: "Admitir que posso estar errado(a)", icone: "ceder" },
       ],
     },
     {

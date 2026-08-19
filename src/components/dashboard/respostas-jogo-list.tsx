@@ -9,6 +9,7 @@ import {
   type RespostaJogoRegistro,
 } from "@/lib/jogos-client";
 import { getJogo, PUBLICO_LABELS, type PassoJogo } from "@/lib/jogos";
+import { IconeDaOpcao } from "@/components/jogos/icone-opcao";
 import { formatDateTime } from "@/lib/format";
 
 /**
@@ -175,8 +176,11 @@ function Valor({
   if (passo.tipo === "escolha" && typeof valor === "string") {
     const opcao = passo.opcoes.find((o) => o.valor === valor);
     return (
-      <span>
-        {opcao?.emoji} {opcao?.rotulo ?? valor}
+      <span className="inline-flex items-center gap-1.5">
+        {opcao?.icone && (
+          <IconeDaOpcao nome={opcao.icone} className="h-4 w-4 text-zinc-400" />
+        )}
+        {opcao?.rotulo ?? valor}
       </span>
     );
   }

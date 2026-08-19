@@ -1,4 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  Apple,
+  Briefcase,
+  Dumbbell,
+  Moon,
+  Stethoscope,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { todayIso } from "@/lib/format";
 
 export type MoodLevel = 1 | 2 | 3 | 4 | 5;
@@ -19,13 +28,17 @@ export type MoodTag =
   | "relacionamentos"
   | "saude";
 
-export const MOOD_TAGS: { value: MoodTag; label: string; emoji: string }[] = [
-  { value: "sono", label: "Sono", emoji: "💤" },
-  { value: "trabalho", label: "Trabalho", emoji: "💼" },
-  { value: "alimentacao", label: "Alimentação", emoji: "🍎" },
-  { value: "exercicio", label: "Exercício", emoji: "🏋️" },
-  { value: "relacionamentos", label: "Relacionamentos", emoji: "👥" },
-  { value: "saude", label: "Saúde", emoji: "🩺" },
+export const MOOD_TAGS: {
+  value: MoodTag;
+  label: string;
+  icone: LucideIcon;
+}[] = [
+  { value: "sono", label: "Sono", icone: Moon },
+  { value: "trabalho", label: "Trabalho", icone: Briefcase },
+  { value: "alimentacao", label: "Alimentação", icone: Apple },
+  { value: "exercicio", label: "Exercício", icone: Dumbbell },
+  { value: "relacionamentos", label: "Relacionamentos", icone: Users },
+  { value: "saude", label: "Saúde", icone: Stethoscope },
 ];
 
 export type MoodCheckin = {
