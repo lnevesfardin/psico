@@ -5,12 +5,9 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarClock,
-  CalendarDays,
-  CircleAlert,
   Clock,
   Loader2,
   Users,
-  Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/context/auth-context";
@@ -129,44 +126,36 @@ export default function InicioPage() {
         </p>
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Indicador
-              icone={CalendarDays}
-              rotulo="Consultas hoje"
-              valor={String(resumo.deHoje.length)}
-              href="/dashboard/agenda"
-            />
-            <Indicador
-              icone={CircleAlert}
-              rotulo="Aguardando confirmação"
-              valor={String(resumo.aguardando.length)}
-              href="/dashboard/agenda"
-              alerta={resumo.aguardando.length > 0}
-            />
-            <Indicador
-              icone={Users}
-              rotulo="Pacientes"
-              valor={String(pacientes.length)}
-              href="/dashboard/pacientes"
-            />
-            <Indicador
-              icone={Wallet}
-              rotulo="Recebido no mês"
-              valor={formatCurrency(resumo.recebido)}
-              href="/dashboard/financeiro"
-            />
-          </div>
-
+          {/* Cada número aparece em um lugar só: a contagem do dia mora no
+              cabeçalho da agenda, o dinheiro mora no cartão de financeiro e
+              o total de pacientes no cartão de pacientes. Repetir "recebido
+              no mês" em dois cartões, como estava, só ocupava espaço e fazia
+              a tela parecer maior do que a informação que ela tem. */}
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <section className="rounded-2xl border border-zinc-100 bg-white p-5 lg:col-span-2 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
-                  <CalendarClock className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-                  Sua agenda de hoje
-                </h2>
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
+                    <CalendarClock className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                    Sua agenda de hoje
+                  </h2>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    {resumo.deHoje.length === 0
+                      ? "Nada marcado"
+                      : `${resumo.deHoje.length} ${resumo.deHoje.length === 1 ? "consulta" : "consultas"}`}
+                    {resumo.aguardando.length > 0 && (
+                      <>
+                        {" · "}
+                        <span className="font-semibold text-amber-600 dark:text-amber-400">
+                          {resumo.aguardando.length} a confirmar
+                        </span>
+                      </>
+                    )}
+                  </p>
+                </div>
                 <Link
                   href="/dashboard/agenda"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400"
                 >
                   Ver agenda
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -249,6 +238,25 @@ export default function InicioPage() {
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </section>
+
+              <Link
+                href="/dashboard/pacientes"
+                className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-white p-5 transition-colors hover:border-brand-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-brand-900"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                  <Users className="h-5 w-5" />
+                </span>
+                <span>
+                  <span className="block text-lg font-bold text-zinc-900 dark:text-white">
+                    {pacientes.length}
+                  </span>
+                  <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                    {pacientes.length === 1
+                      ? "ficha cadastrada"
+                      : "fichas cadastradas"}
+                  </span>
+                </span>
+              </Link>
             </div>
           </div>
 
@@ -259,43 +267,6 @@ export default function InicioPage() {
         </>
       )}
     </div>
-  );
-}
-
-function Indicador({
-  icone: Icone,
-  rotulo,
-  valor,
-  href,
-  alerta = false,
-}: {
-  icone: typeof Users;
-  rotulo: string;
-  valor: string;
-  href: string;
-  alerta?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-md ${
-        alerta
-          ? "border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10"
-          : "border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-900"
-      }`}
-    >
-      <Icone
-        className={`h-4 w-4 ${
-          alerta
-            ? "text-amber-600 dark:text-amber-400"
-            : "text-zinc-400 dark:text-zinc-500"
-        }`}
-      />
-      <p className="mt-2 truncate text-xl font-bold text-zinc-900 dark:text-white">
-        {valor}
-      </p>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">{rotulo}</p>
-    </Link>
   );
 }
 
