@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarClock, FileText, Wallet } from "lucide-react";
 import { motion } from "framer-motion";
+
+const RECURSOS_PAINEL = [
+  { icon: FileText, label: "Prontuário eletrônico seguro" },
+  { icon: CalendarClock, label: "Agendamento com lembretes automáticos" },
+  { icon: Wallet, label: "Financeiro sem planilha" },
+];
 
 /**
  * Moldura de duas colunas pra tela de entrar/criar conta: formulário à
- * esquerda, ilustração à direita (some abaixo de md — a tela de login não
- * pode depender de imagem decorativa pra funcionar no celular).
+ * esquerda, painel de marca à direita (some abaixo de md — a tela de login
+ * não pode depender dele pra funcionar no celular).
  *
  * Só a moldura. A lógica de autenticação continua inteira no AuthForm —
  * Supabase, Google, recuperação de senha, verificação por código — nada
@@ -68,24 +73,58 @@ export function AuthSplitLayout({
         </div>
       </section>
 
-      {/* Mesma ilustração do hero da página inicial, de propósito: quem sai
-          do site pra entrar continua vendo a mesma identidade visual, não
-          uma foto de banco de imagens desconhecida. */}
+      {/* Painel de marca, não uma foto: nenhuma imagem do acervo do site
+          tinha o enquadramento certo pra uma coluna alta e estreita (a do
+          hero corta mal, a de "passos-fundo" é uma foto de banco de imagens
+          genérica, sem relação com psicologia). Gradiente + mesmos ícones
+          das features da página inicial mantém a identidade visual sem
+          depender de uma imagem. */}
       <section className="relative hidden flex-1 p-4 md:block">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
-          className="relative h-full w-full overflow-hidden rounded-3xl"
+          className="relative flex h-full w-full flex-col justify-between overflow-hidden rounded-3xl bg-linear-to-br from-ink-900 to-brand-950 p-10"
         >
-          <Image
-            src="/images/hero-autocuidado.webp"
-            alt=""
-            fill
-            sizes="50vw"
-            priority
-            className="object-cover"
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-brand-400/25 blur-[100px]"
           />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-brand-300/10 blur-[100px]"
+          />
+
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-4 w-4 invert" />
+          </div>
+
+          <div className="relative">
+            <p className="text-2xl font-semibold leading-snug text-white">
+              Cuide dos seus pacientes.
+              <br />
+              O Psico cuida do resto.
+            </p>
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/60">
+              Prontuário, agenda, pacientes e financeiro em um só lugar — pra
+              sobrar mais tempo pra escutar.
+            </p>
+
+            <ul className="mt-8 space-y-3.5">
+              {RECURSOS_PAINEL.map(({ icon: Icon, label }) => (
+                <li
+                  key={label}
+                  className="flex items-center gap-3 text-sm font-medium text-white/80"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
         </motion.div>
       </section>
     </div>

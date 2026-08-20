@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, tornarSessaoTemporaria } from "@/lib/supabase/client";
 import { dashboardPathForRole, fetchUserRole } from "@/lib/auth/role";
 import { maskPhone } from "@/lib/format";
 import { StepIndicator } from "@/components/auth/step-indicator";
@@ -99,6 +99,7 @@ export function AuthForm({
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [passwordTooWeak, setPasswordTooWeak] = useState(false);
+  const [lembrar, setLembrar] = useState(true);
   const passwordStrength = usePasswordStrength(password);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -121,6 +122,7 @@ export function AuthForm({
         setLoading(false);
         return;
       }
+      if (!lembrar) tornarSessaoTemporaria();
       const role = await fetchUserRole(supabase, data.user.id);
       setLoading(false);
       router.push(dashboardPathForRole(role));
@@ -353,12 +355,23 @@ export function AuthForm({
       )}
 
       {mode === "login" && (
-        <Link
-          href="/recuperar-senha"
-          className="block text-right text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-        >
-          Esqueci minha senha
-        </Link>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              checked={lembrar}
+              onChange={(e) => setLembrar(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-zinc-300 text-brand-600 focus:ring-brand-500 dark:border-zinc-600 dark:bg-zinc-800"
+            />
+            Manter conectado
+          </label>
+          <Link
+            href="/recuperar-senha"
+            className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
       )}
 
       <button
