@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  ChartColumn,
   FileSignature,
   Link2,
   Sparkles,
@@ -25,6 +26,7 @@ export type AtalhoId =
   | "atividade"
   | "link"
   | "financeiro"
+  | "relatorios"
   | "documentos"
   | "perfil";
 
@@ -78,6 +80,13 @@ export const ATALHOS_DISPONIVEIS: Atalho[] = [
     descricao: "Recebimentos e recibos",
     href: "/dashboard/financeiro",
     icone: Wallet,
+  },
+  {
+    id: "relatorios",
+    titulo: "Relatórios",
+    descricao: "Faturamento e presença",
+    href: "/dashboard/relatorios",
+    icone: ChartColumn,
   },
   {
     id: "documentos",

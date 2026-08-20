@@ -37,6 +37,8 @@ export type Participante = {
 
 export type Patient = {
   id: string;
+  /** Quando a ficha foi criada (não confundir com firstAppointmentDate, que é digitado à mão). */
+  createdAt: string;
   tipo: TipoFicha;
   complexidade: Complexidade | null;
   participantes: Participante[];

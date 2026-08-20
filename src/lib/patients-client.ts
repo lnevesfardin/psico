@@ -28,6 +28,7 @@ function rowToParticipante(row: ParticipanteRow): Participante {
 
 type PacienteRow = {
   id: string;
+  created_at: string;
   tipo: TipoFicha | null;
   complexidade: Complexidade | null;
   nome: string;
@@ -47,7 +48,7 @@ type PacienteRow = {
 };
 
 const PACIENTE_COLUMNS_BASE =
-  "id, nome, cpf, telefone, email, data_nascimento, contato_emergencia_nome, contato_emergencia_telefone, tem_plano_saude, plano_saude_nome, data_primeira_consulta, escolaridade, como_conheceu, observacoes, cliente_user_id";
+  "id, created_at, nome, cpf, telefone, email, data_nascimento, contato_emergencia_nome, contato_emergencia_telefone, tem_plano_saude, plano_saude_nome, data_primeira_consulta, escolaridade, como_conheceu, observacoes, cliente_user_id";
 
 const PACIENTE_COLUMNS = `${PACIENTE_COLUMNS_BASE}, tipo, complexidade`;
 
@@ -64,6 +65,7 @@ function rowToPatient(
     // sessions vem ordenada da mais recente para a mais antiga.
     ultimaSessaoEm: resumo?.ultima ?? sessions[0]?.dateTime ?? null,
     id: row.id,
+    createdAt: row.created_at,
     // Ficha antiga (anterior à coluna) é indivíduo — o default do banco diz o
     // mesmo, mas o fallback também cobre o select sem a coluna, usado
     // enquanto o schema.sql ainda não foi aplicado à mão.
