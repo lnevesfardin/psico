@@ -586,24 +586,18 @@ export default function Home() {
             ))}
           </motion.div>
 
-          <Reveal delay={0.2} className="mt-10 flex justify-center">
-            {fluxo === "psicologo" ? (
-              <Link
-                href="/cadastro"
-                className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] hover:bg-brand-500 active:scale-95"
-              >
-                Criar minha conta grátis
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-              </Link>
-            ) : (
-              // Paciente não tem onde se cadastrar: a conta dele só existe
-              // por convite do psicólogo (ver /convite/[token]).
+          {/* Sem CTA no fluxo do psicólogo: o botão de criar conta já está no
+              topo da página e na barra fixa do celular. */}
+          {fluxo === "paciente" && (
+            <Reveal delay={0.2} className="mt-10 flex justify-center">
+              {/* Paciente não tem onde se cadastrar: a conta dele só existe
+                  por convite do psicólogo (ver /convite/[token]). */}
               <p className="max-w-md text-center text-sm text-zinc-600 dark:text-zinc-400">
                 Peça ao seu psicólogo o link de agendamento. Se ele já usa o Psi
                 Rob, é por lá que você marca a consulta.
               </p>
-            )}
-          </Reveal>
+            </Reveal>
+          )}
         </div>
       </section>
 

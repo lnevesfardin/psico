@@ -1,5 +1,6 @@
 "use client";
 
+import { DASHBOARD_PATH } from "@/lib/auth/role";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -180,7 +181,7 @@ function OnboardingContent() {
     setFinishing(true);
     try {
       await updateProfile(form);
-      router.push("/dashboard/agenda");
+      router.push(DASHBOARD_PATH);
     } catch (err) {
       setFinishError(err instanceof Error ? err.message : "Erro ao salvar.");
       setFinishing(false);

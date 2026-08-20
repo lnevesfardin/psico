@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { fetchUserRole } from "@/lib/auth/role";
+import { DASHBOARD_PATH, fetchUserRole } from "@/lib/auth/role";
 import { ClientAreaSidebar } from "@/components/client-area/sidebar";
 import { ChatAssistant } from "@/components/chat/assistant";
 import { ClientProfileProvider } from "@/context/client-profile-context";
@@ -24,7 +24,7 @@ export default async function AgendamentosLayout({
   const role = await fetchUserRole(supabase, user.id);
 
   if (role === "psychologist") {
-    redirect("/dashboard/agenda");
+    redirect(DASHBOARD_PATH);
   }
 
   return (

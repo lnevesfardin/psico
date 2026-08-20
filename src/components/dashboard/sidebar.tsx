@@ -16,12 +16,14 @@ import {
   Sparkles,
   PanelLeftClose,
   PanelLeftOpen,
+  House,
 } from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/dashboard/notification-bell";
 
 const navItems = [
+  { href: "/dashboard/inicio", label: "Início", icon: House },
   { href: "/dashboard/agenda", label: "Agenda de Hoje", icon: CalendarDays },
   { href: "/dashboard/pacientes", label: "Pacientes & Prontuários", icon: Users },
   { href: "/dashboard/documentos", label: "Modelos de Documentos", icon: FileSignature },
@@ -116,7 +118,17 @@ function SidebarContent({
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              {!recolhida && label}
+              {/* O texto some por opacidade + largura, em vez de sumir do DOM:
+                  tirar o nó de uma vez fazia o item "pular" no meio da
+                  animação da barra. whitespace-nowrap evita que a palavra
+                  quebre em duas linhas enquanto o espaço encolhe. */}
+              <span
+                className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${
+                  recolhida ? "w-0 opacity-0" : "w-auto opacity-100"
+                }`}
+              >
+                {label}
+              </span>
             </Link>
           );
         })}
@@ -136,11 +148,15 @@ function SidebarContent({
             {recolhida ? (
               <PanelLeftOpen className="h-5 w-5 shrink-0" />
             ) : (
-              <>
-                <PanelLeftClose className="h-5 w-5 shrink-0" />
-                Recolher menu
-              </>
+              <PanelLeftClose className="h-5 w-5 shrink-0" />
             )}
+            <span
+              className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${
+                recolhida ? "w-0 opacity-0" : "w-auto opacity-100"
+              }`}
+            >
+              Recolher menu
+            </span>
           </button>
         </div>
       )}
@@ -262,7 +278,7 @@ export default function Sidebar() {
           principal — sem isso ela rolava junto e sumia de tela em páginas
           longas (ex.: ficha de paciente com várias abas). */}
       <aside
-        className={`hidden shrink-0 self-start border-r border-zinc-100 bg-white transition-[width] duration-200 md:sticky md:top-0 md:flex md:h-screen dark:border-zinc-900 dark:bg-zinc-950 ${
+        className={`hidden shrink-0 self-start overflow-hidden border-r border-zinc-100 bg-white transition-[width] duration-300 ease-out md:sticky md:top-0 md:flex md:h-screen dark:border-zinc-900 dark:bg-zinc-950 ${
           recolhida ? "w-20" : "w-72"
         }`}
       >

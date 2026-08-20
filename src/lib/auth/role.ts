@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type Role = "client" | "psychologist";
 
-export const DASHBOARD_PATH = "/dashboard/agenda";
+export const DASHBOARD_PATH = "/dashboard/inicio";
 export const CLIENT_AREA_PATH = "/agendamentos";
 
 /**

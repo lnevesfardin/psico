@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { fetchUserRole } from "@/lib/auth/role";
+import { DASHBOARD_PATH, fetchUserRole } from "@/lib/auth/role";
 
 export default async function OnboardingLayout({
   children,
@@ -36,7 +36,7 @@ export default async function OnboardingLayout({
     .eq("psicologo_id", user.id);
 
   if (count) {
-    redirect("/dashboard/agenda");
+    redirect(DASHBOARD_PATH);
   }
 
   return children;
