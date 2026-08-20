@@ -24,7 +24,6 @@ import {
   MonitorSmartphone,
 } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
-import { ConstellationGrid } from "@/components/ui/constellation-grid";
 import { StickyCta } from "@/components/landing/sticky-cta";
 import { StructuredData } from "@/components/seo/structured-data";
 
@@ -331,15 +330,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      {/* z-0 explícito, não só "relative": position:relative sozinho (sem
-          z-index) não cria contexto de empilhamento próprio, e o -z-10 dos
-          filhos abaixo "escapava" pra fora da seção e ia parar atrás do fundo
-          opaco do wrapper da página inteira — sumia por completo. Com z-0
-          aqui, o -z-10 fica contido dentro desta seção, como devia. */}
-      <section className="relative z-0 overflow-hidden px-6 py-20 sm:py-28 lg:py-32">
-        {/* Malha animada como textura de fundo, com o halo colorido por cima
-            (-z-10 nos dois — o Glow vem depois no DOM, então empata acima). */}
-        <ConstellationGrid className="-z-10" />
+      <section className="relative overflow-hidden px-6 py-20 sm:py-28 lg:py-32">
         <Glow className="left-1/2 top-[-8rem] h-[34rem] w-[34rem] -translate-x-1/2 bg-brand-300/30 dark:bg-brand-500/10" />
 
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2 lg:gap-12">
