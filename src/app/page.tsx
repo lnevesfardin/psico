@@ -26,7 +26,6 @@ import {
 import { Reveal } from "@/components/motion/reveal";
 import { StickyCta } from "@/components/landing/sticky-cta";
 import { StructuredData } from "@/components/seo/structured-data";
-import { RESPOSTA_PROMESSA } from "@/lib/site";
 
 /** Superfície padrão dos cards: sutil no claro, translúcida no escuro. */
 const cardBase =
@@ -385,30 +384,6 @@ export default function Home() {
                 Ver como funciona
               </a>
             </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.45 }}
-              className="mt-10 flex items-center gap-2.5"
-            >
-              <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-brand-100 px-3 text-xs font-bold uppercase tracking-wide text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                Acesso antecipado
-              </span>
-              <p className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
-                Plataforma nova, grupo pequeno de psicólogos usando agora.
-              </p>
-            </motion.div>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.55 }}
-              className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
-            >
-              <Check className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
-              {RESPOSTA_PROMESSA} — você fala direto com quem construiu.
-            </motion.p>
           </div>
 
           <motion.div
