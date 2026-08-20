@@ -9,7 +9,6 @@ import {
   CircleAlert,
   Clock,
   Loader2,
-  Sparkles,
   Users,
   Wallet,
 } from "lucide-react";
@@ -19,6 +18,7 @@ import { useProfile } from "@/context/profile-context";
 import { useAppointments } from "@/context/appointments-context";
 import { listPatients } from "@/lib/patients-client";
 import { listLancamentos, type Lancamento } from "@/lib/financeiro-client";
+import { AtalhosInicio } from "@/components/dashboard/atalhos-inicio";
 import { formatCurrency, formatDateLabel, todayIso } from "@/lib/format";
 import type { Appointment, Patient } from "@/lib/dashboard-data";
 
@@ -47,6 +47,7 @@ export default function InicioPage() {
   const [pacientes, setPacientes] = useState<Patient[]>([]);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [editandoAtalhos, setEditandoAtalhos] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -251,31 +252,10 @@ export default function InicioPage() {
             </div>
           </div>
 
-          <section className="mt-6 rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
-              Atalhos
-            </h2>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <Atalho
-                href="/dashboard/pacientes"
-                icone={Users}
-                titulo="Nova ficha"
-                descricao="Cadastrar paciente"
-              />
-              <Atalho
-                href="/dashboard/espaco-interativo"
-                icone={Sparkles}
-                titulo="Enviar atividade"
-                descricao="Espaço Interativo"
-              />
-              <Atalho
-                href="/dashboard/link"
-                icone={CalendarClock}
-                titulo="Meu link"
-                descricao="Compartilhar agenda"
-              />
-            </div>
-          </section>
+          <AtalhosInicio
+            editando={editandoAtalhos}
+            onEditandoChange={setEditandoAtalhos}
+          />
         </>
       )}
     </div>
@@ -368,33 +348,3 @@ function LinhaConsulta({
   );
 }
 
-function Atalho({
-  href,
-  icone: Icone,
-  titulo,
-  descricao,
-}: {
-  href: string;
-  icone: typeof Users;
-  titulo: string;
-  descricao: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-xl border border-zinc-100 px-4 py-3 transition-colors hover:border-brand-300 hover:bg-brand-50/40 dark:border-zinc-800 dark:hover:border-brand-900 dark:hover:bg-brand-950/20"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-        <Icone className="h-4 w-4" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-zinc-900 dark:text-white">
-          {titulo}
-        </span>
-        <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
-          {descricao}
-        </span>
-      </span>
-    </Link>
-  );
-}
