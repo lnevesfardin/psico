@@ -247,11 +247,13 @@ create table if not exists sessoes_prontuario (
   conteudo text not null,
   data_hora timestamptz not null default now(),
   -- 'transcricao' = texto gerado pela transcrição automática do áudio da
-  -- sessão (revisado e salvo pelo psicólogo); 'manual' = digitado por ele.
-  -- Distinguir importa: texto de IA pode conter erro de transcrição e não
-  -- deve ser lido como se fosse a redação do profissional.
+  -- sessão (revisado e salvo pelo psicólogo); 'resumo_ia' = rascunho de
+  -- evolução gerado por IA a partir da transcrição, também revisado antes
+  -- de salvar; 'manual' = digitado por ele. Distinguir importa: texto de IA
+  -- pode conter erro ou síntese imprecisa e não deve ser lido como se fosse
+  -- a redação do profissional nem uma transcrição literal.
   origem text not null default 'manual'
-    check (origem in ('manual', 'transcricao')),
+    check (origem in ('manual', 'transcricao', 'resumo_ia')),
   -- Momento em que o psicólogo declarou ter o consentimento do paciente para
   -- gravar (LGPD art. 11 — dado sensível de saúde exige consentimento
   -- específico). Só preenchido em origem='transcricao'; é a trilha de
@@ -271,15 +273,9 @@ alter table sessoes_prontuario add column if not exists duracao_segundos int;
 -- quando a sessão de fato aconteceu.
 alter table sessoes_prontuario add column if not exists updated_at timestamptz not null default now();
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'sessoes_prontuario_origem_check'
-  ) then
-    alter table sessoes_prontuario add constraint sessoes_prontuario_origem_check
-      check (origem in ('manual', 'transcricao'));
-  end if;
-end $$;
+alter table sessoes_prontuario drop constraint if exists sessoes_prontuario_origem_check;
+alter table sessoes_prontuario add constraint sessoes_prontuario_origem_check
+  check (origem in ('manual', 'transcricao', 'resumo_ia'));
 
 create index if not exists sessoes_prontuario_paciente_id_idx
   on sessoes_prontuario (paciente_id, data_hora desc);
@@ -2907,6 +2903,10 @@ begin
     -- seguidas na mesma hora sem atrapalhar ninguém legítimo.
     when 'transcricao' then
       v_limite := 150; v_janela := interval '1 hour';
+    -- Resumo é um pedido só por sessão revisada (não por trecho) — bem menos
+    -- frequente que a transcrição, mas ainda limitado por ser chamada paga.
+    when 'resumo' then
+      v_limite := 20; v_janela := interval '1 hour';
     else
       raise exception 'Recurso de IA desconhecido: %', p_recurso;
   end case;

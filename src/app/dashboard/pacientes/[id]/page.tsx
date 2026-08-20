@@ -20,6 +20,7 @@ import {
   HelpCircle,
   StickyNote,
   Mic,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { TIPO_FICHA_LABELS, type Patient } from "@/lib/dashboard-data";
@@ -513,6 +514,12 @@ export default function PatientDetailPage({
                           Transcrição da sessão
                         </span>
                       )}
+                      {session.origem === "resumo_ia" && (
+                        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                          <Sparkles className="h-3 w-3" />
+                          Rascunho gerado por IA
+                        </span>
+                      )}
                       {session.updatedAt !== session.dateTime && (
                         <span
                           className="ml-1"
@@ -651,10 +658,10 @@ export default function PatientDetailPage({
         <SessionTranscriptionModal
           patientName={patient.name}
           onClose={() => setTranscribeOpen(false)}
-          onSave={async ({ texto, duracaoSegundos, consentimentoEm }) => {
+          onSave={async ({ texto, duracaoSegundos, consentimentoEm, origem }) => {
             const supabase = createClient();
             const newNote = await addSessionNote(supabase, patient.id, texto, {
-              origem: "transcricao",
+              origem,
               consentimentoEm,
               duracaoSegundos,
             });

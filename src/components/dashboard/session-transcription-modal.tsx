@@ -7,7 +7,9 @@ import {
   Loader2,
   Mic,
   MonitorSpeaker,
+  Sparkles,
   Square,
+  Undo2,
   X,
 } from "lucide-react";
 import {
@@ -48,6 +50,28 @@ async function transcreverTrecho(wav: Blob): Promise<string> {
   return (data?.texto ?? "").trim();
 }
 
+async function resumirSessao(texto: string): Promise<string> {
+  const res = await fetch("/api/gemini/resumir-sessao", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ texto }),
+  });
+  const data = (await res.json().catch(() => null)) as {
+    resumo?: string;
+    error?: string;
+  } | null;
+  if (!res.ok) {
+    throw new Error(data?.error ?? "Falha ao gerar o rascunho.");
+  }
+  const resumo = (data?.resumo ?? "").trim();
+  if (!resumo || resumo === "[transcrição insuficiente para gerar um resumo]") {
+    throw new Error(
+      "A transcrição não tem conteúdo suficiente para gerar um rascunho."
+    );
+  }
+  return resumo;
+}
+
 export function SessionTranscriptionModal({
   patientName,
   onClose,
@@ -59,6 +83,7 @@ export function SessionTranscriptionModal({
     texto: string;
     duracaoSegundos: number;
     consentimentoEm: string;
+    origem: "transcricao" | "resumo_ia";
   }) => Promise<void>;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -66,12 +91,18 @@ export function SessionTranscriptionModal({
   const [elapsed, setElapsed] = useState(0);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [texto, setTexto] = useState("");
+  const [versao, setVersao] = useState<"transcricao" | "resumo">("transcricao");
+  const [gerandoResumo, setGerandoResumo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const recorderRef = useRef<SessionRecorder | null>(null);
   const consentimentoEmRef = useRef<string | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  // Transcrição original, congelada assim que a gravação termina — é o que
+  // "Ver transcrição original" restaura, mesmo depois de gerar (ou editar)
+  // um rascunho de evolução, pra gerar o resumo nunca ser destrutivo.
+  const transcricaoOriginalRef = useRef("");
   // Fila serializada: os trechos são transcritos na ordem em que foram
   // gravados, um de cada vez, para o texto final não sair embaralhado.
   const queueRef = useRef<Promise<void>>(Promise.resolve());
@@ -154,8 +185,34 @@ export function SessionTranscriptionModal({
     const partes = segmentsRef.current
       .map((s) => s.texto.trim())
       .filter((t) => t && t !== "[sem fala audível]");
-    setTexto(partes.join("\n\n"));
+    const juntas = partes.join("\n\n");
+    transcricaoOriginalRef.current = juntas;
+    setTexto(juntas);
+    setVersao("transcricao");
     setPhase("review");
+  }
+
+  async function handleGerarResumo() {
+    const base = texto.trim();
+    if (!base) return;
+    setError(null);
+    setGerandoResumo(true);
+    try {
+      const resumo = await resumirSessao(base);
+      setTexto(resumo);
+      setVersao("resumo");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Não foi possível gerar o rascunho."
+      );
+    } finally {
+      setGerandoResumo(false);
+    }
+  }
+
+  function handleVoltarTranscricao() {
+    setTexto(transcricaoOriginalRef.current);
+    setVersao("transcricao");
   }
 
   async function handleSave() {
@@ -171,6 +228,7 @@ export function SessionTranscriptionModal({
         texto: conteudo,
         duracaoSegundos: elapsed,
         consentimentoEm: consentimentoEmRef.current ?? new Date().toISOString(),
+        origem: versao === "resumo" ? "resumo_ia" : "transcricao",
       });
     } catch (err) {
       setError(
@@ -305,8 +363,10 @@ export function SessionTranscriptionModal({
         {phase === "review" && (
           <>
             <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
-              Revise a transcrição antes de salvar — texto gerado
-              automaticamente pode conter erros. Duração: {formatTimer(elapsed)}.
+              {versao === "resumo"
+                ? "Revise o rascunho de evolução antes de salvar — texto gerado automaticamente pode conter erros ou imprecisões."
+                : "Revise a transcrição antes de salvar — texto gerado automaticamente pode conter erros."}{" "}
+              Duração: {formatTimer(elapsed)}.
             </p>
 
             {comErro && (
@@ -317,12 +377,41 @@ export function SessionTranscriptionModal({
               </div>
             )}
 
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleGerarResumo}
+                disabled={gerandoResumo || !texto.trim()}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 transition-colors hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-brand-400 dark:hover:text-brand-300"
+              >
+                {gerandoResumo ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {gerandoResumo
+                  ? "Gerando rascunho..."
+                  : "Gerar rascunho de evolução com IA"}
+              </button>
+
+              {versao === "resumo" && (
+                <button
+                  type="button"
+                  onClick={handleVoltarTranscricao}
+                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Ver transcrição original
+                </button>
+              )}
+            </div>
+
             <textarea
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               rows={12}
               placeholder="Nenhuma fala foi captada nesta gravação."
-              className="mt-4 w-full resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm leading-6 text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              className="mt-2 w-full resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm leading-6 text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
             />
 
             <div className="mt-5 flex gap-3">

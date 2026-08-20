@@ -416,9 +416,11 @@ export type SessionNoteOrigin =
   | { origem: "manual" }
   // consentimentoEm é a trilha de auditoria exigida para gravar áudio de
   // sessão (dado sensível de saúde, LGPD art. 11) — ver o modal de
-  // transcrição, que só libera a gravação depois da confirmação.
+  // transcrição, que só libera a gravação depois da confirmação. "resumo_ia"
+  // reaproveita os mesmos campos: é derivado da mesma gravação consentida,
+  // só muda o texto final salvo (síntese em vez de transcrição literal).
   | {
-      origem: "transcricao";
+      origem: "transcricao" | "resumo_ia";
       consentimentoEm: string;
       duracaoSegundos: number;
     };
@@ -435,7 +437,7 @@ export async function addSessionNote(
       paciente_id: patientId,
       conteudo: content,
       origem: origin.origem,
-      ...(origin.origem === "transcricao"
+      ...(origin.origem !== "manual"
         ? {
             consentimento_em: origin.consentimentoEm,
             duracao_segundos: origin.duracaoSegundos,

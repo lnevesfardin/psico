@@ -2,9 +2,11 @@ export type SessionNote = {
   id: string;
   dateTime: string; // ISO string — quando a sessão aconteceu, nunca muda ao editar
   content: string;
-  // "transcricao" = texto vindo da transcrição automática do áudio da sessão,
-  // revisado pelo psicólogo antes de salvar; "manual" = digitado por ele.
-  origem: "manual" | "transcricao";
+  // "transcricao" = texto vindo da transcrição automática do áudio da sessão;
+  // "resumo_ia" = rascunho de evolução gerado por IA a partir da
+  // transcrição; ambos revisados pelo psicólogo antes de salvar. "manual" =
+  // digitado por ele.
+  origem: "manual" | "transcricao" | "resumo_ia";
   // Diferente de dateTime quando a anotação foi editada depois de criada.
   updatedAt: string;
 };
