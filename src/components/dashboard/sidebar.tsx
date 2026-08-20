@@ -278,7 +278,12 @@ export default function Sidebar() {
           principal — sem isso ela rolava junto e sumia de tela em páginas
           longas (ex.: ficha de paciente com várias abas). */}
       <aside
-        className={`hidden shrink-0 self-start overflow-hidden border-r border-zinc-100 bg-white transition-[width] duration-300 ease-out md:sticky md:top-0 md:flex md:h-screen dark:border-zinc-900 dark:bg-zinc-950 ${
+        // Sem overflow-hidden aqui: o painel de avisos é mais largo que a
+        // barra e precisa transbordar por cima do conteúdo. Recortar tudo
+        // deixava o painel cortado — grave com a barra recolhida, onde só
+        // sobravam 80px dele. Cada rótulo do menu já se recorta sozinho
+        // durante a animação (ver o span com w-0/overflow-hidden acima).
+        className={`hidden shrink-0 self-start border-r border-zinc-100 bg-white transition-[width] duration-300 ease-out md:sticky md:top-0 md:flex md:h-screen dark:border-zinc-900 dark:bg-zinc-950 ${
           recolhida ? "w-20" : "w-72"
         }`}
       >
