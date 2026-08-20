@@ -110,11 +110,11 @@ export default function InicioPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-8">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+        <h1 className="font-serif-title text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
           {saudacao()}
           {primeiroNome(profile.name) && `, ${primeiroNome(profile.name)}`}
         </h1>
-        <p className="mt-1 text-sm capitalize text-zinc-500 dark:text-zinc-400">
+        <p className="font-serif-title mt-1 text-sm capitalize text-zinc-500 dark:text-zinc-400">
           {formatDateLabel(hoje)}
         </p>
       </header>

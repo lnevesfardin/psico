@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { RouteProgress } from "@/components/ui/route-progress";
@@ -12,6 +12,14 @@ import "./globals.css";
 // classe "font-sans" nas páginas usam — cobre o site inteiro.
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta-sans",
+  subsets: ["latin"],
+});
+
+// Fonte serifada usada só em títulos pontuais (ex.: saudação da tela de
+// Início) via a utilidade "font-serif-title" — não é a fonte do site, é uma
+// segunda opção pra dar um ar mais editorial num título específico.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
 });
 
@@ -50,7 +58,7 @@ export default function RootLayout({
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={`${plusJakartaSans.variable} h-full antialiased`}
+      className={`${plusJakartaSans.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Aplica a classe "dark" antes da primeira pintura, direto do

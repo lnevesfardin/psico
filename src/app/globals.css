@@ -23,6 +23,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-plus-jakarta-sans);
   --font-mono: var(--font-plus-jakarta-sans);
+  /* Só para títulos pontuais (ver layout.tsx) — não é a fonte do site. */
+  --font-serif-title: var(--font-fraunces);
 
   --color-brand-50: #f5f7f1;
   --color-brand-100: #e8ede0;
