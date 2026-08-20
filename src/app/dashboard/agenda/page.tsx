@@ -20,6 +20,7 @@ import {
   Repeat,
   CalendarClock,
 } from "lucide-react";
+import { ListaEsperaPanel } from "@/components/dashboard/lista-espera-panel";
 import type {
   Appointment,
   AppointmentStatus,
@@ -80,6 +81,7 @@ export default function AgendaPage() {
   const { profile } = useProfile();
   const [view, setView] = useState<"hoje" | "semana" | "mes">("hoje");
   const [modalOpen, setModalOpen] = useState(false);
+  const [listaEsperaOpen, setListaEsperaOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [patientCreatedToast, setPatientCreatedToast] = useState<string | null>(
@@ -336,15 +338,29 @@ export default function AgendaPage() {
             Consultas de hoje, da semana e do mês.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Consulta / Bloqueio de Horário
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => setListaEsperaOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Clock className="h-4 w-4" />
+            Lista de Espera
+          </button>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Consulta / Bloqueio de Horário
+          </button>
+        </div>
       </div>
+
+      {listaEsperaOpen && (
+        <ListaEsperaPanel onClose={() => setListaEsperaOpen(false)} />
+      )}
 
       {pendingAppointments.length > 0 && (
         <div className="mt-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">

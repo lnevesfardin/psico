@@ -2918,3 +2918,52 @@ end;
 $$;
 
 grant execute on function checar_limite_ia(text) to authenticated;
+
+-- =========================================================
+-- lista_espera — o psicólogo adiciona manualmente quem quer uma vaga
+-- (paciente já cadastrado ou não) quando a agenda está cheia. De propósito
+-- SEM tentativa de casar automaticamente com o horário que abriu quando uma
+-- consulta é desmarcada: quem entra em contato pra oferecer o horário é
+-- sempre o psicólogo, na ordem/critério que ele achar certo — a lista só
+-- organiza quem está esperando, não decide por ele.
+-- =========================================================
+create table if not exists lista_espera (
+  id uuid primary key default gen_random_uuid(),
+  psicologo_id uuid not null references auth.users(id) on delete cascade,
+  -- Igual a consultas.paciente_id: null quando é alguém que ainda não tem
+  -- ficha (ex.: ligou perguntando por vaga) — "set null" pra não apagar a
+  -- entrada da lista se a ficha for excluída depois.
+  paciente_id uuid references pacientes(id) on delete set null,
+  nome text not null,
+  telefone text,
+  observacao text,
+  -- Só duas: quem desiste ou foi adicionado por engano sai da tabela de
+  -- verdade (delete), não vira um terceiro status pra filtrar pra sempre.
+  status text not null default 'aguardando'
+    check (status in ('aguardando', 'atendido')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists lista_espera_psicologo_id_idx
+  on lista_espera (psicologo_id, status, created_at);
+
+create or replace trigger lista_espera_set_updated_at
+  before update on lista_espera
+  for each row execute function set_updated_at();
+
+alter table lista_espera enable row level security;
+
+drop policy if exists "psicologo_ve_propria_lista_espera" on lista_espera;
+create policy "psicologo_ve_propria_lista_espera" on lista_espera
+  for select using (auth.uid() = psicologo_id);
+drop policy if exists "psicologo_adiciona_propria_lista_espera" on lista_espera;
+create policy "psicologo_adiciona_propria_lista_espera" on lista_espera
+  for insert with check (auth.uid() = psicologo_id and assinatura_ativa());
+drop policy if exists "psicologo_edita_propria_lista_espera" on lista_espera;
+create policy "psicologo_edita_propria_lista_espera" on lista_espera
+  for update using (auth.uid() = psicologo_id and assinatura_ativa())
+  with check (auth.uid() = psicologo_id and assinatura_ativa());
+drop policy if exists "psicologo_apaga_propria_lista_espera" on lista_espera;
+create policy "psicologo_apaga_propria_lista_espera" on lista_espera
+  for delete using (auth.uid() = psicologo_id and assinatura_ativa());
