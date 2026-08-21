@@ -101,6 +101,51 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Dígito verificador de CPF (módulo 11) — mesmo cálculo usado pela Receita. */
+function cpfValido(cpf: string): boolean {
+  // "00000000000", "11111111111" etc. passam no cálculo do dígito mas nunca
+  // são CPF de verdade — filtrados à parte.
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  const digito = (base: string, pesoInicial: number): number => {
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (pesoInicial - i);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+
+  return (
+    digito(cpf.slice(0, 9), 10) === Number(cpf[9]) &&
+    digito(cpf.slice(0, 10), 11) === Number(cpf[10])
+  );
+}
+
+/**
+ * Trava de verdade no código, não só instrução no prompt: o modelo já é
+ * instruído a nunca incluir CPF, mas isso é comportamento, não garantia —
+ * uma frase insistente o suficiente pode furar. Isto barra o envio de fato
+ * se o texto contiver um CPF válido.
+ *
+ * Só CPF, não "qualquer dado sensível": é o único caso com um formato
+ * verificável por código (dígito verificador). "Conteúdo de prontuário" ou
+ * "diagnóstico" são texto livre — não dá pra detectar isso com uma regex sem
+ * outra chamada de IA por cima, o que traria o mesmo problema de novo (é
+ * comportamento de modelo, não garantia de código).
+ *
+ * Valida o dígito verificador (não só "11 dígitos seguidos") de propósito:
+ * telefone celular brasileiro com DDD também tem 11 dígitos, e bloquear
+ * qualquer sequência de 11 dígitos derrubaria mensagem legítima como "meu
+ * telefone é 11987654321". Exigir o dígito verificador batendo deixa a
+ * chance de falso positivo em ~1%.
+ */
+function contemCpf(texto: string): boolean {
+  const candidatos = texto.match(/\d[\d.\-\s]{9,}\d/g) ?? [];
+  return candidatos.some((bruto) => {
+    const digitos = bruto.replace(/\D/g, "");
+    return digitos.length === 11 && cpfValido(digitos);
+  });
+}
+
 /**
  * Executa a function call decidida pelo modelo. O e-mail de quem está
  * conversando vem da própria sessão autenticada (nunca de um campo que o
@@ -136,6 +181,13 @@ async function executarFuncaoDeSuporte(
 
   if (!mensagem) {
     return { error: "A mensagem veio vazia — nada foi enviado." };
+  }
+
+  if (contemCpf(assunto) || contemCpf(mensagem)) {
+    return {
+      error:
+        "A mensagem parece conter um CPF. Por segurança, remova esse dado antes de enviar ao suporte.",
+    };
   }
 
   const remetente = `${contexto.userEmail ?? "e-mail não disponível"} (${
