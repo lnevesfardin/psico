@@ -2907,6 +2907,12 @@ begin
     -- frequente que a transcrição, mas ainda limitado por ser chamada paga.
     when 'resumo' then
       v_limite := 20; v_janela := interval '1 hour';
+    -- Envio de e-mail pro suporte via assistente: teto bem mais apertado que
+    -- os outros recursos de IA de propósito — isso manda de verdade pra caixa
+    -- de entrada de um humano, então o limite aqui é sobre spam, não sobre
+    -- custo de API.
+    when 'suporte_email' then
+      v_limite := 3; v_janela := interval '1 hour';
     else
       raise exception 'Recurso de IA desconhecido: %', p_recurso;
   end case;

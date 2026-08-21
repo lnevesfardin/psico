@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type RecursoIA = "chat" | "lancamento" | "transcricao" | "resumo";
+export type RecursoIA =
+  | "chat"
+  | "lancamento"
+  | "transcricao"
+  | "resumo"
+  | "suporte_email";
 
 /**
  * Freio das rotas que chamam o Gemini — as únicas em que cada requisição sai
