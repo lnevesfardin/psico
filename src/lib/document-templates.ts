@@ -133,6 +133,39 @@ export const PLACEHOLDER_TOKENS: { token: string; label: string }[] = [
  * decidida pelo modelo ORIGINAL, e não por uma nova detecção depois da
  * substituição.
  */
+/**
+ * Substitui [valor] e [sessão(ões)...] no modelo de Recibo por dados reais
+ * de um lançamento pago — só usado no fluxo "Emitir recibo" a partir do
+ * Financeiro (ver patient-documents-tab.tsx). Roda ANTES de fillPlaceholders,
+ * sobre o texto ORIGINAL do modelo: nada do que é injetado aqui contém "<",
+ * então não interfere na decisão texto-puro-vs-HTML que fillPlaceholders faz
+ * a partir do modelo original (ver o comentário grande logo abaixo). Os
+ * demais campos entre colchetes de outros modelos continuam para
+ * preenchimento manual, de propósito — não têm dado estruturado equivalente
+ * no sistema (ex.: "valor por extenso" exigiria converter número em texto).
+ *
+ * Se o psicólogo já tiver editado o próprio modelo e removido esses
+ * marcadores, o replace simplesmente não encontra nada e não faz nada — o
+ * campo entre colchetes original (se sobrar algum) continua pra
+ * preenchimento manual, mesmo comportamento de usar o modelo sem este atalho.
+ */
+export function preencherValorNoRecibo(
+  conteudo: string,
+  lancamento: { valor: number; descricao: string | null }
+): string {
+  let resultado = conteudo.replace(
+    "[valor]",
+    lancamento.valor.toFixed(2).replace(".", ",")
+  );
+  if (lancamento.descricao) {
+    resultado = resultado.replace(
+      "[sessão(ões) de atendimento psicológico]",
+      escapeHtml(lancamento.descricao)
+    );
+  }
+  return resultado;
+}
+
 export function fillPlaceholders(
   conteudo: string,
   patient: Patient,

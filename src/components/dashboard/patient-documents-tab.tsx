@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, FileSignature, HelpCircle, Printer, Save, Trash2 } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  Download,
+  FileSignature,
+  HelpCircle,
+  Printer,
+  Save,
+  Trash2,
+} from "lucide-react";
 import type { Patient } from "@/lib/dashboard-data";
 import { useAuth } from "@/context/auth-context";
 import { useProfile } from "@/context/profile-context";
@@ -9,8 +18,10 @@ import { createClient } from "@/lib/supabase/client";
 import {
   fillPlaceholders,
   listDocumentTemplates,
+  preencherValorNoRecibo,
   type DocumentTemplate,
 } from "@/lib/document-templates";
+import type { Lancamento } from "@/lib/financeiro-client";
 import {
   apagarDocumentoEmitido,
   criarDocumentoEmitido,
@@ -24,7 +35,14 @@ import { timbradoHtml } from "@/lib/document-letterhead";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { DocumentHowItWorksModal } from "@/components/dashboard/document-how-it-works-modal";
 
-export function PatientDocumentsTab({ patient }: { patient: Patient }) {
+export function PatientDocumentsTab({
+  patient,
+  reciboPreset,
+}: {
+  patient: Patient;
+  /** Presente quando a aba abre a partir de "Emitir recibo" no Financeiro. */
+  reciboPreset?: Lancamento | null;
+}) {
   const { user } = useAuth();
   const { profile } = useProfile();
 
@@ -37,6 +55,11 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
     modeloNome: string;
     conteudo: string;
   } | null>(null);
+  // Guarda o id do lançamento já processado — evita reabrir o rascunho do
+  // recibo sozinho se o psicólogo descartar e continuar navegando pela aba.
+  const [reciboAplicadoPara, setReciboAplicadoPara] = useState<string | null>(
+    null
+  );
   // Muda a cada novo rascunho carregado — usado como key do editor pra
   // forçar ele a remontar com o conteúdo novo (o TipTap só lê "content" na
   // primeira montagem, ver rich-text-editor.tsx).
@@ -60,6 +83,35 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
       })
       .finally(() => setLoading(false));
   }, [user, patient.id]);
+
+  // Setado durante a renderização (não num efeito): é o padrão recomendado
+  // pra "ajustar estado quando uma prop muda" sem o vai-e-volta extra de um
+  // efeito — reciboAplicadoPara funciona como a "chave" que diz se este
+  // lançamento específico já foi processado.
+  if (
+    reciboPreset &&
+    !loading &&
+    reciboAplicadoPara !== reciboPreset.id
+  ) {
+    setReciboAplicadoPara(reciboPreset.id);
+    const modeloRecibo = templates.find((t) => t.tipo === "Recibo");
+    if (modeloRecibo) {
+      setSelectedTemplateId(modeloRecibo.id);
+      setRascunho({
+        tipo: modeloRecibo.tipo,
+        modeloNome: modeloRecibo.nome,
+        conteudo: ensureHtml(
+          fillPlaceholders(
+            preencherValorNoRecibo(modeloRecibo.conteudo, reciboPreset),
+            patient,
+            profile,
+            new Date()
+          )
+        ),
+      });
+      setRascunhoVersion((v) => v + 1);
+    }
+  }
 
   function handleUsarModelo() {
     const template = templates.find((t) => t.id === selectedTemplateId);
@@ -160,6 +212,22 @@ export function PatientDocumentsTab({ patient }: { patient: Patient }) {
         <HelpCircle className="h-4 w-4" />
         Como funciona?
       </button>
+
+      {reciboPreset &&
+        !rascunho &&
+        !templates.some((t) => t.tipo === "Recibo") && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Você pediu para emitir um recibo, mas ainda não tem o modelo
+              &quot;Recibo de Pagamento&quot;. Adicione um em{" "}
+              <Link href="/dashboard/documentos" className="font-semibold underline">
+                Modelos de Documentos
+              </Link>{" "}
+              e volte aqui.
+            </p>
+          </div>
+        )}
 
       {templates.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-8 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">

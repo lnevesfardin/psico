@@ -88,7 +88,11 @@ export default function InicioPage() {
     );
 
     const mes = hoje.slice(0, 7);
-    const doMes = lancamentos.filter((l) => l.data.startsWith(mes));
+    // Só receita: despesa (aluguel, material...) não é "recebido" nem "a
+    // receber" — misturar as duas contaria gasto como se fosse faturamento.
+    const doMes = lancamentos.filter(
+      (l) => l.tipo === "receita" && l.data.startsWith(mes)
+    );
     const recebido = doMes
       .filter((l) => l.status === "pago")
       .reduce((soma, l) => soma + l.valor, 0);

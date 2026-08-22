@@ -365,18 +365,45 @@ create or replace trigger consultas_set_updated_at
 create table if not exists lancamentos_financeiros (
   id uuid primary key default gen_random_uuid(),
   psicologo_id uuid not null references auth.users(id) on delete cascade,
-  paciente_id uuid not null references pacientes(id) on delete cascade,
+  -- Nulo em lançamentos de despesa (aluguel, material...), que não têm
+  -- paciente associado — obrigatório continua sendo o padrão de fato: a
+  -- constraint lancamentos_financeiros_paciente_tipo_check abaixo exige os
+  -- dois preenchidos quando tipo = 'receita'.
+  paciente_id uuid references pacientes(id) on delete cascade,
   -- snapshot do nome (mesmo padrão de consultas.paciente_nome): evita joins
   -- e preserva o registro histórico legível caso o paciente seja renomeado.
-  paciente_nome text not null,
+  paciente_nome text,
   valor numeric(10, 2) not null,
   status_pagamento text not null default 'pendente'
     check (status_pagamento in ('pago', 'pendente')),
+  -- 'receita' = dinheiro que entra (sessão, pacote); 'despesa' = dinheiro que
+  -- sai (aluguel, material, assinatura de sistema). Sem isso, "faturamento"
+  -- do Financeiro somava as duas coisas juntas, o que não é lucro nenhum.
+  tipo text not null default 'receita'
+    check (tipo in ('receita', 'despesa')),
   data date not null default current_date,
   descricao text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- alter table (não só create) para bancos provisionados antes da despesa
+-- existir: paciente_id/paciente_nome eram not null, e tipo não existia.
+alter table lancamentos_financeiros alter column paciente_id drop not null;
+alter table lancamentos_financeiros alter column paciente_nome drop not null;
+alter table lancamentos_financeiros add column if not exists tipo text not null default 'receita';
+alter table lancamentos_financeiros drop constraint if exists lancamentos_financeiros_tipo_check;
+alter table lancamentos_financeiros add constraint lancamentos_financeiros_tipo_check
+  check (tipo in ('receita', 'despesa'));
+
+-- Despesa pode não ter paciente; receita continua exigindo os dois (mesma
+-- regra de sempre, só explícita agora que a coluna aceita nulo).
+alter table lancamentos_financeiros drop constraint if exists lancamentos_financeiros_paciente_tipo_check;
+alter table lancamentos_financeiros add constraint lancamentos_financeiros_paciente_tipo_check
+  check (
+    tipo = 'despesa'
+    or (paciente_id is not null and paciente_nome is not null)
+  );
 
 create index if not exists lancamentos_financeiros_psicologo_data_idx
   on lancamentos_financeiros (psicologo_id, data desc);

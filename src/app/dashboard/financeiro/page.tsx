@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Wallet,
   CheckCircle2,
@@ -8,9 +9,12 @@ import {
   PiggyBank,
   Plus,
   Trash2,
+  TrendingDown,
   X,
   Sparkles,
   Loader2,
+  Download,
+  FileSignature,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -24,9 +28,11 @@ import {
   updateLancamentoStatus,
   type Lancamento,
   type LancamentoRow,
+  type TipoLancamento,
 } from "@/lib/financeiro-client";
 import type { Patient, PaymentStatus } from "@/lib/dashboard-data";
 import { formatCurrency, formatDateShort, todayIso } from "@/lib/format";
+import { ExportarLancamentosModal } from "@/components/dashboard/exportar-lancamentos-modal";
 
 export default function FinanceiroPage() {
   const { user } = useAuth();
@@ -36,6 +42,7 @@ export default function FinanceiroPage() {
   const [loadingLancamentos, setLoadingLancamentos] = useState(true);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -83,13 +90,21 @@ export default function FinanceiroPage() {
     a.data < b.data ? 1 : a.data > b.data ? -1 : 0
   );
 
-  const totalRecebido = lancamentos
+  const receitas = lancamentos.filter((l) => l.tipo === "receita");
+  const despesas = lancamentos.filter((l) => l.tipo === "despesa");
+
+  const totalRecebido = receitas
     .filter((l) => l.status === "pago")
     .reduce((sum, l) => sum + l.valor, 0);
-  const totalPendente = lancamentos
+  const totalAReceber = receitas
     .filter((l) => l.status === "pendente")
     .reduce((sum, l) => sum + l.valor, 0);
-  const totalGeral = totalRecebido + totalPendente;
+  const totalDespesas = despesas
+    .filter((l) => l.status === "pago")
+    .reduce((sum, l) => sum + l.valor, 0);
+  // Só receita paga menos despesa paga: pendente (dos dois lados) ainda não
+  // é dinheiro de verdade no bolso, então não entra no saldo.
+  const saldo = totalRecebido - totalDespesas;
 
   async function handleToggle(lancamento: Lancamento) {
     const nextStatus: PaymentStatus =
@@ -118,8 +133,10 @@ export default function FinanceiroPage() {
   }
 
   async function handleDelete(lancamento: Lancamento) {
+    const quem =
+      lancamento.patientName ?? lancamento.descricao ?? "lançamento sem descrição";
     const confirmed = window.confirm(
-      `Excluir o lançamento de ${lancamento.patientName} (${formatCurrency(lancamento.valor)})? Essa ação não pode ser desfeita.`
+      `Excluir o lançamento de ${quem} (${formatCurrency(lancamento.valor)})? Essa ação não pode ser desfeita.`
     );
     if (!confirmed) return;
     setPendingIds((prev) => new Set(prev).add(lancamento.id));
@@ -144,21 +161,31 @@ export default function FinanceiroPage() {
             Financeiro / Recibos
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Acompanhe recebimentos e pendências do consultório. Clique no
-            status de um lançamento para marcá-lo como pago ou pendente.
+            Acompanhe receitas, despesas e pendências do consultório. Clique
+            no status de um lançamento para marcá-lo como pago ou pendente.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Lançamento
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Download className="h-4 w-4" />
+            Exportar
+          </button>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" />
+            Novo Lançamento
+          </button>
+        </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -171,19 +198,34 @@ export default function FinanceiroPage() {
         <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
             <Clock3 className="h-4 w-4 text-amber-500" />
-            Pendente
+            A receber
           </div>
           <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
-            {formatCurrency(totalPendente)}
+            {formatCurrency(totalAReceber)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            <TrendingDown className="h-4 w-4 text-rose-500" />
+            Despesas
+          </div>
+          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
+            {formatCurrency(totalDespesas)}
           </p>
         </div>
         <div className="rounded-xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
             <PiggyBank className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-            Faturamento total
+            Saldo
           </div>
-          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">
-            {formatCurrency(totalGeral)}
+          <p
+            className={`mt-2 text-2xl font-bold ${
+              saldo < 0
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-zinc-900 dark:text-white"
+            }`}
+          >
+            {formatCurrency(saldo)}
           </p>
         </div>
       </div>
@@ -207,26 +249,50 @@ export default function FinanceiroPage() {
           )}
 
           {sortedLancamentos.map((lancamento) => {
+            const isDespesa = lancamento.tipo === "despesa";
             const isPago = lancamento.status === "pago";
             const isSaving = pendingIds.has(lancamento.id);
+            const titulo = isDespesa
+              ? lancamento.descricao || "Despesa"
+              : lancamento.patientName;
+            const subtitulo =
+              isDespesa || !lancamento.descricao
+                ? formatDateShort(lancamento.data)
+                : `${formatDateShort(lancamento.data)} · ${lancamento.descricao}`;
             return (
               <div
                 key={lancamento.id}
                 className="flex items-center gap-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
-                  <Wallet className="h-5 w-5" />
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                    isDespesa
+                      ? "bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-400"
+                      : "bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400"
+                  }`}
+                >
+                  {isDespesa ? (
+                    <TrendingDown className="h-5 w-5" />
+                  ) : (
+                    <Wallet className="h-5 w-5" />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-zinc-900 dark:text-white">
-                    {lancamento.patientName}
+                    {titulo}
                   </p>
                   <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
-                    {formatDateShort(lancamento.data)}
-                    {lancamento.descricao ? ` · ${lancamento.descricao}` : ""}
+                    {subtitulo}
                   </p>
                 </div>
-                <p className="shrink-0 font-semibold text-zinc-900 dark:text-white">
+                <p
+                  className={`shrink-0 font-semibold ${
+                    isDespesa
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-zinc-900 dark:text-white"
+                  }`}
+                >
+                  {isDespesa ? "− " : ""}
                   {formatCurrency(lancamento.valor)}
                 </p>
                 <button
@@ -241,6 +307,16 @@ export default function FinanceiroPage() {
                 >
                   {isSaving ? "Salvando..." : isPago ? "Pago" : "Pendente"}
                 </button>
+                {!isDespesa && isPago && lancamento.patientId && (
+                  <Link
+                    href={`/dashboard/pacientes/${lancamento.patientId}?tab=documentos&recibo=${lancamento.id}`}
+                    title="Emitir recibo"
+                    aria-label="Emitir recibo"
+                    className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950 dark:hover:text-brand-400"
+                  >
+                    <FileSignature className="h-4 w-4" />
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={() => handleDelete(lancamento)}
@@ -264,6 +340,13 @@ export default function FinanceiroPage() {
           onCreated={handleCreated}
         />
       )}
+
+      {exportOpen && (
+        <ExportarLancamentosModal
+          lancamentos={lancamentos}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -279,6 +362,7 @@ function NewLancamentoModal({
   onClose: () => void;
   onCreated: (lancamento: Lancamento) => void;
 }) {
+  const [tipo, setTipo] = useState<TipoLancamento>("receita");
   const [patientId, setPatientId] = useState("");
   const [valor, setValor] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("pendente");
@@ -293,8 +377,11 @@ function NewLancamentoModal({
   // "patients" chega via prop e pode terminar de carregar depois do modal já
   // aberto (fetch da página ainda em andamento) — derivar em vez de fixar o
   // primeiro id no useState evita que o <select> mostre um paciente que o
-  // estado não sabe que está selecionado.
-  const selectedPatientId = patientId || patients[0]?.id || "";
+  // estado não sabe que está selecionado. Despesa não tem paciente por
+  // padrão — diferente de receita, aqui não faz sentido "adivinhar" o
+  // primeiro da lista, precisa ser escolha explícita.
+  const selectedPatientId =
+    tipo === "despesa" ? patientId : patientId || patients[0]?.id || "";
 
   function encontrarPaciente(nome: string) {
     const alvo = nome
@@ -363,8 +450,12 @@ function NewLancamentoModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const patient = patients.find((p) => p.id === selectedPatientId);
-    if (!patient) {
+    if (tipo === "receita" && !patient) {
       setError("Selecione um paciente.");
+      return;
+    }
+    if (tipo === "despesa" && !descricao.trim()) {
+      setError("Descreva a despesa (ex.: aluguel, material de escritório).");
       return;
     }
     setSaving(true);
@@ -377,8 +468,9 @@ function NewLancamentoModal({
         return;
       }
       const lancamento = await createLancamento(supabase, psicologoId, {
-        patientId: patient.id,
-        patientName: patient.name,
+        tipo,
+        patientId: patient?.id ?? null,
+        patientName: patient?.name ?? null,
         valor: valorNumerico,
         status,
         data,
@@ -416,7 +508,26 @@ function NewLancamentoModal({
           </button>
         </div>
 
-        {patients.length > 0 && (
+        <div className="mt-4 inline-flex w-full rounded-full border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
+          {(["receita", "despesa"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTipo(t)}
+              className={`flex-1 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                tipo === t
+                  ? t === "receita"
+                    ? "bg-brand-600 text-white"
+                    : "bg-rose-600 text-white"
+                  : "text-zinc-600 dark:text-zinc-400"
+              }`}
+            >
+              {t === "receita" ? "Receita" : "Despesa"}
+            </button>
+          ))}
+        </div>
+
+        {tipo === "receita" && patients.length > 0 && (
           <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-3 dark:border-brand-900 dark:bg-brand-950">
             <label className="flex items-center gap-1.5 text-sm font-medium text-brand-700 dark:text-brand-300">
               <Sparkles className="h-4 w-4" />
@@ -463,27 +574,30 @@ function NewLancamentoModal({
           </div>
         )}
 
-        {patients.length === 0 ? (
+        {tipo === "receita" && patients.length === 0 ? (
           <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-            Cadastre um paciente antes de registrar um lançamento.
+            Cadastre um paciente antes de registrar uma receita.
           </p>
         ) : (
           <div className="mt-4 space-y-4">
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Paciente
-              <select
-                value={selectedPatientId}
-                onChange={(e) => setPatientId(e.target.value)}
-                required
-                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              >
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {(tipo === "despesa" || patients.length > 0) && (
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                {tipo === "despesa" ? "Paciente (opcional)" : "Paciente"}
+                <select
+                  value={selectedPatientId}
+                  onChange={(e) => setPatientId(e.target.value)}
+                  required={tipo === "receita"}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                >
+                  {tipo === "despesa" && <option value="">— Sem paciente —</option>}
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -531,19 +645,28 @@ function NewLancamentoModal({
                         : "text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    {s === "pago" ? "Recebido" : "Pendente"}
+                    {s === "pago"
+                      ? tipo === "despesa"
+                        ? "Pago"
+                        : "Recebido"
+                      : "Pendente"}
                   </button>
                 ))}
               </div>
             </div>
 
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Descrição (opcional)
+              {tipo === "despesa" ? "Descrição" : "Descrição (opcional)"}
               <input
                 type="text"
+                required={tipo === "despesa"}
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Sessão individual, pacote mensal..."
+                placeholder={
+                  tipo === "despesa"
+                    ? "Aluguel da sala, material de escritório..."
+                    : "Sessão individual, pacote mensal..."
+                }
                 className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
               />
             </label>
@@ -552,7 +675,7 @@ function NewLancamentoModal({
 
         <button
           type="submit"
-          disabled={saving || patients.length === 0}
+          disabled={saving || (tipo === "receita" && patients.length === 0)}
           className="mt-6 w-full rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? "Salvando..." : "Salvar lançamento"}

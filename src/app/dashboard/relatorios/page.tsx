@@ -106,8 +106,14 @@ export default function RelatoriosPage() {
       ? porStatus.desmarcada / consultasPeriodo.length
       : 0;
 
+  // Só receita: despesa (aluguel, material...) não é faturamento — contar as
+  // duas juntas inflaria "recebido"/"a receber" com dinheiro que na verdade
+  // saiu, não entrou.
   const lancamentosPeriodo = useMemo(
-    () => lancamentos.filter((l) => l.data >= inicio && l.data <= hoje),
+    () =>
+      lancamentos.filter(
+        (l) => l.tipo === "receita" && l.data >= inicio && l.data <= hoje
+      ),
     [lancamentos, inicio, hoje]
   );
   const recebido = lancamentosPeriodo
@@ -132,7 +138,10 @@ export default function RelatoriosPage() {
     return meses.map(({ chave, label }) => ({
       label,
       total: lancamentos
-        .filter((l) => l.status === "pago" && l.data.startsWith(chave))
+        .filter(
+          (l) =>
+            l.tipo === "receita" && l.status === "pago" && l.data.startsWith(chave)
+        )
         .reduce((soma, l) => soma + l.valor, 0),
     }));
   }, [lancamentos, hoje]);

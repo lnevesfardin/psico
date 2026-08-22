@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Phone,
@@ -45,6 +45,7 @@ import { RespostasJogoList } from "@/components/dashboard/respostas-jogo-list";
 import { SessionTranscriptionModal } from "@/components/dashboard/session-transcription-modal";
 import { formatDateShort, formatDateTime } from "@/lib/format";
 import { useProfile } from "@/context/profile-context";
+import { getLancamento, type Lancamento } from "@/lib/financeiro-client";
 
 const TAB_LABELS = {
   dados: "Dados Pessoais",
@@ -63,12 +64,21 @@ export default function PatientDetailPage({
   const { id } = use(params);
   const { profile } = useProfile();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
+  // Vem preenchido quando a página abre a partir de "Emitir recibo" no
+  // Financeiro (?tab=documentos&recibo=<id>) — abre direto na aba certa em
+  // vez de forçar o psicólogo a navegar até lá de novo.
+  const tabInicial = searchParams.get("tab");
   const [tab, setTab] = useState<
     "dados" | "evolucao" | "humor" | "materiais" | "documentos" | "rastreio"
-  >("dados");
+  >(tabInicial === "documentos" ? "documentos" : "dados");
+  const reciboLancamentoId = searchParams.get("recibo");
+  const [reciboLancamento, setReciboLancamento] = useState<Lancamento | null>(
+    null
+  );
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -88,6 +98,14 @@ export default function PatientDetailPage({
       .then(setPatient)
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!reciboLancamentoId) return;
+    const supabase = createClient();
+    getLancamento(supabase, reciboLancamentoId)
+      .then(setReciboLancamento)
+      .catch(() => {});
+  }, [reciboLancamentoId]);
 
   if (loading) {
     return (
@@ -652,7 +670,9 @@ export default function PatientDetailPage({
         />
       )}
 
-      {tab === "documentos" && <PatientDocumentsTab patient={patient} />}
+      {tab === "documentos" && (
+        <PatientDocumentsTab patient={patient} reciboPreset={reciboLancamento} />
+      )}
 
       {transcribeOpen && patient && (
         <SessionTranscriptionModal
