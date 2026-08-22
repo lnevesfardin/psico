@@ -219,7 +219,7 @@ export default function FinanceiroPage() {
             Saldo
           </div>
           <p
-            className={`mt-2 text-2xl font-bold ${
+            className={`mt-2 whitespace-nowrap text-2xl font-bold ${
               saldo < 0
                 ? "text-rose-600 dark:text-rose-400"
                 : "text-zinc-900 dark:text-white"
