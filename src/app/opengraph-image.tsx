@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { SITE_NAME } from "@/lib/site";
 
@@ -5,6 +7,13 @@ export const alt =
   "Psico — prontuário eletrônico, agenda e financeiro para consultórios de psicologia";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+
+// Embutida como data URI: o gerador (Satori) não resolve caminho relativo de
+// /public em tempo de requisição, só URL remota ou data URI — e antes nem
+// precisava disso, porque a marca virava um quadrado desenhado (ver embaixo).
+const logoBase64 = readFileSync(join(process.cwd(), "public/logo.png")).toString(
+  "base64"
+);
 
 /**
  * Imagem de compartilhamento (WhatsApp, Instagram, LinkedIn), gerada em build
@@ -29,18 +38,15 @@ export default function Image() {
           padding: "80px 90px",
         }}
       >
-        {/* A marca é um quadrado arredondado desenhado, não um caractere:
-            a fonte padrão do gerador não tem glifo de símbolo (✦ sairia
-            como quadradinho vazio na miniatura). */}
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <div
-            style={{
-              display: "flex",
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: "#5c7143",
-            }}
+          {/* eslint-disable-next-line @next/next/no-img-element -- gerador
+              de imagem (Satori), não uma página; next/image não se aplica. */}
+          <img
+            src={`data:image/png;base64,${logoBase64}`}
+            width={44}
+            height={44}
+            alt=""
+            style={{ objectFit: "contain" }}
           />
           <div style={{ fontSize: 34, fontWeight: 700, color: "#b3c39a" }}>
             {SITE_NAME}
