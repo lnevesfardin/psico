@@ -13,7 +13,7 @@ import { useAuth } from "@/context/auth-context";
 import { useAppointments } from "@/context/appointments-context";
 import { listPatients } from "@/lib/patients-client";
 import { listLancamentos, type Lancamento } from "@/lib/financeiro-client";
-import { formatCurrency, todayIso } from "@/lib/format";
+import { formatCurrency, isoNoFusoBr, todayIso } from "@/lib/format";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/dashboard-data";
 
 type Periodo = "mes" | "3meses" | "ano";
@@ -125,9 +125,13 @@ export default function RelatoriosPage() {
 
   const novasFichas = useMemo(
     () =>
-      pacientes.filter(
-        (p) => p.createdAt.slice(0, 10) >= inicio && p.createdAt.slice(0, 10) <= hoje
-      ),
+      pacientes.filter((p) => {
+        // createdAt é timestamptz (UTC); .slice(0,10) cru pegaria o dia em
+        // UTC, que diverge do dia local do Brasil à noite — precisa
+        // converter pro fuso antes de comparar com inicio/hoje.
+        const dataLocal = isoNoFusoBr(new Date(p.createdAt));
+        return dataLocal >= inicio && dataLocal <= hoje;
+      }),
     [pacientes, inicio, hoje]
   );
 

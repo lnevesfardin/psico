@@ -56,7 +56,12 @@ export function formatCurrency(value: number): string {
 // "en-CA" é usado só porque formata como yyyy-mm-dd.
 const FUSO_BR = "America/Sao_Paulo";
 
-function isoNoFusoBr(date: Date): string {
+// Exportada (não só usada por todayIso): qualquer lugar que precise
+// comparar um timestamptz (ex.: created_at) contra uma data "yyyy-mm-dd" de
+// verdade precisa passar pelo fuso primeiro — um simples .slice(0, 10) no
+// timestamp cru pega a data em UTC, que diverge da data local do Brasil
+// justamente na mesma janela de horário citada acima (21h–meia-noite).
+export function isoNoFusoBr(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO_BR }).format(date);
 }
 

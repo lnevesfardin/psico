@@ -106,7 +106,7 @@ export default function MateriaisPage() {
                   </p>
                 )}
                 <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                  {formatDateShort(material.createdAt.slice(0, 10))}
+                  {formatDateShort(material.createdAt)}
                   {material.tamanhoBytes > 0 &&
                     ` · ${formatarTamanho(material.tamanhoBytes)}`}
                 </p>
