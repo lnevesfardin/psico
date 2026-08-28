@@ -1,17 +1,18 @@
 /**
  * Escalas de rastreio disponíveis para o link público (ver
  * src/app/escala/[psicologoId]/[slug] e src/app/dashboard/link/page.tsx).
- * Só instrumentos de domínio público / livres para reprodução clínica —
- * ver ESCALA_TRAUMA_INDISPONIVEL para o motivo de a escala de trauma
- * (CRIES-13 / CTQ) não estar aqui: são instrumentos com direitos autorais
- * e cujo texto oficial dos itens não foi fornecido.
+ * Só instrumentos de domínio público / livres para reprodução clínica, com
+ * o texto oficial de cada item já cadastrado — ver ESCALAS_INDISPONIVEIS
+ * pro catálogo do que falta (e o motivo de cada um) e
+ * TESTES_RESTRITOS_SATEPSI pros testes de uso exclusivo de psicólogo, que
+ * nunca vão entrar aqui (aplicação regulada, só por sistema credenciado).
  *
  * São só rastreio, não diagnóstico — cada escala carrega essa mensagem na
  * própria "instrucao" e o resultado nunca é mostrado a quem responde (só ao
  * psicólogo, na aba de respostas).
  */
 
-export type EscalaSlug = "cssrs" | "phq9" | "gad7" | "snap-iv";
+export type EscalaSlug = "cssrs" | "phq9" | "phq2" | "gad7" | "snap-iv";
 
 export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
@@ -95,6 +96,35 @@ export const CSSRS: EscalaCssrs = {
   ],
 };
 
+const PHQ9_ITENS: ItemLikert[] = [
+  { id: "q1", texto: "Pouco interesse ou pouco prazer em fazer as coisas" },
+  { id: "q2", texto: "Se sentir para baixo, deprimida(o) ou sem perspectiva" },
+  {
+    id: "q3",
+    texto: "Dificuldade para pegar no sono, permanecer dormindo, ou dormir demais",
+  },
+  { id: "q4", texto: "Se sentir cansada(o) ou com pouca energia" },
+  { id: "q5", texto: "Falta de apetite ou comer em excesso" },
+  {
+    id: "q6",
+    texto:
+      "Se sentir mal consigo mesma(o) — sentir-se um fracasso ou que decepcionou a família ou a si mesma(o)",
+  },
+  {
+    id: "q7",
+    texto: "Dificuldade para se concentrar (ler, assistir algo, tarefas escolares)",
+  },
+  {
+    id: "q8",
+    texto:
+      "Lentidão para se mover ou falar a ponto de outros perceberem — ou o oposto, estar tão agitada(o) que se mexe muito mais que o normal",
+  },
+  {
+    id: "q9",
+    texto: "Pensar que seria melhor estar morta(o) ou em se ferir de alguma maneira",
+  },
+];
+
 export const PHQ9: EscalaLikert = {
   tipo: "likert",
   slug: "phq9",
@@ -113,34 +143,7 @@ export const PHQ9: EscalaLikert = {
       { valor: 3, label: "Extremamente", descricao: "Dificultou extremamente" },
     ],
   },
-  itens: [
-    { id: "q1", texto: "Pouco interesse ou pouco prazer em fazer as coisas" },
-    { id: "q2", texto: "Se sentir para baixo, deprimida(o) ou sem perspectiva" },
-    {
-      id: "q3",
-      texto: "Dificuldade para pegar no sono, permanecer dormindo, ou dormir demais",
-    },
-    { id: "q4", texto: "Se sentir cansada(o) ou com pouca energia" },
-    { id: "q5", texto: "Falta de apetite ou comer em excesso" },
-    {
-      id: "q6",
-      texto:
-        "Se sentir mal consigo mesma(o) — sentir-se um fracasso ou que decepcionou a família ou a si mesma(o)",
-    },
-    {
-      id: "q7",
-      texto: "Dificuldade para se concentrar (ler, assistir algo, tarefas escolares)",
-    },
-    {
-      id: "q8",
-      texto:
-        "Lentidão para se mover ou falar a ponto de outros perceberem — ou o oposto, estar tão agitada(o) que se mexe muito mais que o normal",
-    },
-    {
-      id: "q9",
-      texto: "Pensar que seria melhor estar morta(o) ou em se ferir de alguma maneira",
-    },
-  ],
+  itens: PHQ9_ITENS,
   faixas: [
     { min: 0, max: 4, label: "Mínima" },
     { min: 5, max: 9, label: "Leve" },
@@ -149,6 +152,25 @@ export const PHQ9: EscalaLikert = {
     { min: 20, max: 27, label: "Grave" },
   ],
   corte: { valor: 10, rotulo: "Provável episódio depressivo maior" },
+};
+
+// Os 2 primeiros itens do PHQ-9 (mesmo texto oficial, já usado ali) são,
+// eles mesmos, o instrumento validado PHQ-2 — não uma aproximação. Corte ≥3
+// é o ponto de corte publicado pra ele.
+export const PHQ2: EscalaLikert = {
+  tipo: "likert",
+  slug: "phq2",
+  nome: "PHQ-2 (rastreio rápido de depressão)",
+  descricaoCurta:
+    "Ultra-rastreio de depressão em 2 perguntas — indicado pra triagem rápida antes do PHQ-9 completo.",
+  instrucao: "Nas últimas duas semanas, com que frequência você foi incomodada(o) por algum dos problemas abaixo?",
+  opcoes: OPCOES_FREQUENCIA,
+  itens: [PHQ9_ITENS[0], PHQ9_ITENS[1]],
+  faixas: [
+    { min: 0, max: 2, label: "Rastreio negativo" },
+    { min: 3, max: 6, label: "Rastreio positivo" },
+  ],
+  corte: { valor: 3, rotulo: "Sugere possível quadro depressivo — aplicar o PHQ-9 completo" },
 };
 
 export const GAD7: EscalaLikert = {
@@ -274,20 +296,85 @@ export const SNAP_IV: EscalaLikert = {
   corte: { valor: 2, rotulo: "Média ≥ 2 por domínio sinaliza sintomatologia relevante" },
 };
 
-export const ESCALAS_DISPONIVEIS: Escala[] = [CSSRS, PHQ9, GAD7, SNAP_IV];
+export const ESCALAS_DISPONIVEIS: Escala[] = [CSSRS, PHQ9, PHQ2, GAD7, SNAP_IV];
+
+export type EscalaIndisponivel = {
+  categoria: string;
+  sigla: string;
+  nome: string;
+  motivo: string;
+};
+
+// Repetida em vários itens de ESCALAS_INDISPONIVEIS: são instrumentos de
+// domínio público/envio livre (não exigem psicólogo pra aplicar, diferente
+// da lista de TESTES_RESTRITOS_SATEPSI abaixo), mas fabricar o enunciado de
+// cada item e a tabela de pontos de corte de memória arriscaria tanto os
+// direitos do instrumento quanto — o que pesa mais — a exatidão da
+// pontuação devolvida pra um paciente de verdade. Mesmo cuidado que já
+// existia aqui só pra escala de trauma, agora estendido pra lista inteira.
+const MOTIVO_FALTA_TEXTO_OFICIAL =
+  "De domínio público, mas o texto oficial de cada item e a tabela de pontos de corte ainda não foram cadastrados aqui. Colando o instrumento validado (idealmente a versão em português já usada no Brasil), dá pra implementar.";
+
+// Estas, além do texto oficial, dependem de autorização/registro do próprio
+// detentor antes de qualquer reprodução (OMS, para o WHOQOL; autor original,
+// para as demais) — um passo a mais que os itens acima.
+const MOTIVO_REQUER_AUTORIZACAO =
+  "Depende de autorização/registro junto ao detentor dos direitos (não é só colar o texto) além da tabela de pontos de corte — ainda não solicitado.";
 
 /**
- * A escala de trauma (CRIES-13 ou CTQ) foi pedida junto com as outras 4, mas
- * o texto oficial dos itens não foi fornecido e o CTQ tem direitos autorais
- * explícitos — reproduzir de memória arriscaria tanto o licenciamento quanto
- * a exatidão da pontuação num paciente real. Fica como opção desabilitada no
- * seletor até alguém colar o texto oficial aqui.
+ * Escalas de rastreio de domínio público que o pedido original trouxe mas
+ * que ainda não têm o texto oficial dos itens cadastrado em ESCALAS_DISPONIVEIS
+ * — mesmo padrão que já existia só para a escala de trauma, agora abrangendo
+ * a lista inteira. Aparecem no seletor como "em breve", cada uma com seu
+ * motivo, em vez de sumirem silenciosamente do catálogo.
  */
-export const ESCALA_TRAUMA_INDISPONIVEL = {
-  nome: "Escala de Trauma (CRIES-13 / CTQ)",
-  motivo:
-    "Requer o texto oficial do instrumento validado (CRIES-13 é gratuito em childrenandwar.org; o CTQ tem direitos autorais) antes de virar link — ainda não disponível aqui.",
-};
+export const ESCALAS_INDISPONIVEIS: EscalaIndisponivel[] = [
+  { categoria: "Depressão e humor", sigla: "EPDS", nome: "Edinburgh Postnatal Depression Scale (depressão pós-parto)", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  { categoria: "Depressão e humor", sigla: "GDS-15", nome: "Geriatric Depression Scale (depressão em idosos)", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  { categoria: "Ansiedade, estresse e trauma", sigla: "DASS-21", nome: "Depression, Anxiety and Stress Scale", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  { categoria: "Ansiedade, estresse e trauma", sigla: "PSS-10", nome: "Perceived Stress Scale", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  { categoria: "Ansiedade, estresse e trauma", sigla: "SPIN", nome: "Social Phobia Inventory", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  { categoria: "Ansiedade, estresse e trauma", sigla: "PCL-5", nome: "PTSD Checklist for DSM-5", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  {
+    categoria: "Ansiedade, estresse e trauma",
+    sigla: "CRIES-13 / CTQ",
+    nome: "Escala de Trauma",
+    motivo:
+      "CRIES-13 é gratuito (childrenandwar.org); o CTQ tem direitos autorais explícitos. Falta cadastrar o texto oficial de qualquer um dos dois.",
+  },
+  { categoria: "Neurodesenvolvimento", sigla: "ASRS-18", nome: "Adult Self-Report Scale — TDAH em adultos", motivo: MOTIVO_REQUER_AUTORIZACAO },
+  { categoria: "Neurodesenvolvimento", sigla: "AQ-10", nome: "Autism-Spectrum Quotient (10 itens)", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  { categoria: "Neurodesenvolvimento", sigla: "CAT-Q", nome: "Camouflaging Autistic Traits Questionnaire", motivo: MOTIVO_REQUER_AUTORIZACAO },
+  { categoria: "Neurodesenvolvimento", sigla: "RAADS-R", nome: "Ritvo Autism Asperger Diagnostic Scale", motivo: MOTIVO_REQUER_AUTORIZACAO },
+  { categoria: "Saúde geral e qualidade de vida", sigla: "SRQ-20", nome: "Self-Reporting Questionnaire-20", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  { categoria: "Saúde geral e qualidade de vida", sigla: "WHOQOL-BREF", nome: "Qualidade de vida (OMS, versão abreviada)", motivo: MOTIVO_REQUER_AUTORIZACAO },
+  { categoria: "Saúde geral e qualidade de vida", sigla: "CORE-OM", nome: "Clinical Outcomes in Routine Evaluation", motivo: MOTIVO_REQUER_AUTORIZACAO },
+];
+
+export type TesteRestrito = { categoria: string; sigla: string; nome: string };
+
+/**
+ * Testes psicológicos de uso EXCLUSIVO de psicólogo (Lei 4.119/62), com
+ * aplicação obrigatoriamente por sistema credenciado no SATEPSI (Vetor
+ * Online, Pearson Clinical, Hogrefe etc.) — nunca por link avulso, nem por
+ * PDF. Ficam listados aqui só como REFERÊNCIA dentro do painel, nunca como
+ * opção de envio: montar um disparo próprio pra eles contornaria a própria
+ * exigência regulatória que os torna restritos, além de reproduzir
+ * instrumento comercial protegido por direitos autorais sem licença. A
+ * aplicação de verdade continua na plataforma da editora de cada teste.
+ */
+export const TESTES_RESTRITOS_SATEPSI: TesteRestrito[] = [
+  { categoria: "Escalas de Beck", sigla: "BDI-II", nome: "Inventário de Depressão de Beck" },
+  { categoria: "Escalas de Beck", sigla: "BAI", nome: "Inventário de Ansiedade de Beck" },
+  { categoria: "Escalas de Beck", sigla: "BHS", nome: "Escala de Desesperança de Beck" },
+  { categoria: "Escalas de Beck", sigla: "BSS", nome: "Escala de Ideação Suicida de Beck" },
+  { categoria: "Personalidade e tipologia", sigla: "BFP", nome: "Bateria Fatorial de Personalidade" },
+  { categoria: "Personalidade e tipologia", sigla: "NEO-PI-R / NEO-FFI-R", nome: "Inventário de Personalidade NEO" },
+  { categoria: "Personalidade e tipologia", sigla: "QUATI", nome: "Questionário de Avaliação Tipológica" },
+  { categoria: "Personalidade e tipologia", sigla: "IFP-II", nome: "Inventário Fatorial de Personalidade" },
+  { categoria: "Estresse e cognição operacional", sigla: "ISSL", nome: "Inventário de Sintomas de Stress de Lipp" },
+  { categoria: "Estresse e cognição operacional", sigla: "BPA", nome: "Bateria de Psicodiagnóstico de Atenção" },
+];
 
 export function getEscala(slug: string): Escala | undefined {
   return ESCALAS_DISPONIVEIS.find((e) => e.slug === slug);

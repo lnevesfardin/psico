@@ -111,6 +111,16 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     themeColor: "azul",
     iconType: "smile",
   },
+  phq2: {
+    title: "Como você tem se sentido",
+    description:
+      "Duas perguntas rápidas sobre ânimo e interesse nas últimas semanas — uma triagem curta antes de perguntas mais completas, se fizer sentido.",
+    instrumento: "PHQ-2",
+    estimatedTime: "1 min",
+    tags: ["Bem-estar", "Humor"],
+    themeColor: "azul",
+    iconType: "smile",
+  },
   gad7: {
     title: "Preocupação e ansiedade no seu dia",
     description:

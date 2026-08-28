@@ -1,10 +1,22 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Copy, Check, Link2, ExternalLink, ClipboardList } from "lucide-react";
+import {
+  Copy,
+  Check,
+  Link2,
+  ExternalLink,
+  ClipboardList,
+  Clock,
+  Lock,
+} from "lucide-react";
 import { useProfile } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";
-import { ESCALAS_DISPONIVEIS, ESCALA_TRAUMA_INDISPONIVEL } from "@/lib/escalas";
+import {
+  ESCALAS_DISPONIVEIS,
+  ESCALAS_INDISPONIVEIS,
+  TESTES_RESTRITOS_SATEPSI,
+} from "@/lib/escalas";
 import { RespostasEscalaList } from "@/components/dashboard/respostas-escala-list";
 import { createClient } from "@/lib/supabase/client";
 import { listPatients } from "@/lib/patients-client";
@@ -21,6 +33,20 @@ function useOrigin(): string {
     () => window.location.origin,
     () => ""
   );
+}
+
+/** Agrupa uma lista já ordenada por "categoria" em blocos consecutivos,
+ *  preservando a ordem de primeira aparição de cada categoria. */
+function agruparPorCategoria<T extends { categoria: string }>(
+  itens: T[]
+): { categoria: string; itens: T[] }[] {
+  const grupos: { categoria: string; itens: T[] }[] = [];
+  for (const item of itens) {
+    const grupo = grupos.find((g) => g.categoria === item.categoria);
+    if (grupo) grupo.itens.push(item);
+    else grupos.push({ categoria: item.categoria, itens: [item] });
+  }
+  return grupos;
 }
 
 function LinkBox({
@@ -267,16 +293,8 @@ export default function MeuLinkPage() {
                   {e.nome}
                 </option>
               ))}
-              <option disabled>
-                {ESCALA_TRAUMA_INDISPONIVEL.nome} (indisponível)
-              </option>
             </select>
           </label>
-          {escalaSlug === "" && (
-            <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-600">
-              {ESCALA_TRAUMA_INDISPONIVEL.motivo}
-            </p>
-          )}
 
           {escalaEscolhida && (
             <div className="mt-4">
@@ -349,6 +367,89 @@ export default function MeuLinkPage() {
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="mt-10">
+        <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
+          Catálogo de escalas
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          Todas as escalas conhecidas de rastreio e avaliação psicológica,
+          para você ver o que já dá para enviar e o que ainda não.
+        </p>
+
+        <div className="mt-4 rounded-2xl border border-zinc-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            <Check className="h-4 w-4" />
+            Disponíveis para envio agora
+          </div>
+          <ul className="mt-2 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+            {ESCALAS_DISPONIVEIS.map((e) => (
+              <li key={e.slug}>{e.nome}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-600">
+            Selecione qualquer uma no gerador de link acima.
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 p-6 dark:border-zinc-800">
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+            <Clock className="h-4 w-4" />
+            Em breve — de domínio público, faltando cadastrar
+          </div>
+          {agruparPorCategoria(ESCALAS_INDISPONIVEIS).map((grupo) => (
+            <div key={grupo.categoria} className="mt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
+                {grupo.categoria}
+              </p>
+              <ul className="mt-1.5 space-y-2">
+                {grupo.itens.map((e) => (
+                  <li key={e.sigla}>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        {e.sigla}
+                      </span>{" "}
+                      — {e.nome}
+                    </p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-600">{e.motivo}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 p-6 dark:border-zinc-800">
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+            <Lock className="h-4 w-4" />
+            Testes de uso exclusivo do psicólogo — fora do escopo deste app
+          </div>
+          <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-600">
+            Regulados pela Lei 4.119/62: só podem ser aplicados por sistema
+            credenciado no SATEPSI (Vetor Online, Pearson Clinical, Hogrefe
+            etc.), nunca por link avulso ou PDF. Ficam listados aqui só como
+            referência — a aplicação de verdade continua na plataforma da
+            editora de cada teste.
+          </p>
+          {agruparPorCategoria(TESTES_RESTRITOS_SATEPSI).map((grupo) => (
+            <div key={grupo.categoria} className="mt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
+                {grupo.categoria}
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {grupo.itens.map((t) => (
+                  <li key={t.sigla} className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                      {t.sigla}
+                    </span>{" "}
+                    — {t.nome}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
 

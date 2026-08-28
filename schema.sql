@@ -2216,7 +2216,7 @@ create policy "psicologo_le_diario_compartilhado" on diario_paciente
   );
 
 -- =========================================================
--- respostas_escala — respostas de escalas de rastreio (PHQ-9, GAD-7,
+-- respostas_escala — respostas de escalas de rastreio (PHQ-9, PHQ-2, GAD-7,
 -- SNAP-IV, C-SSRS) enviadas pelo link público de escala (ver
 -- src/lib/escalas.ts para os itens/opções e src/app/escala/[psicologoId]/
 -- [slug] para a página pública). Guarda só as respostas brutas por item
@@ -2245,6 +2245,13 @@ create table if not exists respostas_escala (
 -- silêncio o histórico de rastreio já coletado.
 alter table respostas_escala
   add column if not exists paciente_id uuid references pacientes(id) on delete set null;
+
+-- Mesmo motivo do drop+add em profiles_role_check: o "check" inline do
+-- create table só vale pra banco criado do zero. Nome padrão do Postgres pra
+-- constraint de coluna sem nome explícito é "<tabela>_<coluna>_check".
+alter table respostas_escala drop constraint if exists respostas_escala_escala_check;
+alter table respostas_escala add constraint respostas_escala_escala_check
+  check (escala in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv'));
 
 create index if not exists respostas_escala_psicologo_id_idx
   on respostas_escala (psicologo_id, created_at desc);
@@ -2295,6 +2302,10 @@ create table if not exists convites_escala (
 create index if not exists convites_escala_paciente_idx
   on convites_escala (paciente_id);
 
+alter table convites_escala drop constraint if exists convites_escala_escala_check;
+alter table convites_escala add constraint convites_escala_escala_check
+  check (escala in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv'));
+
 alter table convites_escala enable row level security;
 
 -- Mesma lógica de convites_paciente: só o dono da ficha enxerga o convite.
@@ -2339,7 +2350,7 @@ begin
     raise exception 'Paciente não encontrado';
   end if;
 
-  if p_escala not in ('cssrs', 'phq9', 'gad7', 'snap-iv') then
+  if p_escala not in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv') then
     raise exception 'Escala inválida';
   end if;
 
@@ -2414,7 +2425,7 @@ begin
     end if;
   end if;
 
-  if p_escala not in ('cssrs', 'phq9', 'gad7', 'snap-iv') then
+  if p_escala not in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv') then
     raise exception 'Escala inválida';
   end if;
 
