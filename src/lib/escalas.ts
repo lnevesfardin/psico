@@ -97,11 +97,15 @@ export type Escala = EscalaLikert | EscalaCssrs;
 export type RespostaLikert = Record<string, number>;
 export type RespostaCssrs = Record<string, boolean>;
 
+// As 4 descrições falam só de FREQUÊNCIA, a mesma dimensão do rótulo — a
+// versão anterior misturava frequência e intensidade na última opção
+// ("Quase todos os dias" / "de forma intensa"), o que dava margem a
+// confusão sobre o que estava sendo perguntado.
 const OPCOES_FREQUENCIA: OpcaoLikert[] = [
   { valor: 0, label: "Nenhuma vez", descricao: "Não aconteceu nos últimos 14 dias" },
-  { valor: 1, label: "Alguns dias", descricao: "Aconteceu em alguns momentos" },
-  { valor: 2, label: "Mais da metade dos dias", descricao: "Aconteceu com frequência" },
-  { valor: 3, label: "Quase todos os dias", descricao: "Aconteceu de forma intensa" },
+  { valor: 1, label: "Alguns dias", descricao: "Aconteceu em poucos dias, não com frequência" },
+  { valor: 2, label: "Mais da metade dos dias", descricao: "Aconteceu na maioria dos dias" },
+  { valor: 3, label: "Quase todos os dias", descricao: "Aconteceu com frequência, quase todo dia" },
 ];
 
 const OPCOES_SNAP: OpcaoLikert[] = [
@@ -113,9 +117,15 @@ const OPCOES_SNAP: OpcaoLikert[] = [
 
 // Usada por SRQ-20 e GDS-15: as duas são de resposta binária (sim/não) no
 // instrumento oficial, cada uma com pontuação por item — não frequência.
+// Sem subtítulo: cada item já É uma pergunta de sim/não (ex.: "Tem dores de
+// cabeça frequentes?"), então "Sim"/"Não" sozinhos já respondem com clareza
+// — um subtítulo genérico tipo "essa é a sua situação" só reformularia a
+// pergunta de um jeito estranho, igual pra qualquer uma das 35 perguntas
+// diferentes que usam esta mesma lista. Mesmo critério já usado no C-SSRS
+// (YesNoQuestion, em escala-wizard.tsx), que também não tem subtítulo.
 const OPCOES_SIM_NAO: OpcaoLikert[] = [
-  { valor: 0, label: "Não", descricao: "Essa não é a sua situação" },
-  { valor: 1, label: "Sim", descricao: "Essa é a sua situação" },
+  { valor: 0, label: "Não", descricao: "" },
+  { valor: 1, label: "Sim", descricao: "" },
 ];
 
 export const CSSRS: EscalaCssrs = {
