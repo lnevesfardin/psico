@@ -39,6 +39,13 @@ function resumoResposta(resposta: RespostaEscala): { rotulo: string; tom: Tom } 
   if (escala.dominios) {
     return { rotulo: r.faixa, tom: r.faixa.startsWith("Sintomatologia") ? "atencao" : "neutro" };
   }
+  if (escala.subescalas) {
+    // "atencao" se qualquer subescala (Depressão/Ansiedade/Estresse na
+    // DASS-21) cair em "Moderado" ou pior — as três são independentes, uma
+    // só elevada já merece o aviso, mesmo com as outras duas normais.
+    const elevado = r.porSubescala?.some((s) => s.elevado) ?? false;
+    return { rotulo: r.faixa, tom: elevado ? "atencao" : "neutro" };
+  }
   return {
     rotulo: `${r.faixa} (${r.total}/${escala.faixas[escala.faixas.length - 1]?.max ?? r.total})`,
     tom: r.total >= escala.corte.valor ? "atencao" : "neutro",

@@ -172,6 +172,16 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     themeColor: "verde",
     iconType: "smile",
   },
+  dass21: {
+    title: "Depressão, ansiedade e estresse",
+    description:
+      "Vinte e uma afirmações sobre como você tem se sentido na última semana. O resultado sai separado em três partes — não é um número só.",
+    instrumento: "DASS-21",
+    estimatedTime: "5-7 min",
+    tags: ["Bem-estar", "Ansiedade", "Humor"],
+    themeColor: "roxo",
+    iconType: "brain",
+  },
   epds: {
     title: "Como você tem se sentido nos últimos dias",
     description:

@@ -20,7 +20,8 @@ export type EscalaSlug =
   | "snap-iv"
   | "srq20"
   | "gds15"
-  | "epds";
+  | "epds"
+  | "dass21";
 
 export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
@@ -62,6 +63,21 @@ export type EscalaLikert = {
   corte: { valor: number; rotulo: string };
   /** Só para escalas pontuadas por domínio (ex.: SNAP-IV), não por total simples. */
   dominios?: { chave: string; nome: string }[];
+  /**
+   * Escalas com subescalas INDEPENDENTES, cada uma somada, multiplicada por
+   * um fator próprio e classificada na própria tabela de gravidade (ex.:
+   * DASS-21: Depressão/Ansiedade/Estresse, cada uma ×2, cada uma com 5
+   * faixas). Item pertence a uma subescala pelo mesmo campo "dominio" usado
+   * por "dominios" acima — os dois nunca coexistem na mesma escala.
+   * Diferente de "dominios" (que combina tudo numa média + um sinal só),
+   * aqui cada subescala é somada e relatada sem se combinar com as outras.
+   */
+  subescalas?: {
+    chave: string;
+    nome: string;
+    multiplicador: number;
+    faixas: FaixaLikert[];
+  }[];
 };
 
 export type ItemCssrs = { id: string; texto: string };
@@ -563,6 +579,117 @@ export const EPDS: EscalaLikert = {
   corte: { valor: 12, rotulo: "12+ sugere depressão provável — considerar avaliação" },
 };
 
+// Texto, agrupamento por subescala e tabela de pontuação/classificação
+// transcritos na íntegra de um PDF de aplicação da UFC (Grupo GAIPA,
+// Faculdade de Medicina), que cita as duas referências originais:
+// Lovibond & Lovibond (1995, instrumento original) e Vignola & Tucci (2014,
+// adaptação/validação pro português do Brasil). Único documento desta leva
+// de pesquisa com o texto completo, instruções, tabela de pontuação por
+// subescala E tabela de classificação — sem precisar reconstruir nada.
+//
+// Cada subescala (Depressão/Ansiedade/Estresse) é somada e multiplicada por
+// 2 de forma independente, com sua própria faixa de gravidade — ver
+// EscalaLikert.subescalas. Nenhum item é invertido.
+const OPCOES_DASS: OpcaoLikert[] = [
+  { valor: 0, label: "Não se aplicou de maneira alguma", descricao: "" },
+  { valor: 1, label: "Aplicou-se em algum grau, ou por pouco de tempo", descricao: "" },
+  { valor: 2, label: "Aplicou-se em um grau considerável, ou por uma boa parte do tempo", descricao: "" },
+  { valor: 3, label: "Aplicou-se muito, ou na maioria do tempo", descricao: "" },
+];
+
+export const DASS21: EscalaLikert = {
+  tipo: "likert",
+  slug: "dass21",
+  nome: "DASS-21 (depressão, ansiedade e estresse)",
+  descricaoCurta:
+    "Rastreio conjunto de depressão, ansiedade e estresse — 21 afirmações, três resultados independentes.",
+  instrucao:
+    "Leia cada afirmação e escolha o quanto ela se aplicou a você durante a última semana.",
+  opcoes: OPCOES_DASS,
+  itens: [
+    { id: "q1", texto: "Achei difícil me acalmar", dominio: "estresse" },
+    { id: "q2", texto: "Senti minha boca seca", dominio: "ansiedade" },
+    { id: "q3", texto: "Não consegui vivenciar nenhum sentimento positivo", dominio: "depressao" },
+    {
+      id: "q4",
+      texto:
+        "Tive dificuldade em respirar em alguns momentos (ex.: respiração ofegante, falta de ar, sem ter feito nenhum esforço físico)",
+      dominio: "ansiedade",
+    },
+    { id: "q5", texto: "Achei difícil ter iniciativa para fazer as coisas", dominio: "depressao" },
+    { id: "q6", texto: "Tive a tendência de reagir de forma exagerada às situações", dominio: "estresse" },
+    { id: "q7", texto: "Senti tremores (ex.: nas mãos)", dominio: "ansiedade" },
+    { id: "q8", texto: "Senti que estava sempre nervosa(o)", dominio: "estresse" },
+    {
+      id: "q9",
+      texto: "Preocupei-me com situações em que eu pudesse entrar em pânico e parecesse ridícula(o)",
+      dominio: "ansiedade",
+    },
+    { id: "q10", texto: "Senti que não tinha nada a desejar", dominio: "depressao" },
+    { id: "q11", texto: "Senti-me agitada(o)", dominio: "estresse" },
+    { id: "q12", texto: "Achei difícil relaxar", dominio: "estresse" },
+    { id: "q13", texto: "Senti-me depressiva(o) e sem ânimo", dominio: "depressao" },
+    {
+      id: "q14",
+      texto: "Fui intolerante com as coisas que me impediam de continuar o que eu estava fazendo",
+      dominio: "estresse",
+    },
+    { id: "q15", texto: "Senti que ia entrar em pânico", dominio: "ansiedade" },
+    { id: "q16", texto: "Não consegui me entusiasmar com nada", dominio: "depressao" },
+    { id: "q17", texto: "Senti que não tinha valor como pessoa", dominio: "depressao" },
+    { id: "q18", texto: "Senti que estava um pouco emotiva(o)/sensível demais", dominio: "estresse" },
+    {
+      id: "q19",
+      texto:
+        "Sabia que meu coração estava alterado mesmo não tendo feito nenhum esforço físico (ex.: aumento da frequência cardíaca, disritmia cardíaca)",
+      dominio: "ansiedade",
+    },
+    { id: "q20", texto: "Senti medo sem motivo", dominio: "ansiedade" },
+    { id: "q21", texto: "Senti que a vida não tinha sentido", dominio: "depressao" },
+  ],
+  // Não pontuado por total único — ver calcularLikert (subescalas).
+  faixas: [],
+  corte: { valor: 0, rotulo: "Ver classificação por subescala (Depressão/Ansiedade/Estresse) abaixo" },
+  subescalas: [
+    {
+      chave: "depressao",
+      nome: "Depressão",
+      multiplicador: 2,
+      faixas: [
+        { min: 0, max: 9, label: "Normal" },
+        { min: 10, max: 13, label: "Leve" },
+        { min: 14, max: 20, label: "Moderado" },
+        { min: 21, max: 27, label: "Severo" },
+        { min: 28, max: 42, label: "Extremamente severo" },
+      ],
+    },
+    {
+      chave: "ansiedade",
+      nome: "Ansiedade",
+      multiplicador: 2,
+      faixas: [
+        { min: 0, max: 7, label: "Normal" },
+        { min: 8, max: 9, label: "Leve" },
+        { min: 10, max: 14, label: "Moderado" },
+        { min: 15, max: 19, label: "Severo" },
+        { min: 20, max: 42, label: "Extremamente severo" },
+      ],
+    },
+    {
+      chave: "estresse",
+      nome: "Estresse",
+      multiplicador: 2,
+      faixas: [
+        { min: 0, max: 14, label: "Normal" },
+        { min: 15, max: 18, label: "Leve" },
+        { min: 19, max: 25, label: "Moderado" },
+        { min: 26, max: 33, label: "Severo" },
+        { min: 34, max: 42, label: "Extremamente severo" },
+      ],
+    },
+  ],
+};
+
 export const ESCALAS_DISPONIVEIS: Escala[] = [
   CSSRS,
   PHQ9,
@@ -572,6 +699,7 @@ export const ESCALAS_DISPONIVEIS: Escala[] = [
   SRQ20,
   GDS15,
   EPDS,
+  DASS21,
 ];
 
 export type EscalaIndisponivel = {
@@ -605,10 +733,27 @@ const MOTIVO_REQUER_AUTORIZACAO =
  * motivo, em vez de sumirem silenciosamente do catálogo.
  */
 export const ESCALAS_INDISPONIVEIS: EscalaIndisponivel[] = [
-  { categoria: "Ansiedade, estresse e trauma", sigla: "DASS-21", nome: "Depression, Anxiety and Stress Scale", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
-  { categoria: "Ansiedade, estresse e trauma", sigla: "PSS-10", nome: "Perceived Stress Scale", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
-  { categoria: "Ansiedade, estresse e trauma", sigla: "SPIN", nome: "Social Phobia Inventory", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
-  { categoria: "Ansiedade, estresse e trauma", sigla: "PCL-5", nome: "PTSD Checklist for DSM-5", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  {
+    categoria: "Ansiedade, estresse e trauma",
+    sigla: "PSS-10",
+    nome: "Perceived Stress Scale",
+    motivo:
+      "Achamos as opções de resposta (0-4, nunca a sempre) mas não os 10 itens com a numeração própria da versão reduzida — as fontes encontradas só listam quais itens são invertidos na versão de 14 perguntas (Luft et al., 2007), que usa outra numeração depois que 4 itens são removidos para virar a de 10. Mapear errado essa correspondência inverteria a pontuação de itens errados — falta uma fonte com o texto já numerado 1-10.",
+  },
+  {
+    categoria: "Ansiedade, estresse e trauma",
+    sigla: "SPIN",
+    nome: "Social Phobia Inventory",
+    motivo:
+      "Achamos as opções de resposta (0-4, nada a extremamente) e o corte (6+) na validação brasileira (Osório et al., 2004), mas não os 17 itens completos — só resumos que citam o instrumento sem reproduzi-lo.",
+  },
+  {
+    categoria: "Ansiedade, estresse e trauma",
+    sigla: "PCL-5",
+    nome: "PTSD Checklist for DSM-5",
+    motivo:
+      "Achamos as opções de resposta (0-4) e o corte (36+) na validação brasileira, mas não os 20 itens completos. A pontuação clínica também exige separar cada item nos 4 grupos de critério do DSM-5 (reexperiência/evitação/cognições/hiperativação) — teria que vir junto com o texto pra não errar essa separação.",
+  },
   {
     categoria: "Ansiedade, estresse e trauma",
     sigla: "CRIES-13 / CTQ",
@@ -658,6 +803,10 @@ export type ResultadoLikert = {
   faixa: string;
   alertaRisco: boolean;
   porDominio?: { nome: string; media: number }[];
+  /** Ver EscalaLikert.subescalas — cada subescala já vem com o total (soma
+   *  x multiplicador) e a própria faixa de gravidade, sem se combinar com
+   *  as outras. */
+  porSubescala?: { nome: string; total: number; faixa: string; elevado: boolean }[];
 };
 
 /** Maior valor de pontuação que uma das opções de resposta pode valer —
@@ -721,6 +870,35 @@ export function calcularLikert(
         : "Sem sinalização relevante neste rastreio",
       alertaRisco: false,
       porDominio: porDominioCompleto.map(({ nome, media }) => ({ nome, media })),
+    };
+  }
+
+  if (escala.subescalas) {
+    // Cada subescala é somada e classificada SOZINHA (ver comentário em
+    // EscalaLikert.subescalas) — "elevado" (faixa "Moderado" em diante, ou
+    // seja índice 2 de 5) decide o tom mostrado ao psicólogo, mas nunca se
+    // combina num único total: a DASS-21 não tem um "escore geral", tem três.
+    const porSubescala = escala.subescalas.map((sub) => {
+      const itensSub = escala.itens.filter((i) => i.dominio === sub.chave);
+      const somaBruta = itensSub.reduce(
+        (acc, item) => acc + pontosDoItem(escala, item, respostas),
+        0
+      );
+      const totalSub = somaBruta * sub.multiplicador;
+      const faixaSub = sub.faixas.find((f) => totalSub >= f.min && totalSub <= f.max);
+      const indice = faixaSub ? sub.faixas.indexOf(faixaSub) : -1;
+      return {
+        nome: sub.nome,
+        total: totalSub,
+        faixa: faixaSub?.label ?? "—",
+        elevado: indice >= 2,
+      };
+    });
+    return {
+      total: porSubescala.reduce((acc, s) => acc + s.total, 0),
+      faixa: porSubescala.map((s) => `${s.nome}: ${s.faixa}`).join(" · "),
+      alertaRisco: false,
+      porSubescala,
     };
   }
 
