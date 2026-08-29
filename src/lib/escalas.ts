@@ -456,6 +456,13 @@ export const GDS15: EscalaLikert = {
 // pro Brasil — se o psicólogo tiver a validação brasileira específica em
 // mãos (ex.: Santos et al.), vale trocar pelo texto dela.
 //
+// Únicas mudanças em relação ao texto fonte: colocação de pronome
+// (europeu "Tenho-me sentido" -> "Tenho me sentido", só ordem, sem trocar
+// palavra) e "dantes"/"como" -> "antes"/"quanto" nos itens 1-2 (mesmo
+// sentido, termo menos arcaico no Brasil). Revisão encontrou uma versão
+// anterior deste arquivo com os itens 3 e 6 parafraseados em vez de
+// transcritos — corrigido de volta pro texto exato da fonte.
+//
 // Item 10 pergunta sobre ideação de autolesão — mesmo tratamento do item 9
 // do PHQ-9 (itemAlertaRisco). Cada item tem sua própria redação de resposta
 // (item.opcoes), diferente do resto das escalas daqui: por isso não usa
@@ -473,7 +480,7 @@ export const EPDS: EscalaLikert = {
   itens: [
     {
       id: "q1",
-      texto: "Tenho sido capaz de rir e ver o lado divertido das coisas",
+      texto: "Tenho sido capaz de me rir e ver o lado divertido das coisas",
       opcoes: [
         { valor: 0, label: "Tanto quanto antes", descricao: "" },
         { valor: 1, label: "Menos do que antes", descricao: "" },
@@ -493,7 +500,7 @@ export const EPDS: EscalaLikert = {
     },
     {
       id: "q3",
-      texto: "Tenho me culpado sem necessidade quando as coisas saem erradas",
+      texto: "Tenho me culpado sem necessidade quando as coisas correm mal",
       opcoes: [
         { valor: 3, label: "Sim, a maioria das vezes", descricao: "" },
         { valor: 2, label: "Sim, algumas vezes", descricao: "" },
@@ -523,12 +530,12 @@ export const EPDS: EscalaLikert = {
     },
     {
       id: "q6",
-      texto: "Tenho sentido que as coisas têm sido demais para mim",
+      texto: "Tenho sentido que são coisas demais para mim",
       opcoes: [
-        { valor: 3, label: "Sim, a maioria das vezes não consigo lidar bem", descricao: "" },
-        { valor: 2, label: "Sim, por vezes não tenho conseguido lidar tão bem quanto antes", descricao: "" },
-        { valor: 1, label: "Não, a maioria das vezes lido bem com isso", descricao: "" },
-        { valor: 0, label: "Não, tenho lidado tão bem quanto antes", descricao: "" },
+        { valor: 3, label: "Sim, a maioria das vezes não consigo resolvê-las", descricao: "" },
+        { valor: 2, label: "Sim, por vezes não tenho conseguido resolvê-las como antes", descricao: "" },
+        { valor: 1, label: "Não, a maioria das vezes resolvo-as facilmente", descricao: "" },
+        { valor: 0, label: "Não, resolvo-as tão bem como antes", descricao: "" },
       ],
     },
     {
