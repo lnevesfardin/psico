@@ -21,7 +21,8 @@ export type EscalaSlug =
   | "srq20"
   | "gds15"
   | "epds"
-  | "dass21";
+  | "dass21"
+  | "pss10";
 
 export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
@@ -690,6 +691,98 @@ export const DASS21: EscalaLikert = {
   ],
 };
 
+// Texto cruzado entre duas fontes independentes: a tradução em português
+// hospedada no site do próprio laboratório de Sheldon Cohen (CMU,
+// stress-immunity-disease-lab), e o instrumento distribuído pelo autor da
+// validação brasileira (Prof. Dr. Rodrigo Siqueira Reis, GPAQ — Reis, Hino
+// & Rodriguez-Añez, "Perceived Stress Scale: Reliability and Validity Study
+// in Brazil"). As duas concordam nos itens invertidos (4, 5, 7 e 8) e no
+// conteúdo de cada pergunta — o texto dos itens usado aqui é o da versão
+// brasileira (GPAQ); as opções de resposta seguem a sequência mais clara
+// semanticamente (a versão do GPAQ tem "Pouco Frequente" na posição 3 de 5,
+// que soa contraditório com a ordem crescente — a versão da CMU usa
+// "Frequentemente" no lugar, adotada aqui).
+//
+// Diferente das outras escalas daqui, a PSS-10 não tem corte diagnóstico
+// oficial — o próprio documento da validação brasileira diz isso
+// explicitamente ("não é uma medida critério-concorrente") e recomenda
+// tratar o resultado como contínuo, comparando com tabela normativa em vez
+// de um ponto de corte. As faixas abaixo são a referência descritiva mais
+// citada (não veio da validação brasileira, é de uso informal comum), e o
+// rótulo do corte deixa essa diferença explícita.
+const OPCOES_PSS: OpcaoLikert[] = [
+  { valor: 0, label: "Nunca", descricao: "" },
+  { valor: 1, label: "Quase nunca", descricao: "" },
+  { valor: 2, label: "Às vezes", descricao: "" },
+  { valor: 3, label: "Frequentemente", descricao: "" },
+  { valor: 4, label: "Muito frequentemente", descricao: "" },
+];
+
+export const PSS10: EscalaLikert = {
+  tipo: "likert",
+  slug: "pss10",
+  nome: "PSS-10 (estresse percebido)",
+  descricaoCurta:
+    "Escala de Estresse Percebido — mede o quanto a vida tem parecido imprevisível, incontrolável ou sobrecarregada no último mês.",
+  instrucao:
+    "Para cada pergunta, indique com que frequência você se sentiu ou pensou dessa forma durante o último mês.",
+  opcoes: OPCOES_PSS,
+  itens: [
+    {
+      id: "q1",
+      texto: "Com que frequência você ficou aborrecida(o) por causa de algo que aconteceu inesperadamente?",
+    },
+    {
+      id: "q2",
+      texto: "Com que frequência você sentiu que foi incapaz de controlar coisas importantes na sua vida?",
+    },
+    { id: "q3", texto: "Com que frequência você esteve nervosa(o) ou estressada(o)?" },
+    {
+      id: "q4",
+      texto: "Com que frequência você esteve confiante em sua capacidade de lidar com seus problemas pessoais?",
+      reverso: true,
+    },
+    {
+      id: "q5",
+      texto: "Com que frequência você sentiu que as coisas aconteceram da maneira que você esperava?",
+      reverso: true,
+    },
+    {
+      id: "q6",
+      texto: "Com que frequência você achou que não conseguiria lidar com todas as coisas que tinha para fazer?",
+    },
+    {
+      id: "q7",
+      texto: "Com que frequência você foi capaz de controlar irritações na sua vida?",
+      reverso: true,
+    },
+    {
+      id: "q8",
+      texto: "Com que frequência você sentiu que todos os aspectos da sua vida estavam sob controle?",
+      reverso: true,
+    },
+    {
+      id: "q9",
+      texto: "Com que frequência você esteve brava(o) por causa de coisas que estiveram fora do seu controle?",
+    },
+    {
+      id: "q10",
+      texto:
+        "Com que frequência você sentiu que os problemas se acumularam tanto que você não conseguiria resolvê-los?",
+    },
+  ],
+  faixas: [
+    { min: 0, max: 13, label: "Nível de estresse percebido baixo" },
+    { min: 14, max: 26, label: "Nível de estresse percebido moderado" },
+    { min: 27, max: 40, label: "Nível de estresse percebido alto" },
+  ],
+  corte: {
+    valor: 27,
+    rotulo:
+      "Referência informal, não corte diagnóstico — a PSS-10 não tem ponto de corte oficial; melhor interpretada de forma contínua",
+  },
+};
+
 export const ESCALAS_DISPONIVEIS: Escala[] = [
   CSSRS,
   PHQ9,
@@ -700,6 +793,7 @@ export const ESCALAS_DISPONIVEIS: Escala[] = [
   GDS15,
   EPDS,
   DASS21,
+  PSS10,
 ];
 
 export type EscalaIndisponivel = {
@@ -733,13 +827,6 @@ const MOTIVO_REQUER_AUTORIZACAO =
  * motivo, em vez de sumirem silenciosamente do catálogo.
  */
 export const ESCALAS_INDISPONIVEIS: EscalaIndisponivel[] = [
-  {
-    categoria: "Ansiedade, estresse e trauma",
-    sigla: "PSS-10",
-    nome: "Perceived Stress Scale",
-    motivo:
-      "Achamos as opções de resposta (0-4, nunca a sempre) mas não os 10 itens com a numeração própria da versão reduzida — as fontes encontradas só listam quais itens são invertidos na versão de 14 perguntas (Luft et al., 2007), que usa outra numeração depois que 4 itens são removidos para virar a de 10. Mapear errado essa correspondência inverteria a pontuação de itens errados — falta uma fonte com o texto já numerado 1-10.",
-  },
   {
     categoria: "Ansiedade, estresse e trauma",
     sigla: "SPIN",

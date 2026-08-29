@@ -172,6 +172,16 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     themeColor: "verde",
     iconType: "smile",
   },
+  pss10: {
+    title: "Como o último mês tem pesado",
+    description:
+      "Dez perguntas sobre o quanto a vida tem parecido imprevisível ou fora de controle no último mês.",
+    instrumento: "PSS-10",
+    estimatedTime: "3-5 min",
+    tags: ["Bem-estar", "Estresse"],
+    themeColor: "laranja",
+    iconType: "wind",
+  },
   dass21: {
     title: "Depressão, ansiedade e estresse",
     description:
