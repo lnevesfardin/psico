@@ -95,7 +95,9 @@ function DetalheResposta({ resposta }: { resposta: RespostaEscala }) {
     <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3 text-sm dark:border-zinc-800">
       {escala.itens.map((item, i) => {
         const valor = respostasLikert[item.id];
-        const opcao = escala.opcoes.find((o) => o.valor === valor);
+        // item.opcoes só existe quando a redação de resposta é própria dessa
+        // pergunta (ex.: EPDS) — mesma regra de escala-wizard.tsx.
+        const opcao = (item.opcoes ?? escala.opcoes).find((o) => o.valor === valor);
         return (
           <div key={item.id} className="flex items-start justify-between gap-3">
             <span className="text-zinc-600 dark:text-zinc-400">

@@ -152,6 +152,37 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     iconType: "shield",
     sensivel: true,
   },
+  srq20: {
+    title: "Como sua saúde tem andado",
+    description:
+      "Vinte perguntas de sim ou não sobre sono, ânimo e sintomas físicos comuns quando estamos sobrecarregados. Responda pensando nas últimas semanas.",
+    instrumento: "SRQ-20",
+    estimatedTime: "3-5 min",
+    tags: ["Bem-estar"],
+    themeColor: "azul",
+    iconType: "smile",
+  },
+  gds15: {
+    title: "Como você tem se sentido ultimamente",
+    description:
+      "Quinze perguntas de sim ou não sobre ânimo, interesse e satisfação com a vida na última semana.",
+    instrumento: "GDS-15",
+    estimatedTime: "3-5 min",
+    tags: ["Bem-estar", "Humor"],
+    themeColor: "verde",
+    iconType: "smile",
+  },
+  epds: {
+    title: "Como você tem se sentido nos últimos dias",
+    description:
+      "Dez perguntas sobre humor e ânimo na última semana, pensadas especialmente para esse momento pós-parto. Uma das perguntas é mais direta — responda com calma, no seu tempo.",
+    instrumento: "EPDS",
+    estimatedTime: "3-5 min",
+    tags: ["Bem-estar", "Maternidade"],
+    themeColor: "sobrio",
+    iconType: "heart",
+    sensivel: true,
+  },
 };
 
 /**

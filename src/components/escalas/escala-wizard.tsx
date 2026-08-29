@@ -67,7 +67,10 @@ function LikertForm({
             {i + 1}. {item.texto}
           </p>
           <div className="mt-3 flex flex-col gap-2" role="radiogroup">
-            {escala.opcoes.map((opcao) => (
+            {/* item.opcoes só existe quando a redação de resposta é própria
+                dessa pergunta (ex.: cada item da EPDS tem suas 4 frases) —
+                na maioria das escalas, todo item repete escala.opcoes. */}
+            {(item.opcoes ?? escala.opcoes).map((opcao) => (
               <OpcaoCard
                 key={opcao.valor}
                 opcao={opcao}

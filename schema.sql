@@ -2251,7 +2251,7 @@ alter table respostas_escala
 -- constraint de coluna sem nome explícito é "<tabela>_<coluna>_check".
 alter table respostas_escala drop constraint if exists respostas_escala_escala_check;
 alter table respostas_escala add constraint respostas_escala_escala_check
-  check (escala in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv'));
+  check (escala in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv', 'srq20', 'gds15', 'epds'));
 
 create index if not exists respostas_escala_psicologo_id_idx
   on respostas_escala (psicologo_id, created_at desc);
@@ -2304,7 +2304,7 @@ create index if not exists convites_escala_paciente_idx
 
 alter table convites_escala drop constraint if exists convites_escala_escala_check;
 alter table convites_escala add constraint convites_escala_escala_check
-  check (escala in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv'));
+  check (escala in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv', 'srq20', 'gds15', 'epds'));
 
 alter table convites_escala enable row level security;
 
@@ -2350,7 +2350,7 @@ begin
     raise exception 'Paciente não encontrado';
   end if;
 
-  if p_escala not in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv') then
+  if p_escala not in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv', 'srq20', 'gds15', 'epds') then
     raise exception 'Escala inválida';
   end if;
 
@@ -2425,7 +2425,7 @@ begin
     end if;
   end if;
 
-  if p_escala not in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv') then
+  if p_escala not in ('cssrs', 'phq9', 'phq2', 'gad7', 'snap-iv', 'srq20', 'gds15', 'epds') then
     raise exception 'Escala inválida';
   end if;
 
