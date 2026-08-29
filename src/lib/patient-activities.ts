@@ -98,6 +98,13 @@ export type ActivityPresentation = {
    * suicida seria leviano com quem está justamente mal.
    */
   sensivel?: boolean;
+  /**
+   * Só para escala (nunca pra jogo — apresentacaoDa() não preenche isto no
+   * ramo de jogo). Mesma taxonomia usada no catálogo de "Meu Link"
+   * (ESCALAS_INDISPONIVEIS em escalas.ts), pra não inventar uma segunda
+   * categorização diferente da que o psicólogo já vê em outro lugar do app.
+   */
+  categoria?: string;
 };
 
 export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
@@ -110,6 +117,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Bem-estar", "Humor"],
     themeColor: "azul",
     iconType: "smile",
+    categoria: "Depressão e humor",
   },
   phq2: {
     title: "Como você tem se sentido",
@@ -120,6 +128,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Bem-estar", "Humor"],
     themeColor: "azul",
     iconType: "smile",
+    categoria: "Depressão e humor",
   },
   gad7: {
     title: "Preocupação e ansiedade no seu dia",
@@ -130,6 +139,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Ansiedade", "Bem-estar"],
     themeColor: "verde",
     iconType: "brain",
+    categoria: "Ansiedade, estresse e trauma",
   },
   "snap-iv": {
     title: "Atenção, agitação e rotina",
@@ -140,6 +150,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Atenção", "Rotina"],
     themeColor: "laranja",
     iconType: "brain",
+    categoria: "Neurodesenvolvimento",
   },
   cssrs: {
     title: "Perguntas sobre pensamentos difíceis",
@@ -151,6 +162,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     themeColor: "sobrio",
     iconType: "shield",
     sensivel: true,
+    categoria: "Risco",
   },
   srq20: {
     title: "Como sua saúde tem andado",
@@ -161,6 +173,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Bem-estar"],
     themeColor: "azul",
     iconType: "smile",
+    categoria: "Depressão e humor",
   },
   gds15: {
     title: "Como você tem se sentido ultimamente",
@@ -171,6 +184,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Bem-estar", "Humor"],
     themeColor: "verde",
     iconType: "smile",
+    categoria: "Depressão e humor",
   },
   pss10: {
     title: "Como o último mês tem pesado",
@@ -181,6 +195,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Bem-estar", "Estresse"],
     themeColor: "laranja",
     iconType: "wind",
+    categoria: "Ansiedade, estresse e trauma",
   },
   dass21: {
     title: "Depressão, ansiedade e estresse",
@@ -191,6 +206,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     tags: ["Bem-estar", "Ansiedade", "Humor"],
     themeColor: "roxo",
     iconType: "brain",
+    categoria: "Ansiedade, estresse e trauma",
   },
   epds: {
     title: "Como você tem se sentido nos últimos dias",
@@ -202,6 +218,7 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     themeColor: "sobrio",
     iconType: "heart",
     sensivel: true,
+    categoria: "Depressão e humor",
   },
 };
 
