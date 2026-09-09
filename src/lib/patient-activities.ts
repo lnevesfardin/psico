@@ -220,6 +220,28 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     sensivel: true,
     categoria: "Depressão e humor",
   },
+  ocir: {
+    title: "Verificações, limpeza e pensamentos repetitivos",
+    description:
+      "Dezoito frases sobre conferir coisas, lavar-se, organizar e pensamentos indesejados no último mês. Responda pensando no quanto cada uma te incomodou.",
+    instrumento: "OCI-R",
+    estimatedTime: "5 min",
+    tags: ["Bem-estar", "Ansiedade"],
+    themeColor: "azul",
+    iconType: "brain",
+    categoria: "Transtorno obsessivo-compulsivo",
+  },
+  ybocs: {
+    title: "Obsessões e compulsões na última semana",
+    description:
+      "Dez perguntas sobre quanto tempo, incômodo e controle você teve em relação a pensamentos que voltam à mente e a atos que sente que precisa repetir.",
+    instrumento: "Y-BOCS (autorrelato)",
+    estimatedTime: "5-8 min",
+    tags: ["Acompanhamento"],
+    themeColor: "roxo",
+    iconType: "brain",
+    categoria: "Transtorno obsessivo-compulsivo",
+  },
 };
 
 /**

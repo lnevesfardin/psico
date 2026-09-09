@@ -22,7 +22,9 @@ export type EscalaSlug =
   | "gds15"
   | "epds"
   | "dass21"
-  | "pss10";
+  | "pss10"
+  | "ocir"
+  | "ybocs";
 
 export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
@@ -800,6 +802,341 @@ export const PSS10: EscalaLikert = {
   },
 };
 
+// OCI-R (Obsessive-Compulsive Inventory — Revised): Foa, Huppert, Leiberg,
+// Langner, Kichic, Hajcak & Salkovskis (2002), Psychological Assessment
+// 14(4):485-496. Tradução e adaptação para o português do Brasil: Souza,
+// Foa, Meyer, Niederauer, Raffin & Cordioli (2008), Rev Bras Psiquiatr
+// 30(1):42-46. Instrumento de uso livre para clínica e pesquisa (os autores
+// autorizam a reprodução sem custo).
+//
+// RESSALVA: o texto dos 18 itens abaixo foi redigido a partir da versão
+// canônica em inglês e da descrição da adaptação brasileira — não copiado
+// de um documento oficial conferido item a item aqui. Com o instrumento
+// validado (Souza et al., 2008) em mãos, vale substituir pela redação
+// exata dele.
+//
+// 18 itens, 6 subescalas de 3 itens (Lavagem, Verificação, Ordem, Obsessão,
+// Acumulação, Neutralização). Pontuação = soma simples, 0-72, sem item
+// invertido. A composição por subescala fica só documentada: a OCI-R é,
+// antes de tudo, um escore total com ponto de corte único (>= 21), e os
+// ramos "dominios"/"subescalas" de calcularLikert trocariam essa lógica.
+// Subescalas (item): Lavagem 5/11/17 · Verificação 2/8/14 · Ordem 3/9/15 ·
+// Obsessão 6/12/18 · Acumulação 1/7/13 · Neutralização 4/10/16.
+const OPCOES_OCIR: OpcaoLikert[] = [
+  { valor: 0, label: "Nem um pouco", descricao: "" },
+  { valor: 1, label: "Um pouco", descricao: "" },
+  { valor: 2, label: "Moderadamente", descricao: "" },
+  { valor: 3, label: "Muito", descricao: "" },
+  { valor: 4, label: "Extremamente", descricao: "" },
+];
+
+export const OCIR: EscalaLikert = {
+  tipo: "likert",
+  slug: "ocir",
+  nome: "OCI-R (sintomas obsessivo-compulsivos)",
+  descricaoCurta:
+    "Inventário Obsessivo-Compulsivo Revisado — rastreio de sintomas de TOC, 18 itens sobre o quanto cada experiência incomodou no último mês.",
+  instrucao:
+    "As frases a seguir descrevem experiências comuns no dia a dia. Para cada uma, indique o quanto ela lhe causou aflição ou incômodo durante o último mês.",
+  opcoes: OPCOES_OCIR,
+  itens: [
+    { id: "q1", texto: "Guardei tantas coisas que elas acabam atrapalhando." },
+    { id: "q2", texto: "Verifico as coisas com mais frequência do que o necessário." },
+    { id: "q3", texto: "Fico aborrecida(o) se os objetos não estão bem arrumados." },
+    { id: "q4", texto: "Sinto-me compelida(o) a contar enquanto faço as coisas." },
+    {
+      id: "q5",
+      texto:
+        "Acho difícil tocar em um objeto quando sei que ele foi tocado por estranhos ou por certas pessoas.",
+    },
+    { id: "q6", texto: "Acho difícil controlar os meus próprios pensamentos." },
+    { id: "q7", texto: "Junto coisas de que não preciso." },
+    { id: "q8", texto: "Verifico repetidamente portas, janelas, gavetas e coisas assim." },
+    {
+      id: "q9",
+      texto: "Fico aborrecida(o) se outras pessoas mudam a maneira como arrumei as coisas.",
+    },
+    { id: "q10", texto: "Sinto que tenho de repetir certos números." },
+    {
+      id: "q11",
+      texto: "Às vezes preciso me lavar ou me limpar só porque me sinto contaminada(o).",
+    },
+    {
+      id: "q12",
+      texto:
+        "Fico aborrecida(o) com pensamentos desagradáveis que surgem na minha mente contra a minha vontade.",
+    },
+    {
+      id: "q13",
+      texto: "Evito jogar coisas fora porque tenho medo de precisar delas mais tarde.",
+    },
+    {
+      id: "q14",
+      texto:
+        "Verifico repetidamente as torneiras de gás e de água e os interruptores de luz depois de desligá-los.",
+    },
+    { id: "q15", texto: "Preciso que as coisas estejam organizadas numa ordem específica." },
+    { id: "q16", texto: "Sinto que existem números bons e números ruins." },
+    { id: "q17", texto: "Lavo as mãos com mais frequência e por mais tempo do que o necessário." },
+    {
+      id: "q18",
+      texto: "Fico frequentemente com pensamentos ruins e tenho dificuldade de me livrar deles.",
+    },
+  ],
+  faixas: [
+    { min: 0, max: 20, label: "Abaixo do ponto de corte" },
+    { min: 21, max: 72, label: "Acima do ponto de corte — sugere TOC provável" },
+  ],
+  corte: {
+    valor: 21,
+    rotulo:
+      "21+ sugere TOC provável (corte de Foa et al., 2002, mantido na adaptação brasileira de Souza et al., 2008) — encaminhar para avaliação diagnóstica",
+  },
+};
+
+// Y-BOCS — Yale-Brown Obsessive Compulsive Scale, escala de gravidade de
+// Goodman, Price, Rasmussen et al. (1989), Arch Gen Psychiatry 46:1006-1011.
+// A versão oficial é uma ENTREVISTA aplicada pelo clínico; aqui está a
+// adaptação de AUTORRELATO (Y-BOCS Self-Report — linha de Baer, 1991, e
+// Steketee, Frost & Bogart, 1996), que reaproveita os 10 itens de gravidade
+// e os mesmos textos-âncora, respondidos pela própria pessoa. Só a parte de
+// gravidade — a lista de sintomas (symptom checklist) não entra.
+//
+// RESSALVA: os 10 itens e as âncoras 0-4 abaixo foram redigidos a partir da
+// versão amplamente reproduzida do instrumento — não copiados de um
+// documento oficial em português conferido aqui. Com a versão brasileira
+// validada em mãos (ex.: PROTOC/UFRGS, ou Asbahr et al.), vale substituir
+// pela redação exata dela.
+//
+// Itens 1-5 = obsessões, 6-10 = compulsões; cada um 0-4; total 0-40. As
+// faixas (subclínico/leve/moderado/grave/extremo) são as de uso consagrado
+// sobre o TOTAL. Como na EPDS, cada item traz âncoras próprias de resposta
+// (item.opcoes), então escala.opcoes fica vazio. Diferente das escalas de
+// rastreio daqui, a Y-BOCS mede intensidade em quem já tem o diagnóstico —
+// o rótulo do corte deixa isso explícito.
+export const YBOCS: EscalaLikert = {
+  tipo: "likert",
+  slug: "ybocs",
+  nome: "Y-BOCS (gravidade do TOC)",
+  descricaoCurta:
+    "Escala Yale-Brown de gravidade do TOC, versão de autorrelato — 10 itens sobre a intensidade de obsessões e compulsões na última semana.",
+  instrucao:
+    "As perguntas são sobre pensamentos obsessivos (ideias, imagens ou impulsos indesejados que voltam à mente) e comportamentos compulsivos (atos que a pessoa sente que precisa repetir). Responda pensando nos últimos 7 dias. As 5 primeiras perguntas se referem às obsessões; as 5 últimas, às compulsões.",
+  opcoes: [],
+  itens: [
+    {
+      id: "q1",
+      texto: "Tempo ocupado por pensamentos obsessivos — quanto do seu tempo eles ocupam?",
+      opcoes: [
+        { valor: 0, label: "Nenhum", descricao: "Nenhum tempo ocupado por pensamentos obsessivos" },
+        { valor: 1, label: "Leve", descricao: "Menos de 1 hora por dia, ou pensamentos ocasionais" },
+        { valor: 2, label: "Moderado", descricao: "De 1 a 3 horas por dia, ou pensamentos frequentes" },
+        {
+          valor: 3,
+          label: "Grave",
+          descricao: "Mais de 3 e até 8 horas por dia, ou pensamentos muito frequentes",
+        },
+        { valor: 4, label: "Extremo", descricao: "Mais de 8 horas por dia, ou pensamentos quase constantes" },
+      ],
+    },
+    {
+      id: "q2",
+      texto: "Interferência dos pensamentos obsessivos na vida social e no trabalho ou nos estudos",
+      opcoes: [
+        { valor: 0, label: "Nenhuma", descricao: "Nenhuma interferência" },
+        {
+          valor: 1,
+          label: "Leve",
+          descricao: "Interferência leve, sem prejudicar o desempenho geral",
+        },
+        {
+          valor: 2,
+          label: "Moderada",
+          descricao: "Interferência clara no desempenho, mas ainda administrável",
+        },
+        { valor: 3, label: "Grave", descricao: "Prejuízo importante no desempenho social ou nas tarefas" },
+        { valor: 4, label: "Extrema", descricao: "Interferência incapacitante" },
+      ],
+    },
+    {
+      id: "q3",
+      texto: "Sofrimento causado pelos pensamentos obsessivos",
+      opcoes: [
+        { valor: 0, label: "Nenhum", descricao: "Nenhum sofrimento" },
+        { valor: 1, label: "Leve", descricao: "Sofrimento pouco frequente e pouco perturbador" },
+        {
+          valor: 2,
+          label: "Moderado",
+          descricao: "Sofrimento frequente e perturbador, mas ainda administrável",
+        },
+        { valor: 3, label: "Grave", descricao: "Sofrimento muito frequente e muito perturbador" },
+        { valor: 4, label: "Extremo", descricao: "Sofrimento quase constante e incapacitante" },
+      ],
+    },
+    {
+      id: "q4",
+      texto: "Resistência às obsessões — quanto esforço você faz para resistir a elas?",
+      opcoes: [
+        {
+          valor: 0,
+          label: "Resisto sempre",
+          descricao: "Faço esforço para resistir o tempo todo, ou os sintomas são mínimos e não exigem resistência",
+        },
+        { valor: 1, label: "Resisto na maior parte do tempo", descricao: "Tento resistir à maioria das obsessões" },
+        { valor: 2, label: "Faço algum esforço para resistir", descricao: "Resisto a algumas obsessões" },
+        {
+          valor: 3,
+          label: "Cedo com relutância",
+          descricao: "Cedo a quase todas as obsessões sem tentar controlá-las, mas com alguma relutância",
+        },
+        { valor: 4, label: "Cedo por completo", descricao: "Cedo total e voluntariamente a todas as obsessões" },
+      ],
+    },
+    {
+      id: "q5",
+      texto: "Controle sobre os pensamentos obsessivos — consegue interrompê-los ou desviar deles?",
+      opcoes: [
+        { valor: 0, label: "Controle completo", descricao: "Consigo afastar as obsessões sempre que quero" },
+        {
+          valor: 1,
+          label: "Muito controle",
+          descricao: "Geralmente consigo interromper ou desviar as obsessões com algum esforço",
+        },
+        { valor: 2, label: "Controle moderado", descricao: "Às vezes consigo interromper ou desviar as obsessões" },
+        {
+          valor: 3,
+          label: "Pouco controle",
+          descricao: "Raramente consigo interromper as obsessões e tenho dificuldade de desviar a atenção delas",
+        },
+        {
+          valor: 4,
+          label: "Nenhum controle",
+          descricao: "As obsessões são vividas como totalmente involuntárias; quase nunca consigo alterá-las",
+        },
+      ],
+    },
+    {
+      id: "q6",
+      texto: "Tempo gasto com comportamentos compulsivos — quanto tempo eles ocupam?",
+      opcoes: [
+        { valor: 0, label: "Nenhum", descricao: "Nenhum tempo gasto com comportamentos compulsivos" },
+        { valor: 1, label: "Leve", descricao: "Menos de 1 hora por dia, ou realização ocasional" },
+        { valor: 2, label: "Moderado", descricao: "De 1 a 3 horas por dia, ou realização frequente" },
+        {
+          valor: 3,
+          label: "Grave",
+          descricao: "Mais de 3 e até 8 horas por dia, ou realização muito frequente",
+        },
+        { valor: 4, label: "Extremo", descricao: "Mais de 8 horas por dia, ou realização quase constante" },
+      ],
+    },
+    {
+      id: "q7",
+      texto: "Interferência dos comportamentos compulsivos na vida social e no trabalho ou nos estudos",
+      opcoes: [
+        { valor: 0, label: "Nenhuma", descricao: "Nenhuma interferência" },
+        {
+          valor: 1,
+          label: "Leve",
+          descricao: "Interferência leve, sem prejudicar o desempenho geral",
+        },
+        {
+          valor: 2,
+          label: "Moderada",
+          descricao: "Interferência clara no desempenho, mas ainda administrável",
+        },
+        { valor: 3, label: "Grave", descricao: "Prejuízo importante no desempenho social ou nas tarefas" },
+        { valor: 4, label: "Extrema", descricao: "Interferência incapacitante" },
+      ],
+    },
+    {
+      id: "q8",
+      texto: "Ansiedade que surgiria se você fosse impedida(o) de realizar as compulsões",
+      opcoes: [
+        { valor: 0, label: "Nenhuma", descricao: "Nenhuma ansiedade se as compulsões forem impedidas" },
+        { valor: 1, label: "Leve", descricao: "Apenas leve ansiedade se as compulsões forem impedidas" },
+        {
+          valor: 2,
+          label: "Moderada",
+          descricao: "A ansiedade aumenta, mas permanece administrável, se as compulsões forem impedidas",
+        },
+        {
+          valor: 3,
+          label: "Grave",
+          descricao: "Aumento importante e muito perturbador da ansiedade se as compulsões forem interrompidas",
+        },
+        {
+          valor: 4,
+          label: "Extrema",
+          descricao: "Ansiedade incapacitante diante de qualquer tentativa de reduzir as compulsões",
+        },
+      ],
+    },
+    {
+      id: "q9",
+      texto: "Resistência às compulsões — quanto esforço você faz para resistir a elas?",
+      opcoes: [
+        {
+          valor: 0,
+          label: "Resisto sempre",
+          descricao: "Faço esforço para resistir o tempo todo, ou os sintomas são mínimos e não exigem resistência",
+        },
+        { valor: 1, label: "Resisto na maior parte do tempo", descricao: "Tento resistir à maioria das compulsões" },
+        { valor: 2, label: "Faço algum esforço para resistir", descricao: "Resisto a algumas compulsões" },
+        {
+          valor: 3,
+          label: "Cedo com relutância",
+          descricao: "Cedo a quase todas as compulsões sem tentar controlá-las, mas com alguma relutância",
+        },
+        { valor: 4, label: "Cedo por completo", descricao: "Cedo total e voluntariamente a todas as compulsões" },
+      ],
+    },
+    {
+      id: "q10",
+      texto: "Controle sobre o comportamento compulsivo — qual a força do impulso de realizá-lo?",
+      opcoes: [
+        {
+          valor: 0,
+          label: "Controle completo",
+          descricao: "Consigo resistir totalmente ao impulso de realizar a compulsão",
+        },
+        {
+          valor: 1,
+          label: "Muito controle",
+          descricao: "Sinto pressão para realizar a compulsão, mas geralmente consigo controlá-la",
+        },
+        {
+          valor: 2,
+          label: "Controle moderado",
+          descricao: "Forte pressão para realizar a compulsão; só consigo controlá-la com dificuldade",
+        },
+        {
+          valor: 3,
+          label: "Pouco controle",
+          descricao: "Pressão muito forte; preciso levar a compulsão até o fim e só consigo adiá-la com dificuldade",
+        },
+        {
+          valor: 4,
+          label: "Nenhum controle",
+          descricao: "O impulso de realizar a compulsão é vivido como completamente involuntário e irresistível",
+        },
+      ],
+    },
+  ],
+  faixas: [
+    { min: 0, max: 7, label: "Subclínico" },
+    { min: 8, max: 15, label: "Leve" },
+    { min: 16, max: 23, label: "Moderado" },
+    { min: 24, max: 31, label: "Grave" },
+    { min: 32, max: 40, label: "Extremo" },
+  ],
+  corte: {
+    valor: 16,
+    rotulo:
+      "16+ costuma marcar TOC clinicamente significativo — referência de gravidade, não corte diagnóstico (a Y-BOCS mede intensidade em quem já tem o diagnóstico)",
+  },
+};
+
 export const ESCALAS_DISPONIVEIS: Escala[] = [
   CSSRS,
   PHQ9,
@@ -811,6 +1148,8 @@ export const ESCALAS_DISPONIVEIS: Escala[] = [
   EPDS,
   DASS21,
   PSS10,
+  OCIR,
+  YBOCS,
 ];
 
 export type EscalaIndisponivel = {
