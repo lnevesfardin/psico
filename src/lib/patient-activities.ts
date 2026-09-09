@@ -242,6 +242,17 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     iconType: "brain",
     categoria: "Transtorno obsessivo-compulsivo",
   },
+  aq10: {
+    title: "Como a criança costuma ser no dia a dia",
+    description:
+      "Dez afirmações sobre atenção, brincadeira, conversa e convívio da criança. Quem responde é quem cuida dela de perto, pensando em como ela costuma ser — não há resposta certa ou errada.",
+    instrumento: "AQ-10 Criança",
+    estimatedTime: "2-3 min",
+    tags: ["Infância", "Desenvolvimento"],
+    themeColor: "laranja",
+    iconType: "brain",
+    categoria: "Neurodesenvolvimento",
+  },
 };
 
 /**

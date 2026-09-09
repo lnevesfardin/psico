@@ -24,7 +24,8 @@ export type EscalaSlug =
   | "dass21"
   | "pss10"
   | "ocir"
-  | "ybocs";
+  | "ybocs"
+  | "aq10";
 
 export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
@@ -64,6 +65,16 @@ export type EscalaLikert = {
   itemExtra?: { id: string; texto: string; opcoes: OpcaoLikert[] };
   faixas: FaixaLikert[];
   corte: { valor: number; rotulo: string };
+  /**
+   * Escala cujo item pontua 1 ou 0 conforme a resposta cair de um lado do
+   * ponto médio, não pelo valor bruto (ex.: AQ-10 — "concordo" OU "discordo",
+   * conforme o item, vale 1 ponto; o total 0-10 é o que tem ponto de corte
+   * publicado, não a soma dos valores 0-3). A resposta bruta segue a escala
+   * Likert de 4 pontos do instrumento; a binarização roda na pontuação,
+   * depois de aplicar item.reverso (ver calcularLikert). Item cuja pontuação
+   * (após reverso) for >= limiarBinario conta 1; senão, 0.
+   */
+  limiarBinario?: number;
   /** Só para escalas pontuadas por domínio (ex.: SNAP-IV), não por total simples. */
   dominios?: { chave: string; nome: string }[];
   /**
@@ -1137,6 +1148,108 @@ export const YBOCS: EscalaLikert = {
   },
 };
 
+// AQ-10 (versão Criança) — Allison, Auyeung & Baron-Cohen (2012), "Toward
+// brief 'Red Flags' for autism screening", J Am Acad Child Adolesc
+// Psychiatry 51(2):202-212, derivada do AQ-Child (Auyeung et al., 2008). É
+// questionário de rastreio respondido por quem cuida de uma criança de 4 a
+// 11 anos. O Autism Research Centre (Cambridge) libera o uso clínico sem
+// custo, citando os autores.
+//
+// RESSALVA: os 10 itens abaixo foram redigidos a partir da versão canônica
+// em inglês (folha de aplicação do ARC), não copiados de uma tradução
+// validada para o português conferida item a item. Com a versão brasileira
+// validada em mãos, vale substituir pela redação exata.
+//
+// Pontuação: a mesma escala de resposta de 4 pontos ("concordo plenamente"
+// a "discordo plenamente") em todos os itens; cada item vale 1 ponto quando
+// a resposta cai do lado que indica traço autista — "concordo" nos itens 1,
+// 5, 7 e 10; "discordo" nos itens 2, 3, 4, 6, 8 e 9 (estes com reverso:
+// true). A binarização por item roda em calcularLikert (limiarBinario: 2,
+// aplicado depois do reverso); total 0-10. Corte >= 6, ponto recomendado
+// por Allison et al. — a mesma folha às vezes é lida como "mais de 6"
+// (>= 7); a ambiguidade fica registrada aqui e, na tela, o 6 é gatilho de
+// encaminhamento, nunca de diagnóstico.
+const OPCOES_AQ10: OpcaoLikert[] = [
+  { valor: 3, label: "Concordo plenamente", descricao: "" },
+  { valor: 2, label: "Concordo um pouco", descricao: "" },
+  { valor: 1, label: "Discordo um pouco", descricao: "" },
+  { valor: 0, label: "Discordo plenamente", descricao: "" },
+];
+
+export const AQ10: EscalaLikert = {
+  tipo: "likert",
+  slug: "aq10",
+  nome: "AQ-10 Criança (traços do espectro autista)",
+  descricaoCurta:
+    "Autism-Spectrum Quotient, versão Criança — triagem breve de traços do espectro autista em crianças de 4 a 11 anos, respondida por quem cuida. 10 itens. Rastreio, não diagnóstico.",
+  instrucao:
+    "Pensando em como a criança costuma ser no dia a dia, escolha o quanto você concorda com cada afirmação. Responda quem convive de perto com ela (pai, mãe ou cuidador). Não há resposta certa ou errada.",
+  opcoes: OPCOES_AQ10,
+  limiarBinario: 2,
+  itens: [
+    {
+      id: "q1",
+      texto: "A criança costuma perceber pequenos sons que outras pessoas não notam.",
+    },
+    {
+      id: "q2",
+      texto:
+        "A criança geralmente presta mais atenção ao conjunto das coisas do que aos pequenos detalhes.",
+      reverso: true,
+    },
+    {
+      id: "q3",
+      texto:
+        "Num grupo, a criança consegue acompanhar com facilidade várias conversas ao mesmo tempo.",
+      reverso: true,
+    },
+    {
+      id: "q4",
+      texto: "A criança troca de uma atividade para outra com facilidade.",
+      reverso: true,
+    },
+    {
+      id: "q5",
+      texto: "A criança não sabe como manter uma conversa com crianças da mesma idade.",
+    },
+    {
+      id: "q6",
+      texto: "A criança se sai bem em conversas informais e descontraídas.",
+      reverso: true,
+    },
+    {
+      id: "q7",
+      texto:
+        "Quando alguém lê uma história para a criança, ela tem dificuldade de entender as intenções ou os sentimentos dos personagens.",
+    },
+    {
+      id: "q8",
+      texto:
+        "Na época da educação infantil, a criança gostava de brincar de faz de conta com outras crianças.",
+      reverso: true,
+    },
+    {
+      id: "q9",
+      texto:
+        "A criança percebe com facilidade o que outra pessoa está pensando ou sentindo só de olhar para o rosto dela.",
+      reverso: true,
+    },
+    {
+      id: "q10",
+      texto: "A criança tem dificuldade para fazer novos amigos.",
+    },
+  ],
+  faixas: [
+    { min: 0, max: 5, label: "Rastreio negativo" },
+    { min: 6, max: 10, label: "Rastreio positivo — considerar encaminhamento" },
+  ],
+  corte: {
+    valor: 6,
+    rotulo:
+      "6+ sugere encaminhar a criança para avaliação diagnóstica especializada — rastreio, não diagnóstico",
+  },
+};
+
 export const ESCALAS_DISPONIVEIS: Escala[] = [
   CSSRS,
   PHQ9,
@@ -1150,6 +1263,7 @@ export const ESCALAS_DISPONIVEIS: Escala[] = [
   PSS10,
   OCIR,
   YBOCS,
+  AQ10,
 ];
 
 export type EscalaIndisponivel = {
@@ -1205,8 +1319,20 @@ export const ESCALAS_INDISPONIVEIS: EscalaIndisponivel[] = [
       "CRIES-13 é gratuito (childrenandwar.org); o CTQ tem direitos autorais explícitos. Falta cadastrar o texto oficial de qualquer um dos dois.",
   },
   { categoria: "Neurodesenvolvimento", sigla: "ASRS-18", nome: "Adult Self-Report Scale — TDAH em adultos", motivo: MOTIVO_REQUER_AUTORIZACAO },
-  { categoria: "Neurodesenvolvimento", sigla: "AQ-10", nome: "Autism-Spectrum Quotient (10 itens)", motivo: MOTIVO_FALTA_TEXTO_OFICIAL },
+  {
+    categoria: "Neurodesenvolvimento",
+    sigla: "AQ-10 (Adolescente/Adulto)",
+    nome: "Autism-Spectrum Quotient — versões 12-15 e 16+ anos",
+    motivo: `A versão Criança (4 a 11 anos) já está disponível para envio. As versões Adolescente e Adulto têm itens próprios. ${MOTIVO_FALTA_TEXTO_OFICIAL}`,
+  },
   { categoria: "Neurodesenvolvimento", sigla: "CAT-Q", nome: "Camouflaging Autistic Traits Questionnaire", motivo: MOTIVO_REQUER_AUTORIZACAO },
+  {
+    categoria: "Neurodesenvolvimento",
+    sigla: "CARS",
+    nome: "Childhood Autism Rating Scale (15 itens)",
+    motivo:
+      "Aplicada e pontuada pelo profissional a partir de observação direta da criança — não é autorrelato, então não cabe no modelo de link deste catálogo. É também instrumento comercial protegido (Western Psychological Services): os 15 itens e as âncoras de pontuação não podem ser reproduzidos aqui. O escore obtido na aplicação entra à mão na evolução.",
+  },
   { categoria: "Neurodesenvolvimento", sigla: "RAADS-R", nome: "Ritvo Autism Asperger Diagnostic Scale", motivo: MOTIVO_REQUER_AUTORIZACAO },
   { categoria: "Saúde geral e qualidade de vida", sigla: "WHOQOL-BREF", nome: "Qualidade de vida (OMS, versão abreviada)", motivo: MOTIVO_REQUER_AUTORIZACAO },
   { categoria: "Saúde geral e qualidade de vida", sigla: "CORE-OM", nome: "Clinical Outcomes in Routine Evaluation", motivo: MOTIVO_REQUER_AUTORIZACAO },
@@ -1283,10 +1409,16 @@ export function calcularLikert(
   escala: EscalaLikert,
   respostas: RespostaLikert
 ): ResultadoLikert {
-  const total = escala.itens.reduce(
-    (soma, item) => soma + pontosDoItem(escala, item, respostas),
-    0
-  );
+  const total = escala.itens.reduce((soma, item) => {
+    const pontos = pontosDoItem(escala, item, respostas);
+    // AQ-10: cada item vale 1 ou 0 conforme a resposta cair de um lado do
+    // meio da escala (ver EscalaLikert.limiarBinario) — o total 0-10 é o que
+    // tem ponto de corte publicado, não a soma bruta dos valores 0-3.
+    if (escala.limiarBinario !== undefined) {
+      return soma + (pontos >= escala.limiarBinario ? 1 : 0);
+    }
+    return soma + pontos;
+  }, 0);
 
   if (escala.dominios) {
     // "6+ itens" é por domínio (convenção DSM-5/SNAP-IV: 6 de 9 itens do
