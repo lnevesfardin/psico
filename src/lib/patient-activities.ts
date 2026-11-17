@@ -253,6 +253,17 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     iconType: "brain",
     categoria: "Neurodesenvolvimento",
   },
+  ear: {
+    title: "Como você se vê",
+    description:
+      "Dez afirmações sobre como você se sente em relação a si mesmo(a) de modo geral. Não há resposta certa ou errada — responda com o que mais se aproxima de como você costuma se sentir.",
+    instrumento: "EAR (Escala de Autoestima de Rosenberg)",
+    estimatedTime: "2-3 min",
+    tags: ["Bem-estar", "Autoconhecimento"],
+    themeColor: "rosa",
+    iconType: "star",
+    categoria: "Bem-estar e autoconhecimento",
+  },
 };
 
 /**

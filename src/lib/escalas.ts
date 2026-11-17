@@ -25,7 +25,8 @@ export type EscalaSlug =
   | "pss10"
   | "ocir"
   | "ybocs"
-  | "aq10";
+  | "aq10"
+  | "ear";
 
 export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
@@ -1250,6 +1251,76 @@ export const AQ10: EscalaLikert = {
   },
 };
 
+// EAR — Escala de Autoestima de Rosenberg (Rosenberg Self-Esteem Scale,
+// Rosenberg, 1965, "Society and the Adolescent Self-Image"). Instrumento de
+// domínio público, um dos mais usados e estudados em todo o mundo. Adaptação
+// brasileira: Hutz & Zanon (2011), "Revisão da adaptação, validação e
+// normatização da escala de autoestima de Rosenberg", Avaliação Psicológica
+// 10(1):41-49 — mesma tradução amplamente reproduzida em pesquisa e prática
+// clínica no Brasil.
+//
+// RESSALVA: os 10 itens abaixo foram redigidos a partir dessa tradução tal
+// como ela circula de forma consistente entre fontes acadêmicas brasileiras
+// — não copiados diretamente do artigo de Hutz & Zanon aqui no momento desta
+// implementação. Com o artigo original em mãos, vale conferir item a item.
+//
+// Pontuação: 5 itens de redação positiva (1, 3, 4, 7, 10) somam a resposta
+// bruta; os outros 5 (2, 5, 6, 8, 9), de redação negativa, são invertidos
+// (reverso: true) — mesmo mecanismo do GDS-15/PSS-10. Escala de concordância
+// de 4 pontos, valores 0-3 por item, total 0-30: quanto maior, maior a
+// autoestima (ao contrário das escalas de sintoma deste arquivo).
+//
+// Assim como a PSS-10, a EAR não tem um ponto de corte diagnóstico oficial
+// — é um traço dimensional, não uma condição clínica a rastrear. A faixa
+// abaixo (< 15 sugerindo autoestima baixa) é a referência informal mais
+// citada sobre a pontuação 0-30 original de Rosenberg, não um corte validado
+// com sensibilidade/especificidade — o rótulo deixa isso explícito.
+const OPCOES_EAR: OpcaoLikert[] = [
+  { valor: 0, label: "Discordo totalmente", descricao: "" },
+  { valor: 1, label: "Discordo", descricao: "" },
+  { valor: 2, label: "Concordo", descricao: "" },
+  { valor: 3, label: "Concordo totalmente", descricao: "" },
+];
+
+export const EAR: EscalaLikert = {
+  tipo: "likert",
+  slug: "ear",
+  nome: "EAR (autoestima)",
+  descricaoCurta:
+    "Escala de Autoestima de Rosenberg — mede o nível geral de autoestima, 10 afirmações sobre como a pessoa se vê.",
+  instrucao: "Leia cada afirmação e indique o quanto você concorda com ela, pensando em como você se sente em geral.",
+  opcoes: OPCOES_EAR,
+  itens: [
+    { id: "q1", texto: "Em geral, estou satisfeito(a) comigo mesmo(a)." },
+    { id: "q2", texto: "Às vezes, penso que não sou bom(boa) em nada.", reverso: true },
+    { id: "q3", texto: "Eu sinto que tenho boas qualidades." },
+    { id: "q4", texto: "Eu sou capaz de fazer as coisas tão bem quanto a maioria das pessoas." },
+    { id: "q5", texto: "Eu sinto que não tenho muito do que me orgulhar.", reverso: true },
+    { id: "q6", texto: "Eu, certamente, me sinto inútil às vezes.", reverso: true },
+    {
+      id: "q7",
+      texto: "Eu sinto que sou uma pessoa de valor, pelo menos tanto quanto as outras pessoas.",
+    },
+    { id: "q8", texto: "Eu gostaria de ter mais respeito por mim mesmo(a).", reverso: true },
+    {
+      id: "q9",
+      texto: "Levando tudo em consideração, eu tendo a achar que sou um(a) fracassado(a).",
+      reverso: true,
+    },
+    { id: "q10", texto: "Eu tenho uma atitude positiva em relação a mim mesmo(a)." },
+  ],
+  faixas: [
+    { min: 0, max: 14, label: "Autoestima baixa" },
+    { min: 15, max: 25, label: "Autoestima dentro da média" },
+    { min: 26, max: 30, label: "Autoestima elevada" },
+  ],
+  corte: {
+    valor: 15,
+    rotulo:
+      "Referência informal, não corte diagnóstico — a EAR não avalia uma condição clínica, mede um traço contínuo (quanto maior, maior a autoestima); abaixo de 15 é o ponto mais citado como indicativo de autoestima baixa",
+  },
+};
+
 export const ESCALAS_DISPONIVEIS: Escala[] = [
   CSSRS,
   PHQ9,
@@ -1264,6 +1335,7 @@ export const ESCALAS_DISPONIVEIS: Escala[] = [
   OCIR,
   YBOCS,
   AQ10,
+  EAR,
 ];
 
 export type EscalaIndisponivel = {
