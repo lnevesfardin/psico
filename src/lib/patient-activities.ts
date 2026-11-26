@@ -264,6 +264,17 @@ export const APRESENTACAO: Record<EscalaSlug, ActivityPresentation> = {
     iconType: "star",
     categoria: "Bem-estar e autoconhecimento",
   },
+  ecap: {
+    title: "Sua relação com a comida",
+    description:
+      "Dezesseis grupos de frases sobre como você come e como se sente em relação à comida. Em cada grupo, marque a frase que mais combina com você — não há resposta certa ou errada.",
+    instrumento: "ECAP (Escala de Compulsão Alimentar Periódica)",
+    estimatedTime: "10-15 min",
+    tags: ["Bem-estar", "Alimentação"],
+    themeColor: "verde",
+    iconType: "heart",
+    categoria: "Transtornos alimentares",
+  },
 };
 
 /**
