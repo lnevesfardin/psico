@@ -26,7 +26,8 @@ export type EscalaSlug =
   | "ocir"
   | "ybocs"
   | "aq10"
-  | "ear";
+  | "ear"
+  | "ecap";
 
 export type OpcaoLikert = { valor: number; label: string; descricao: string };
 
@@ -1321,6 +1322,267 @@ export const EAR: EscalaLikert = {
   },
 };
 
+// ECAP — Escala de Compulsão Alimentar Periódica (Binge Eating Scale,
+// Gormally, Black, Daston & Rardin, 1982, Addict Behav 7:47-55). Texto,
+// instruções e grade de correção transcritos do Anexo de Freitas, Lopes,
+// Coutinho & Appolinario (2001), "Tradução e adaptação para o português da
+// Escala de Compulsão Alimentar Periódica", Rev Bras Psiquiatr 23(4):215-20.
+//
+// Únicas mudanças em relação ao texto do Anexo: ortografia atualizada pelo
+// Acordo de 2009 ("freqüentemente" -> "frequentemente", "idéia" -> "ideia")
+// e "mastigá-la" reconstituído da hifenização de fim de linha do PDF.
+//
+// O instrumento não tem enunciado por item, só grupos de afirmações: o
+// "texto" de cada item repete a instrução, sem acrescentar conteúdo. Os
+// pontos NÃO são 0-1-2-3 lineares — cada afirmação tem o peso da grade de
+// correção (ex.: item 1 vale 0/0/1/3; item 4 vale 0/0/0/2), por isso cada
+// item traz as próprias opções, como na EPDS. Itens 6 e 16 têm só 3
+// afirmações. Total 0-46.
+//
+// Faixas de Marcus et al. (1985), citadas no artigo: <= 17 sem CAP, 18-26
+// CAP moderada, >= 27 CAP grave. O artigo ressalta que a ECAP rastreia, mas
+// não se correlaciona aos critérios diagnósticos do TCAP — o diagnóstico
+// precisa de entrevista clínica.
+//
+// Item 11, afirmação 4, menciona vômito/laxativos/diuréticos (comportamento
+// compensatório), mas não é ideação de autolesão — por isso a ECAP não usa
+// itemAlertaRisco, que neste arquivo é reservado a risco de suicídio/autolesão.
+const TEXTO_ITEM_ECAP = "Marque a afirmação que melhor descreve você.";
+
+function opcoesEcap(pontos: number[], frases: string[]): OpcaoLikert[] {
+  return frases.map((label, i) => ({ valor: pontos[i], label, descricao: "" }));
+}
+
+export const ECAP: EscalaLikert = {
+  tipo: "likert",
+  slug: "ecap",
+  nome: "ECAP (compulsão alimentar periódica)",
+  descricaoCurta:
+    "Escala de Compulsão Alimentar Periódica — avalia a gravidade da compulsão alimentar, 16 grupos de afirmações. Rastreio, não diagnóstico.",
+  instrucao:
+    "Você encontrará abaixo grupos de afirmações numeradas. Leia todas as afirmações em cada grupo e marque aquela que melhor descreve o modo como você se sente em relação aos problemas que tem para controlar seu comportamento alimentar.",
+  // Nunca usada de fato (todo item tem opcoes próprio) — só preenche o tipo.
+  opcoes: [],
+  itens: [
+    {
+      id: "q1",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 0, 1, 3],
+        [
+          "Eu não me sinto constrangido(a) com o meu peso ou o tamanho do meu corpo quando estou com outras pessoas.",
+          "Eu me sinto preocupado(a) em como pareço para os outros, mas isto, normalmente, não me faz sentir desapontado(a) comigo mesmo(a).",
+          "Eu fico mesmo constrangido(a) com a minha aparência e o meu peso, o que me faz sentir desapontado(a) comigo mesmo(a).",
+          "Eu me sinto muito constrangido(a) com o meu peso e, frequentemente, sinto muita vergonha e desprezo por mim mesmo(a). Tento evitar contatos sociais por causa desse constrangimento.",
+        ]
+      ),
+    },
+    {
+      id: "q2",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Eu não tenho nenhuma dificuldade para comer devagar, de maneira apropriada.",
+          "Embora pareça que eu devore os alimentos, não acabo me sentindo empanturrado(a) por comer demais.",
+          "Às vezes tendo a comer rapidamente, sentindo-me então desconfortavelmente cheio(a) depois.",
+          "Eu tenho o hábito de engolir minha comida sem realmente mastigá-la. Quando isto acontece, em geral me sinto desconfortavelmente empanturrado(a) por ter comido demais.",
+        ]
+      ),
+    },
+    {
+      id: "q3",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 3, 3],
+        [
+          "Eu me sinto capaz de controlar meus impulsos para comer, quando eu quero.",
+          "Eu sinto que tenho falhado em controlar meu comportamento alimentar mais do que a média das pessoas.",
+          "Eu me sinto totalmente incapaz de controlar meus impulsos para comer.",
+          "Por me sentir tão incapaz de controlar meu comportamento alimentar, entro em desespero tentando manter o controle.",
+        ]
+      ),
+    },
+    {
+      id: "q4",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 0, 0, 2],
+        [
+          "Eu não tenho o hábito de comer quando estou chateado(a).",
+          "Às vezes eu como quando estou chateado(a) mas, frequentemente, sou capaz de me ocupar e afastar minha mente da comida.",
+          "Eu tenho o hábito regular de comer quando estou chateado(a) mas, de vez em quando, posso usar alguma outra atividade para afastar minha mente da comida.",
+          "Eu tenho o forte hábito de comer quando estou chateado(a). Nada parece me ajudar a parar com esse hábito.",
+        ]
+      ),
+    },
+    {
+      id: "q5",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Normalmente quando como alguma coisa é porque estou fisicamente com fome.",
+          "De vez em quando como alguma coisa por impulso, mesmo quando não estou realmente com fome.",
+          "Eu tenho o hábito regular de comer alimentos que realmente não aprecio para satisfazer uma sensação de fome, mesmo que fisicamente eu não necessite de comida.",
+          "Mesmo que não esteja fisicamente com fome, tenho uma sensação de fome em minha boca que somente parece ser satisfeita quando eu como um alimento, tipo um sanduíche, que enche a minha boca. Às vezes, quando eu como o alimento para satisfazer minha “fome na boca”, em seguida eu o cuspo, assim não ganharei peso.",
+        ]
+      ),
+    },
+    {
+      id: "q6",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 3],
+        [
+          "Eu não sinto qualquer culpa ou ódio de mim mesmo(a) depois de comer demais.",
+          "De vez em quando sinto culpa ou ódio de mim mesmo(a) depois de comer demais.",
+          "Quase o tempo todo sinto muita culpa ou ódio de mim mesmo(a) depois de comer demais.",
+        ]
+      ),
+    },
+    {
+      id: "q7",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 2, 3, 3],
+        [
+          "Eu não perco o controle total da minha alimentação quando estou em dieta, mesmo após períodos em que como demais.",
+          "Às vezes, quando estou em dieta e como um alimento proibido, sinto como se tivesse estragado tudo e como ainda mais.",
+          "Frequentemente, quando como demais durante uma dieta, tenho o hábito de dizer para mim mesmo(a): “agora que estraguei tudo, porque não irei até o fim”. Quando isto acontece, eu como ainda mais.",
+          "Eu tenho o hábito regular de começar dietas rigorosas por mim mesmo(a), mas quebro as dietas entrando numa compulsão alimentar. Minha vida parece ser “uma festa” ou “um morrer de fome”.",
+        ]
+      ),
+    },
+    {
+      id: "q8",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Eu raramente como tanta comida a ponto de me sentir desconfortavelmente empanturrado(a) depois.",
+          "Normalmente, cerca de uma vez por mês, como uma tal quantidade de comida que acabo me sentindo muito empanturrado(a).",
+          "Eu tenho períodos regulares durante o mês, quando como grandes quantidades de comida, seja na hora das refeições, seja nos lanches.",
+          "Eu como tanta comida que, regularmente, me sinto bastante desconfortável depois de comer e, algumas vezes, um pouco enjoado(a).",
+        ]
+      ),
+    },
+    {
+      id: "q9",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Em geral, minha ingesta calórica não sobe a níveis muito altos, nem desce a níveis muito baixos.",
+          "Às vezes, depois de comer demais, tento reduzir minha ingesta calórica para quase nada, para compensar o excesso de calorias que ingeri.",
+          "Eu tenho o hábito regular de comer demais durante a noite. Parece que a minha rotina não é estar com fome de manhã, mas comer demais à noite.",
+          "Na minha vida adulta tenho tido períodos, que duram semanas, nos quais praticamente me mato de fome. Isto se segue a períodos em que como demais. Parece que vivo uma vida de “festa” ou de “morrer de fome”.",
+        ]
+      ),
+    },
+    {
+      id: "q10",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Normalmente eu sou capaz de parar de comer quando quero. Eu sei quando “já chega”.",
+          "De vez em quando, eu tenho uma compulsão para comer que parece que não posso controlar.",
+          "Frequentemente tenho fortes impulsos para comer que parece que não sou capaz de controlar, mas, em outras ocasiões, posso controlar meus impulsos para comer.",
+          "Eu me sinto incapaz de controlar impulsos para comer. Eu tenho medo de não ser capaz de parar de comer por vontade própria.",
+        ]
+      ),
+    },
+    {
+      id: "q11",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Eu não tenho problema algum para parar de comer quando me sinto cheio(a).",
+          "Eu, normalmente, posso parar de comer quando me sinto cheio(a) mas, de vez em quando, comer demais me deixa desconfortavelmente empanturrado(a).",
+          "Eu tenho um problema para parar de comer uma vez que eu tenha começado e, normalmente, sinto-me desconfortavelmente empanturrado(a) depois que faço uma refeição.",
+          "Por eu ter o problema de não ser capaz de parar de comer quando quero, às vezes tenho que provocar o vômito, usar laxativos e/ou diuréticos para aliviar minha sensação de empanturramento.",
+        ]
+      ),
+    },
+    {
+      id: "q12",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Parece que eu como tanto quando estou com os outros (reuniões familiares, sociais), como quando estou sozinho(a).",
+          "Às vezes, quando eu estou com outras pessoas, não como tanto quanto eu quero comer porque me sinto constrangido(a) com o meu comportamento alimentar.",
+          "Frequentemente eu como só uma pequena quantidade de comida quando outros estão presentes, pois me sinto muito embaraçado(a) com o meu comportamento alimentar.",
+          "Eu me sinto tão envergonhado(a) por comer demais que escolho horas para comer demais quando sei que ninguém me verá. Eu me sinto como uma pessoa que se esconde para comer.",
+        ]
+      ),
+    },
+    {
+      id: "q13",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 0, 2, 3],
+        [
+          "Eu faço três refeições ao dia com apenas um lanche ocasional entre as refeições.",
+          "Eu faço três refeições ao dia mas, normalmente, também lancho entre as refeições.",
+          "Quando eu faço lanches pesados, tenho o hábito de pular as refeições regulares.",
+          "Há períodos regulares em que parece que eu estou continuamente comendo, sem refeições planejadas.",
+        ]
+      ),
+    },
+    {
+      id: "q14",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Eu não penso muito em tentar controlar impulsos indesejáveis para comer.",
+          "Pelo menos, em algum momento, sinto que meus pensamentos estão “pré-ocupados” com tentar controlar meus impulsos para comer.",
+          "Frequentemente, sinto que gasto muito tempo pensando no quanto comi ou tentando não comer mais.",
+          "Parece, para mim, que a maior parte das horas que passo acordado(a) estão “pré-ocupadas” por pensamentos sobre comer ou não comer. Sinto como se eu estivesse constantemente lutando para não comer.",
+        ]
+      ),
+    },
+    {
+      id: "q15",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2, 3],
+        [
+          "Eu não penso muito sobre comida.",
+          "Eu tenho fortes desejos por comida, mas eles só duram curtos períodos de tempo.",
+          "Há dias em que parece que eu não posso pensar em mais nada a não ser comida.",
+          "Na maioria dos dias, meus pensamentos parecem estar “pré-ocupados” com comida. Sinto como se eu vivesse para comer.",
+        ]
+      ),
+    },
+    {
+      id: "q16",
+      texto: TEXTO_ITEM_ECAP,
+      opcoes: opcoesEcap(
+        [0, 1, 2],
+        [
+          "Eu normalmente sei se estou ou não fisicamente com fome. Eu como a porção certa de comida para me satisfazer.",
+          "De vez em quando eu me sinto em dúvida para saber se estou ou não fisicamente com fome. Nessas ocasiões é difícil saber quanto eu deveria comer para me satisfazer.",
+          "Mesmo que se eu pudesse saber quantas calorias eu deveria ingerir, não teria ideia alguma de qual seria a quantidade “normal” de comida para mim.",
+        ]
+      ),
+    },
+  ],
+  faixas: [
+    { min: 0, max: 17, label: "Sem compulsão alimentar periódica" },
+    { min: 18, max: 26, label: "Compulsão alimentar periódica moderada" },
+    { min: 27, max: 46, label: "Compulsão alimentar periódica grave" },
+  ],
+  corte: {
+    valor: 18,
+    rotulo:
+      "18+ sugere compulsão alimentar periódica (Marcus et al., 1985) — rastreio; o diagnóstico de TCAP exige confirmação por entrevista clínica",
+  },
+};
+
 export const ESCALAS_DISPONIVEIS: Escala[] = [
   CSSRS,
   PHQ9,
@@ -1336,6 +1598,7 @@ export const ESCALAS_DISPONIVEIS: Escala[] = [
   YBOCS,
   AQ10,
   EAR,
+  ECAP,
 ];
 
 export type EscalaIndisponivel = {
